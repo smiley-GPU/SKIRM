@@ -1,0 +1,1490 @@
+<title>SKIRM</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: field-terminal UI. Sticky command bar, phase screens below; tactical = map + order panel (stacked on phones). */
+:root {
+  --bg: #0d1112;
+  --panel: #151b1c;
+  --panel-2: #1c2425;
+  --line: #2a3537;
+  --fg: #dde5e3;
+  --muted: #86948f;
+  --accent: #63c3d8;
+  --accent-ink: #052129;
+  --ok: #73d08c;
+  --warn: #e3c351;
+  --bad: #e2645b;
+  --gold: #e6b752;
+  --toast-bg: #2b1614;
+  --toast-fg: #ffd9d4;
+  --display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --body: "Barlow", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  --radius: 6px;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--fg); font: 15px/1.45 var(--body); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+#app { min-height: 100%; display: flex; flex-direction: column; }
+h1 { font: 700 30px/1.05 var(--display); letter-spacing: 0.01em; margin: 2px 0 4px; text-wrap: balance; text-transform: uppercase; }
+h3 { font: 600 13px/1.2 var(--display); text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); margin: 0 0 10px; }
+small, .muted { color: var(--muted); }
+button, select, input { font: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.top {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  padding-block: 10px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  background: var(--bg); border-bottom: 1px solid var(--line);
+}
+.brand { font: 700 20px/1 var(--display); letter-spacing: 0.24em; }
+.brand span { font-weight: 500; letter-spacing: 0.06em; color: var(--muted); margin-left: 6px; font-size: 15px; }
+.phases { display: flex; gap: 6px; align-items: center; flex: 1; font: 600 13px/1 var(--display); text-transform: uppercase; letter-spacing: 0.1em; min-width: 0; }
+.phases span { color: #56625f; }
+.phases span.done { color: var(--muted); }
+.phases span.on { color: var(--accent); }
+.phases i { color: #3a4644; font-style: normal; }
+.stats { display: flex; gap: 14px; font: 13px var(--mono); font-variant-numeric: tabular-nums; }
+.stats b { color: var(--muted); font-weight: 400; margin-right: 4px; }
+
+main { flex: 1; min-height: 0; padding-block: 16px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; min-width: 0; }
+.eyebrow { font: 600 13px/1 var(--display); text-transform: uppercase; letter-spacing: 0.16em; color: var(--accent); }
+.btn { background: var(--panel-2); color: var(--fg); border: 1px solid var(--line); border-radius: 5px; padding: 8px 12px; cursor: pointer; touch-action: manipulation; }
+.btn:hover:not(:disabled) { border-color: #4b5b58; }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+.btn.danger { color: var(--bad); }
+.btn.armed { border-color: var(--gold); color: var(--gold); }
+.btn.ghost { background: transparent; }
+.btn.big { padding: 12px 22px; font: 700 17px/1 var(--display); text-transform: uppercase; letter-spacing: 0.1em; }
+.chip { display: inline-block; font: 600 12px/1 var(--display); padding: 4px 8px; border-radius: 99px; border: 1px solid currentColor; text-transform: uppercase; letter-spacing: 0.1em; white-space: nowrap; }
+.chip.ok { color: var(--ok); } .chip.warn { color: var(--warn); } .chip.bad { color: var(--bad); }
+.chip.gold, .gold { color: var(--gold); font-style: normal; }
+#toast {
+  position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); z-index: 50;
+  background: var(--toast-bg); color: var(--toast-fg); border: 1px solid var(--bad); padding: 10px 16px; border-radius: 6px; max-width: min(90vw, 560px);
+}
+
+/* briefing */
+.briefing { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 16px; max-width: 1400px; margin: 0 auto; }
+.col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.area { color: var(--muted); margin: 0 0 12px; }
+.facts { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 0 0 14px; }
+.facts dt { color: var(--muted); } .facts dd { margin: 0; }
+.objectives { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.objectives li { background: var(--panel-2); padding: 8px 10px; border-radius: 5px; }
+.objectives b { margin-right: 6px; }
+.tag { font: 600 11px/1 var(--display); text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); border: 1px solid var(--line); border-radius: 3px; padding: 3px 6px; margin-right: 8px; }
+.tag.primary { color: var(--gold); border-color: var(--gold); }
+.preview-wrap { height: 300px; background: #0a0d0e; border-radius: 5px; overflow-x: auto; }
+#preview { width: 100%; min-width: 520px; height: 100%; display: block; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; font-size: 13px; color: var(--muted); }
+.legend span { white-space: nowrap; }
+.sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+.sw.ins { background: rgb(92,160,230); } .sw.ext { background: rgb(120,220,140); } .sw.obj { background: #f2d14b; } .sw.foe { background: var(--bad); border-radius: 50%; }
+.intel-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid var(--line); }
+.intel-row:first-of-type { border-top: 0; }
+.intel-row small { display: block; }
+.humint { margin-top: 8px; padding: 10px; background: #261816; border: 1px solid #4b2825; border-radius: 5px; display: grid; gap: 4px; }
+.count { color: var(--fg); margin-left: 6px; }
+.roster { display: grid; gap: 8px; }
+.op { background: var(--panel-2); border: 1px solid transparent; border-radius: 5px; padding: 8px 10px; }
+.op.on { border-color: #2f5a63; } .op.off { opacity: 0.55; }
+.op-head { display: flex; align-items: center; gap: 10px; cursor: pointer; flex-wrap: wrap; }
+.op-head input { accent-color: var(--accent); width: 18px; height: 18px; }
+.rank { font: 600 12px var(--mono); color: var(--gold); min-width: 32px; }
+.name { font-weight: 600; }
+.op .meta { color: var(--muted); font-size: 13px; margin-left: auto; }
+.xp { position: relative; height: 4px; background: #0b0f10; border-radius: 2px; margin: 6px 0 14px 28px; }
+.xp i { position: absolute; inset: 0 auto 0 0; background: #3b8095; border-radius: 2px; }
+.xp small { position: absolute; right: 0; top: 5px; font: 11px var(--mono); }
+.loadout { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 0 0 4px 28px; }
+.loadout select { background: #0e1314; color: var(--fg); border: 1px solid var(--line); border-radius: 4px; padding: 6px; font-size: 14px; min-width: 0; width: 100%; }
+.loadout-hint { margin-left: 28px; font-size: 12px; color: var(--muted); }
+.fallen { margin-top: 10px; font-size: 13px; color: var(--muted); font-style: italic; }
+.vehicles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 14px; }
+.veh { background: var(--panel-2); border: 1px solid var(--line); border-radius: 5px; padding: 8px 10px; cursor: pointer; display: grid; gap: 4px; align-content: start; }
+.veh.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.veh input { position: absolute; opacity: 0; pointer-events: none; }
+.veh-head { display: flex; justify-content: space-between; gap: 6px; }
+.veh .cost { font: 12px var(--mono); color: var(--gold); }
+.veh small { font-size: 12.5px; }
+.launch { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.budget { display: flex; gap: 18px; font: 14px var(--mono); font-variant-numeric: tabular-nums; flex-wrap: wrap; }
+.budget .bad { color: var(--bad); }
+
+/* reports */
+.report { max-width: 720px; margin: 24px auto; padding: 24px 28px; }
+.narrative { padding-left: 20px; margin: 18px 0 26px; display: grid; gap: 10px; font-size: 16px; }
+.narrative li { animation: reveal 0.5s both; }
+.narrative li.bad { color: #ffb6ae; }
+@keyframes reveal { from { opacity: 0.15; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+/* tactical */
+.tactical { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 12px; height: calc(100dvh - 112px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); min-height: 480px; }
+.board { position: relative; min-height: 0; min-width: 0; border-radius: var(--radius); background: radial-gradient(ellipse at center, #161c1d 0%, #0a0d0e 75%); border: 1px solid var(--line); overflow: hidden; }
+.board-scroll { position: absolute; inset: 0; overflow: auto; -webkit-overflow-scrolling: touch; }
+#board { width: 100%; height: 100%; display: block; cursor: crosshair; }
+.hud { position: absolute; top: 10px; left: 12px; display: flex; gap: 8px; align-items: center; font: 14px var(--mono); pointer-events: none; flex-wrap: wrap; }
+.hud .turn b { color: var(--accent); }
+.hint { position: absolute; bottom: 10px; left: 12px; right: 12px; color: #b6c1be; font-size: 14px; pointer-events: none; text-shadow: 0 1px 3px #000; }
+.banner { position: absolute; top: 44px; left: 50%; transform: translateX(-50%); background: rgba(60,18,16,0.94); border: 1px solid var(--bad); color: var(--toast-fg); padding: 8px 16px; border-radius: 5px; font-weight: 600; animation: reveal 0.25s; max-width: 90%; text-align: center; pointer-events: none; }
+.side { display: flex; flex-direction: column; gap: 12px; overflow-y: auto; min-height: 0; }
+.obj { display: flex; gap: 10px; align-items: flex-start; padding: 4px 0; }
+.obj small { display: block; }
+.obj .mark { width: 16px; text-align: center; }
+.obj.done .mark, .obj.progress .mark { color: var(--ok); }
+.obj.failed .mark, .obj.failed b { color: var(--bad); }
+.sq { display: grid; grid-template-columns: 1fr 70px auto; align-items: center; gap: 10px; width: 100%; text-align: left; background: var(--panel-2); border: 1px solid transparent; color: var(--fg); border-radius: 5px; padding: 8px 9px; margin-bottom: 6px; cursor: pointer; touch-action: manipulation; }
+.sq.on { border-color: var(--accent); }
+.bar { height: 5px; background: #0a0d0e; border-radius: 3px; overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--ok); }
+.pips { font-size: 10px; letter-spacing: 1px; color: var(--accent); }
+.unit-stats { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-bottom: 12px; font-size: 14px; }
+.orders { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.orders.end { margin-top: 8px; }
+.log { flex: 1; min-height: 150px; display: flex; flex-direction: column; }
+.log ol { list-style: none; margin: 0; padding: 0; overflow-y: auto; font-size: 13.5px; flex: 1; max-height: 320px; }
+.log li { padding: 3px 0; border-bottom: 1px solid #1c2425; color: #b6c1be; }
+.log .ev-turn { color: var(--accent); font-weight: 600; padding-top: 8px; }
+.log .ev-alert { color: #ffb6ae; } .log .ev-kill { color: var(--bad); } .log .ev-intel { color: var(--gold); }
+.log .ev-exfil, .log .ev-heal { color: var(--ok); }
+
+/* debrief */
+.debrief { max-width: 960px; margin: 0 auto; display: grid; gap: 16px; }
+.verdict { display: inline-block; margin: 10px 0; padding: 6px 14px; border-radius: 5px; font: 700 18px/1 var(--display); text-transform: uppercase; letter-spacing: 0.14em; }
+.verdict.ok { background: #13301e; color: var(--ok); } .verdict.bad { background: #341715; color: var(--bad); }
+.obj-results { list-style: none; padding: 0; display: grid; gap: 4px; }
+.obj-results span { display: inline-block; width: 20px; }
+.obj-results .ok span { color: var(--ok); } .obj-results .bad span { color: var(--bad); }
+.table-wrap { overflow-x: auto; }
+.personnel { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.personnel th, .personnel td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.personnel th { color: var(--muted); font-weight: 500; font-size: 13px; }
+.personnel tr.lost td { color: var(--bad); }
+.split { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+.split ul { margin: 0; padding-left: 18px; }
+.debrief > .btn { justify-self: end; }
+
+@media (max-width: 980px) {
+  .briefing { grid-template-columns: 1fr; }
+  .vehicles { grid-template-columns: 1fr; }
+  .tactical { grid-template-columns: 1fr; height: auto; min-height: 0; }
+  .board { height: 58vh; min-height: 340px; }
+  #board { min-width: 760px; }
+  .side { overflow: visible; }
+  .phases { display: none; }
+  .launch { flex-direction: column; align-items: stretch; }
+}
+@media (max-width: 520px) {
+  .loadout { grid-template-columns: 1fr; }
+  .stats { gap: 10px; font-size: 12px; }
+  h1 { font-size: 26px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .narrative li, .banner { animation: none; }
+}
+</style>
+
+<div id="app">
+  <header class="top">
+    <div class="brand">SKIRM <span>tactical ops</span></div>
+    <nav class="phases" id="phases" aria-label="Mission phase"></nav>
+    <div class="stats" id="stats"></div>
+    <button id="btn-new" class="btn ghost" type="button">New campaign</button>
+  </header>
+  <main id="view"><p class="muted">Loading command terminal…</p></main>
+</div>
+<div id="toast" role="status" hidden></div>
+
+<script>
+'use strict';
+(() => {
+// =====================================================================================
+// RULES DATA: every balance number lives in these tables.
+// =====================================================================================
+const ITEMS = {
+  CARBINE: { slot: 'WEAPON', label: 'Carbine', w: { ap: 2, range: 7, acc: 70, min: 3, max: 5 } },
+  SMG: { slot: 'WEAPON', label: 'SMG', w: { ap: 1, range: 5, acc: 70, min: 1, max: 3 } },
+  DMR: { slot: 'WEAPON', label: 'Marksman Rifle', w: { ap: 3, range: 11, acc: 80, min: 4, max: 6 } },
+  LMG: { slot: 'WEAPON', label: 'LMG', w: { ap: 2, range: 8, acc: 58, min: 3, max: 6 } },
+  AK: { slot: 'WEAPON', label: 'AK Rifle', w: { ap: 2, range: 7, acc: 62, min: 3, max: 5 } },
+  VEST: { slot: 'ARMOR', label: 'Soft Vest', dr: 1, apPen: 0 },
+  PLATE: { slot: 'ARMOR', label: 'Plate Carrier', dr: 2, apPen: 1 },
+  MEDKIT: { slot: 'UTILITY', label: 'Medkit' },
+  FRAG: { slot: 'UTILITY', label: 'Frag Grenade' },
+};
+const TER = {
+  OPEN: { mc: 1, pass: true }, ROAD: { mc: 1, pass: true }, ROUGH: { mc: 2, pass: true },
+  LOW_COVER: { cover: 30 }, WALL: { cover: 40, block: true }, WATER: {},
+};
+const VEH = {
+  HELO: { label: 'Helicopter', cost: 4, risk: 25, turns: 2, desc: 'Fast and direct: +2 turns on target. Loud, so a bad landing zone can alert the area. Extracts from the northern clearing.' },
+  GROUND: { label: 'Ground Convoy', cost: 2, risk: 20, turns: 1, desc: 'Armoured trucks via the south road: +1 turn on target. Exposed to IEDs and roadblocks. Extracts from the road.' },
+  FOOT: { label: 'On Foot', cost: 0, risk: 10, turns: 0, desc: 'Silent infiltration, no extra time. Rarely detected. Extract by walking out the western edge.' },
+};
+const INTEL = {
+  SATELLITE: { label: 'Satellite Imagery', cost: 2, desc: 'Reveals terrain across the whole area of operations.' },
+  HUMINT: { label: 'Deep Intelligence', cost: 3, desc: 'Reveals enemy strength, positions and expected reinforcements.' },
+};
+const OBJ = {
+  RETRIEVE_INTEL: { label: 'Retrieve Intel', desc: 'Secure the intel cache inside the compound and get its carrier out.' },
+  ELIMINATE_HVT: { label: 'Eliminate HVT', desc: 'A high-value target is holed up in the compound. Neutralise him.' },
+  NO_CASUALTIES: { label: 'Leave No One', desc: 'Bring every operator home alive.' },
+  UNDETECTED: { label: 'Ghost', desc: 'Complete the operation without the enemy ever raising the alarm.' },
+};
+const RANKS = [['PVT', 'Private', 0], ['PFC', 'Private First Class', 20], ['CPL', 'Corporal', 50], ['SGT', 'Sergeant', 90], ['SSG', 'Staff Sergeant', 140], ['LT', 'Lieutenant', 200]];
+const MAX_TEAM = 4, BASE_TURNS = 12, GR_RANGE = 5, GR_AP = 2, MK_AP = 2, MK_HEAL = 5, COLS = 18, ROWS = 12, BASE_HP = 10;
+const ADJ = ['Silent', 'Iron', 'Broken', 'Pale', 'Crimson', 'Hollow', 'Distant', 'Bitter', 'Northern', 'Sudden'];
+const NOUN = ['Harrier', 'Lantern', 'Anvil', 'Meridian', 'Thicket', 'Sparrow', 'Bastion', 'Ember', 'Gauntlet', 'Kestrel'];
+const AREAS = ['Walled farmstead in the Varra highlands', "Abandoned pumping station on the Dry Fork", "Smuggler's waystation near the Kessel border crossing", 'Fortified orchard outside the town of Ostrow', 'Derelict customs post in the Saltmarsh lowlands'];
+const FIRST = ['Alex', 'Sam', 'Jordan', 'Riley', 'Casey', 'Morgan', 'Niko', 'Tariq', 'Elena', 'Mika', 'Jonas', 'Aino', 'Viktor', 'Lena', 'Omar', 'Petra', 'Dario', 'Iris', 'Kai', 'Sasha'];
+const LAST = ['Hale', 'Korhonen', 'Reyes', 'Novak', 'Brandt', 'Okafor', 'Lindqvist', 'Marsh', 'Varga', 'Sato', 'Kowalski', 'Moreau', 'Haddad', 'Petrov', 'Quinn', 'Aalto', 'Ferreira', 'Doyle', 'Ivanova', 'Kerr'];
+
+const rankIdx = (xp) => { let i = 0; RANKS.forEach((r, k) => { if (xp >= r[2]) i = k; }); return i; };
+const nextXp = (xp) => { const i = rankIdx(xp); return i + 1 < RANKS.length ? RANKS[i + 1][2] : -1; };
+const vision = (e) => Math.max(3, { DAY: 8, DUSK: 7, NIGHT: 5 }[e.time] - { CLEAR: 0, RAIN: 1, FOG: 3 }[e.weather]);
+const accMod = (e) => ({ DAY: 0, DUSK: -5, NIGHT: -10 })[e.time] + (e.weather === 'RAIN' ? -5 : 0);
+const compFactor = (e) => ({ DAY: 1, DUSK: 0.8, NIGHT: 0.6 })[e.time];
+const envSummary = (e) => `${{ DAY: 'Daylight', DUSK: 'Dusk', NIGHT: 'Night' }[e.time]}, ${{ CLEAR: 'clear skies', RAIN: 'heavy rain', FOG: 'dense fog' }[e.weather]}. Visibility ${vision(e)} hexes${accMod(e) ? `, accuracy ${accMod(e)}%` : ''}.`;
+function itemSummary(id) {
+  const it = ITEMS[id];
+  if (it.w) return `${it.w.ap} AP/shot, range ${it.w.range}, ${it.w.acc}% acc, ${it.w.min}-${it.w.max} dmg`;
+  if (it.slot === 'ARMOR') return `-${it.dr} dmg taken${it.apPen ? `, -${it.apPen} AP` : ''}`;
+  return id === 'MEDKIT' ? `Heal +${MK_HEAL} (self or adjacent), ${MK_AP} AP` : `3-5 dmg in radius 1, range ${GR_RANGE}, ${GR_AP} AP, ignores cover`;
+}
+
+// =====================================================================================
+// HEX MATH (axial, pointy-top) and seeded RNG
+// =====================================================================================
+const DIRS = [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]];
+const K = (h) => h.q + ',' + h.r;
+const unK = (k) => { const i = k.indexOf(','); return { q: +k.slice(0, i), r: +k.slice(i + 1) }; };
+const nb = (h, d) => ({ q: h.q + DIRS[d][0], r: h.r + DIRS[d][1] });
+const nbs = (h) => DIRS.map((_, d) => nb(h, d));
+const dist = (a, b) => (Math.abs(a.q - b.q) + Math.abs(a.r - b.r) + Math.abs(a.q + a.r - b.q - b.r)) / 2;
+const eq = (a, b) => !!a && !!b && a.q === b.q && a.r === b.r;
+const fromOff = (c, r) => ({ q: c - ((r - (r & 1)) >> 1), r });
+const colOf = (h) => h.q + ((h.r - (h.r & 1)) >> 1);
+function cround(fq, fr, fs) {
+  let q = Math.round(fq), r = Math.round(fr);
+  const s = Math.round(fs), dq = Math.abs(q - fq), dr = Math.abs(r - fr), ds = Math.abs(s - fs);
+  if (dq > dr && dq > ds) q = -r - s; else if (dr > ds) r = -q - s;
+  return { q: q + 0, r: r + 0 };
+}
+function hexLine(a, b) {
+  const n = dist(a, b), out = [];
+  const aq = a.q + 1e-6, ar = a.r + 1e-6, as = -a.q - a.r - 2e-6, bq = b.q + 1e-6, br = b.r + 1e-6, bs = -b.q - b.r - 2e-6;
+  for (let i = 0; i <= n; i++) { const t = n ? i / n : 0; out.push(cround(aq + (bq - aq) * t, ar + (br - ar) * t, as + (bs - as) * t)); }
+  return out;
+}
+let G = null; // the whole save game: plain JSON
+function rnd() { // mulberry32, state kept in the save so reloads stay deterministic
+  let t = (G.rs = (G.rs + 0x6D2B79F5) | 0);
+  t = Math.imul(t ^ (t >>> 15), t | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
+const range = (lo, hi) => lo + Math.floor(rnd() * (hi - lo + 1));
+const chance = (p) => rnd() * 100 < p;
+const pick = (a) => a[Math.floor(rnd() * a.length)];
+
+class Rule extends Error {}
+const fail = (m) => { throw new Rule(m); };
+
+// =====================================================================================
+// CAMPAIGN + MISSION GENERATION
+// =====================================================================================
+function newCampaign(seed) {
+  G = { v: 1, rs: seed | 0, phase: 'BRIEFING', rp: 12, flown: 0, nextSid: 1, roster: [], used: {},
+    armory: { CARBINE: 4, SMG: 2, DMR: 1, LMG: 1, AK: 0, VEST: 4, PLATE: 2, MEDKIT: 4, FRAG: 4 },
+    mission: null, battle: null, debrief: null };
+  [60, 25, 25, 0, 0, 0].forEach((xp) => recruit(xp));
+  beginBriefing();
+}
+function recruit(xp) {
+  let name;
+  do name = pick(FIRST) + ' ' + pick(LAST); while (G.used[name]);
+  G.used[name] = 1;
+  const s = { id: G.nextSid++, name, xp, kills: 0, missions: 0, recovery: 0, alive: true };
+  G.roster.push(s);
+  return s;
+}
+const soldier = (id) => G.roster.find((s) => s.id === id);
+const available = (s) => s.alive && s.recovery === 0;
+
+function beginBriefing() {
+  for (const s of G.roster) if (s.recovery > 0) s.recovery--;
+  G.mission = genMission(G.flown + 1);
+  G.battle = null;
+  G.debrief = null;
+  G.phase = 'BRIEFING';
+}
+
+function genMission(n) {
+  const codename = 'Operation ' + pick(ADJ) + ' ' + pick(NOUN);
+  const area = pick(AREAS);
+  const env = { time: pick(['DAY', 'DUSK', 'NIGHT']), weather: chance(60) ? 'CLEAR' : chance(50) ? 'RAIN' : 'FOG' };
+  const primary = chance(50) ? 'RETRIEVE_INTEL' : 'ELIMINATE_HVT';
+  const secondary = pick(Object.keys(OBJ).filter((o) => o !== primary));
+  const map = genMap();
+  const hvt = primary === 'ELIMINATE_HVT' || secondary === 'ELIMINATE_HVT';
+  const spawns = placeEnemies(map, n, hvt);
+  let rTurn = 0, rCount = 0;
+  if (chance(55)) { rTurn = range(5, 8); rCount = range(2, 3); }
+  return { n, codename, area, env, primary, secondary, map, spawns, rTurn, rCount, intel: [], team: [], loadouts: {}, ins: null, ext: null, insReport: [], extReport: [] };
+}
+const hasObj = (m, t) => m.primary === t || m.secondary === t;
+const threat = (m) => m.spawns.length <= 5 ? 'Light: a squad-sized element.' : m.spawns.length <= 7 ? 'Moderate: a reinforced squad.' : 'Heavy: platoon-strength presence.';
+
+function genMap() {
+  for (let i = 0; i < 100; i++) { const m = tryMap(); if (connected(m)) return m; }
+  throw new Error('Map generation failed');
+}
+function tryMap() {
+  const m = { cols: COLS, rows: ROWS, t: {}, hexes: [], ins: [], ext: {}, interior: [], obj: null };
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) { const h = fromOff(c, r); m.t[K(h)] = 'OPEN'; m.hexes.push(h); }
+  const set = (h, t) => { if (m.t[K(h)]) m.t[K(h)] = t; };
+  const blob = (t, extra, c, r) => {
+    const s = fromOff(c, r);
+    if (m.t[K(s)] !== 'OPEN') return;
+    set(s, t);
+    const cells = [s];
+    for (let i = 0; i < extra; i++) { const x = pick(nbs(pick(cells))); if (m.t[K(x)] === 'OPEN') { set(x, t); cells.push(x); } }
+  };
+  for (let i = 0; i < 7; i++) blob('ROUGH', range(2, 4), range(2, COLS - 2), range(0, ROWS - 1));
+  if (chance(50)) blob('WATER', range(1, 2), range(4, 8), range(2, ROWS - 3));
+  for (let i = 0; i < 2; i++) {
+    let h = fromOff(range(4, 9), range(1, ROWS - 2));
+    const d = range(0, 5), len = range(2, 3);
+    for (let j = 0; j < len; j++) { if (m.t[K(h)] === 'OPEN') set(h, 'WALL'); h = nb(h, d); }
+  }
+  for (let i = 0; i < 12; i++) blob('LOW_COVER', range(0, 1), range(2, COLS - 2), range(0, ROWS - 1));
+
+  // Walled compound holding the objective.
+  const cw = range(4, 5), ch = range(4, 5), c0 = range(10, COLS - cw - 1), r0 = range(3, ROWS - ch - 3);
+  const perimeter = [];
+  for (let r = r0; r < r0 + ch; r++) for (let c = c0; c < c0 + cw; c++) {
+    const h = fromOff(c, r), ec = c === c0 || c === c0 + cw - 1, er = r === r0 || r === r0 + ch - 1;
+    if (ec || er) { set(h, 'WALL'); if (!(ec && er)) perimeter.push(h); } else { set(h, 'OPEN'); m.interior.push(K(h)); }
+  }
+  const doors = range(2, 3);
+  for (let i = 0; i < doors; i++) set(perimeter.splice(Math.floor(rnd() * perimeter.length), 1)[0], 'OPEN');
+  m.obj = K(fromOff(c0 + (cw >> 1), r0 + (ch >> 1)));
+  const crate = pick(m.interior.filter((k) => k !== m.obj));
+  m.t[crate] = 'LOW_COVER';
+  m.interior = m.interior.filter((k) => k !== crate);
+
+  for (let c = 9; c < COLS; c++) set(fromOff(c, ROWS - 1), 'ROAD');
+  for (let r = ROWS / 2 - 2; r <= ROWS / 2 + 1; r++) for (let c = 0; c <= 1; c++) { const h = fromOff(c, r); set(h, 'OPEN'); m.ins.push(K(h)); }
+  const helo = [];
+  for (let r = 0; r <= 1; r++) for (let c = 13; c <= 15; c++) { const h = fromOff(c, r); set(h, 'OPEN'); helo.push(K(h)); }
+  const ground = [];
+  for (let c = 13; c < COLS; c++) ground.push(K(fromOff(c, ROWS - 1)));
+  const foot = [];
+  for (let r = 0; r < ROWS; r++) { const h = fromOff(0, r); if (TER[m.t[K(h)]].pass) foot.push(K(h)); }
+  m.ext = { HELO: helo, GROUND: ground, FOOT: foot };
+  return m;
+}
+function reachable(m, startKey) {
+  const seen = new Set([startKey]), open = [unK(startKey)];
+  while (open.length) {
+    const h = open.pop();
+    for (const x of nbs(h)) { const k = K(x), t = m.t[k]; if (t && TER[t].pass && !seen.has(k)) { seen.add(k); open.push(x); } }
+  }
+  return seen;
+}
+function connected(m) {
+  const seen = reachable(m, m.ins[0]);
+  return seen.has(m.obj) && m.ins.every((k) => seen.has(k)) && Object.values(m.ext).every((z) => z.some((k) => seen.has(k)));
+}
+function placeEnemies(m, n, hvt) {
+  const reach = [...reachable(m, m.ins[0])].map(unK);
+  const objH = unK(m.obj);
+  const taken = new Set([m.obj]);
+  const out = [];
+  if (hvt) {
+    const inner = m.interior.filter((k) => !taken.has(k));
+    const k = inner.length ? pick(inner) : m.obj;
+    taken.add(k);
+    out.push({ h: unK(k), w: 'SMG', hvt: true });
+  }
+  const weapon = () => (chance(15 + n * 3) ? 'LMG' : 'AK');
+  const near = reach.filter((h) => !taken.has(K(h)) && dist(h, objH) <= 3).sort((a, b) => dist(a, objH) - dist(b, objH) || a.q - b.q || a.r - b.r);
+  for (let i = 0; i < 2 && i < near.length; i++) {
+    const h = near[Math.min(near.length - 1, i * 2 + Math.floor(rnd() * 2))];
+    if (!taken.has(K(h))) { taken.add(K(h)); out.push({ h, w: weapon(), hvt: false }); }
+  }
+  const ins = m.ins.map(unK), extAll = new Set(Object.values(m.ext).flat());
+  const field = reach.filter((h) => colOf(h) >= 6 && !taken.has(K(h)) && ins.every((z) => dist(z, h) >= 7) && !extAll.has(K(h)));
+  const want = Math.min(5 + ((n - 1) >> 1), 9) + (hvt ? 1 : 0);
+  for (let tries = 0; out.length < want && tries < 400 && field.length; tries++) {
+    const h = pick(field);
+    if (taken.has(K(h)) || out.some((s) => dist(s.h, h) < 2)) continue;
+    taken.add(K(h));
+    out.push({ h, w: weapon(), hvt: false });
+  }
+  return out;
+}
+
+// =====================================================================================
+// TACTICAL ENGINE: all rule checks live here. Commands throw Rule before mutating anything.
+// =====================================================================================
+let pending = []; // events produced by the current command, for animation
+const M = () => G.mission.map;
+const B = () => G.battle;
+const terr = (h) => M().t[K(h)];
+const passable = (h) => { const t = terr(h); return !!t && !!TER[t].pass; };
+function los(a, b) {
+  const l = hexLine(a, b);
+  for (let i = 1; i < l.length - 1; i++) { const t = terr(l[i]); if (!t || TER[t].block) return false; }
+  return true;
+}
+const onMap = (u) => u.hp > 0 && !u.exfil && !u.stranded && !u.missing;
+const maxAp = (u) => 4 - (u.armor ? ITEMS[u.armor].apPen : 0);
+const gun = (u) => ITEMS[u.weapon].w;
+const dr = (u) => (u.armor ? ITEMS[u.armor].dr : 0);
+const unitById = (id) => B().units.find((u) => u.id === id);
+const squad = () => B().units.filter((u) => u.side === 'P');
+const isVis = (h) => !!B().visible[K(h)];
+
+function emit(e) {
+  pending.push(e);
+  const log = B().log;
+  log.push(e);
+  if (log.length > 120) log.splice(0, log.length - 120);
+}
+
+function makeBattle(m, team) {
+  G.battle = { units: [], nextId: 1, turn: 1, limit: BASE_TURNS + VEH[m.ins].turns, alerted: false, over: false, hvtKilled: false,
+    carrier: null, intelHex: hasObj(m, 'RETRIEVE_INTEL') ? m.map.obj : null, explored: {}, visible: {}, lastSeen: {}, log: [], ext: m.map.ext[m.ext] };
+  const b = G.battle, lz = m.map.ins.map(unK);
+  team.forEach((s, i) => {
+    const l = m.loadouts[s.id];
+    addUnit({ side: 'P', name: s.name, sid: s.id, maxHp: BASE_HP, weapon: l.weapon, armor: l.armor, util: l.utility, hvt: false, acc: rankIdx(s.xp) * 3, h: lz[i] });
+  });
+  for (const sp of m.spawns) addUnit({ side: 'E', sid: null, maxHp: sp.hvt ? 6 : 7, weapon: sp.w, armor: null, util: null, hvt: sp.hvt, acc: 0, h: { ...sp.h } });
+  if (m.intel.includes('SATELLITE')) for (const h of m.map.hexes) b.explored[K(h)] = 1;
+  if (m.intel.includes('HUMINT')) for (const u of b.units) if (u.side === 'E') b.lastSeen[u.id] = K(u.h);
+  recompute();
+  emit({ type: 'turn', text: 'Turn 1. Team on the ground.' });
+}
+function addUnit(u) {
+  const b = B();
+  u.id = b.nextId++;
+  if (u.side === 'E') u.name = u.hvt ? 'HVT' : (u.weapon === 'LMG' ? 'Gunner ' : 'Insurgent ') + u.id;
+  Object.assign(u, { hp: u.maxHp, post: { ...u.h }, consumed: null, kills: 0, killedHvt: false, exfil: false, stranded: false, missing: false });
+  u.ap = maxAp(u);
+  b.units.push(u);
+  return u;
+}
+
+function recompute() {
+  const b = B(), R = vision(G.mission.env), vis = {};
+  for (const u of b.units) {
+    if (u.side !== 'P' || !onMap(u)) continue;
+    for (const h of M().hexes) if (dist(u.h, h) <= R && los(u.h, h)) vis[K(h)] = 1;
+  }
+  b.visible = vis;
+  Object.assign(b.explored, vis);
+  for (const e of b.units) {
+    if (e.side !== 'E') continue;
+    if (!onMap(e)) delete b.lastSeen[e.id];
+    else if (vis[K(e.h)]) b.lastSeen[e.id] = K(e.h);
+  }
+}
+const enemyVision = () => Math.max(2, vision(G.mission.env) - (B().alerted ? 0 : 2));
+const enemySees = (from, to) => dist(from, to) <= enemyVision() && los(from, to);
+const visibleEnemyIds = () => new Set(B().units.filter((e) => e.side === 'E' && onMap(e) && isVis(e.h)).map((e) => e.id));
+
+function reachOf(u, budget) {
+  const occ = new Set(B().units.filter((o) => o !== u && onMap(o)).map((o) => K(o.h)));
+  const cost = { [K(u.h)]: 0 }, prev = {}, open = [{ h: u.h, c: 0 }];
+  while (open.length) {
+    let bi = 0;
+    for (let i = 1; i < open.length; i++) if (open[i].c < open[bi].c) bi = i;
+    const n = open.splice(bi, 1)[0];
+    if (n.c > cost[K(n.h)]) continue;
+    for (const x of nbs(n.h)) {
+      const t = terr(x), xk = K(x);
+      if (!t || !TER[t].pass || occ.has(xk)) continue;
+      const c = n.c + TER[t].mc;
+      if (c > budget || (cost[xk] !== undefined && c >= cost[xk])) continue;
+      cost[xk] = c;
+      prev[xk] = K(n.h);
+      open.push({ h: x, c });
+    }
+  }
+  return { origin: K(u.h), cost, prev };
+}
+function pathTo(reach, dest) {
+  const out = [];
+  for (let k = K(dest); k && k !== reach.origin; k = reach.prev[k]) out.push(unK(k));
+  return out.reverse();
+}
+
+function coverAt(target, from) {
+  const d = dist(target, from);
+  if (d <= 1) return 0;
+  let best = 0;
+  for (const x of nbs(target)) {
+    if (dist(x, from) >= d) continue;
+    const t = terr(x);
+    if (t && TER[t].cover) best = Math.max(best, TER[t].cover);
+  }
+  return best;
+}
+function hitChance(s, from, t) {
+  const g = gun(s), mods = [], d = dist(from, t.h);
+  let c = g.acc;
+  if (s.acc > 0) { c += s.acc; mods.push(`+${s.acc} rank`); }
+  const env = accMod(G.mission.env);
+  if (env) { c += env; mods.push(`${env} conditions`); }
+  const fall = (g.range + 1) >> 1;
+  if (d > fall) { c -= (d - fall) * 4; mods.push(`-${(d - fall) * 4} range`); }
+  const cov = coverAt(t.h, from);
+  if (cov) { c -= cov; mods.push(`-${cov} cover`); }
+  if (terr(t.h) === 'ROUGH') { c -= 10; mods.push('-10 brush'); }
+  if (d === 1) { c += 10; mods.push('+10 point blank'); }
+  if (t.side === 'E' && !B().alerted) { c += 15; mods.push('+15 unaware'); }
+  return { chance: Math.max(5, Math.min(95, c)), mods };
+}
+
+// ---- rule queries
+function canShoot(s, t) {
+  if (t.side === s.side || !onMap(t) || s.ap < gun(s).ap) return false;
+  if (s.side === 'P' && !isVis(t.h)) return false;
+  return dist(s.h, t.h) <= gun(s).range && los(s.h, t.h);
+}
+const canGrenade = (u, h) => u.util === 'FRAG' && u.ap >= GR_AP && !!h && !!terr(h) && terr(h) !== 'WALL' && dist(u.h, h) <= GR_RANGE && los(u.h, h);
+const canHeal = (u, t) => u.util === 'MEDKIT' && u.ap >= MK_AP && t.side === u.side && onMap(t) && t.hp < t.maxHp && dist(u.h, t.h) <= 1;
+const canIntel = (u) => !!B().intelHex && K(u.h) === B().intelHex && u.ap >= 1;
+const canExfil = (u) => B().ext.includes(K(u.h)) && u.ap >= 1;
+
+// ---- commands
+function perform(uid, type, hex, tid) {
+  need('TACTICAL');
+  const b = B(), u = unitById(uid);
+  if (b.over) fail('The battle is over.');
+  if (!u || u.side !== 'P' || !onMap(u)) fail('No such operator on the map.');
+  if (type === 'MOVE') move(u, hex);
+  else if (type === 'SHOOT') { const t = unitById(tid); if (!t || !canShoot(u, t)) fail('No clear shot at that target.'); resolveShot(u, t); }
+  else if (type === 'GRENADE') { if (!canGrenade(u, hex)) fail('Out of throwing range or no line of sight.'); grenade(u, hex); }
+  else if (type === 'MEDKIT') { const t = unitById(tid); if (!t || !canHeal(u, t)) fail('Pick yourself or an adjacent wounded operator.'); heal(u, t); }
+  else if (type === 'INTEL') {
+    if (!canIntel(u)) fail('No intel to secure here.');
+    u.ap -= 1; b.carrier = u.id; b.intelHex = null;
+    emit({ type: 'intel', unit: u.id, to: { ...u.h }, text: `${u.name} secured the intel. Get it out!` });
+  } else if (type === 'EXFIL') {
+    if (!canExfil(u)) fail('Stand inside the extraction zone with 1 AP left.');
+    u.ap -= 1; u.exfil = true;
+    emit({ type: 'exfil', unit: u.id, to: { ...u.h }, text: `${u.name} boarded extraction.` });
+  }
+  recompute();
+  checkOver();
+}
+function move(u, dest) {
+  const reach = reachOf(u, u.ap);
+  if (!dest || eq(dest, u.h) || reach.cost[K(dest)] === undefined) fail('Destination out of reach.');
+  const known = visibleEnemyIds(), walked = [{ ...u.h }];
+  let spotter = null, halt = null;
+  for (const step of pathTo(reach, dest)) {
+    u.ap -= TER[terr(step)].mc;
+    u.h = step;
+    walked.push(step);
+    recompute();
+    if (!B().alerted) spotter = B().units.find((e) => e.side === 'E' && onMap(e) && enemySees(e.h, u.h)) || null;
+    const fresh = [...visibleEnemyIds()].filter((id) => !known.has(id));
+    if (fresh.length) halt = `Contact! ${u.name} halts: ${fresh.length} hostile(s) sighted.`;
+    if (spotter || halt) break;
+  }
+  emit({ type: 'move', unit: u.id, path: walked });
+  if (spotter) alarm(`${u.name} was spotted by ${isVis(spotter.h) ? spotter.name : 'an unseen sentry'}!`);
+  if (halt) emit({ type: 'info', text: halt });
+}
+function resolveShot(s, t) {
+  const b = B(), hc = hitChance(s, s.h, t), ambush = t.side === 'E' && !b.alerted;
+  s.ap -= gun(s).ap;
+  const hit = rnd() * 100 < hc.chance;
+  const dmg = hit ? Math.max(1, range(gun(s).min, gun(s).max) + (ambush ? 2 : 0) - dr(t)) : 0;
+  if (hit) t.hp = Math.max(0, t.hp - dmg);
+  const seen = s.side === 'P' || isVis(s.h);
+  emit({ type: 'shot', unit: t.id, from: seen ? { ...s.h } : null, to: { ...t.h }, hit, amount: dmg,
+    text: seen ? `${s.name} fires at ${t.name} (${hc.chance}%): ${hit ? 'HIT for ' + dmg : 'miss'}` : `${t.name} takes fire from an unseen position: ${hit ? 'HIT for ' + dmg : 'miss'}` });
+  if (t.hp <= 0) killed(s, t);
+  if (!b.alerted) {
+    const silent = s.side === 'P' && t.hp <= 0 && !b.units.some((o) => o.side === 'E' && onMap(o) && (enemySees(o.h, s.h) || enemySees(o.h, t.h)));
+    if (silent) emit({ type: 'info', text: 'Silent takedown. Nobody noticed.' });
+    else alarm('Gunfire! The area is alerted.');
+  }
+}
+function grenade(u, at) {
+  u.ap -= GR_AP; u.consumed = u.util; u.util = null;
+  emit({ type: 'grenade', unit: u.id, from: { ...u.h }, to: { ...at }, text: `${u.name} throws a frag grenade.` });
+  for (const v of [...B().units]) {
+    if (!onMap(v) || dist(v.h, at) > 1) continue;
+    const dmg = Math.max(1, range(3, 5) - dr(v));
+    v.hp = Math.max(0, v.hp - dmg);
+    if (v.side === 'P' || isVis(v.h)) emit({ type: 'damage', unit: v.id, to: { ...v.h }, amount: dmg, text: `${v.name} caught in the blast (-${dmg}).` });
+    if (v.hp <= 0) killed(u, v);
+  }
+  alarm('Explosion! The area is alerted.');
+}
+function heal(u, t) {
+  const amount = Math.min(MK_HEAL, t.maxHp - t.hp);
+  u.ap -= MK_AP; u.consumed = u.util; u.util = null; t.hp += amount;
+  emit({ type: 'heal', unit: t.id, to: { ...t.h }, amount, text: `${u.name} treats ${t === u ? 'own wounds' : t.name} (+${amount}).` });
+}
+function killed(k, v) {
+  const b = B();
+  if (k.side !== v.side) k.kills++;
+  if (v.hvt) { b.hvtKilled = true; k.killedHvt = true; }
+  delete b.lastSeen[v.id];
+  if (v.side === 'P' || isVis(v.h)) emit({ type: 'kill', unit: v.id, to: { ...v.h }, text: v.side === 'P' ? `${v.name} is KIA.` : `${v.name} is down.` });
+  if (b.carrier === v.id) { b.carrier = null; b.intelHex = K(v.h); emit({ type: 'info', text: `The intel was dropped with ${v.name}.` }); }
+}
+function alarm(reason) {
+  if (B().alerted) return;
+  B().alerted = true;
+  emit({ type: 'alert', text: reason });
+}
+function checkOver() {
+  if (!squad().some(onMap)) B().over = true;
+  if (B().over && G.phase === 'TACTICAL') { G.mission.extReport = extraction(G.mission); G.phase = 'EXTRACTION'; }
+}
+function strand() { for (const u of squad()) if (onMap(u)) u.stranded = true; B().over = true; }
+
+function endTurn() {
+  need('TACTICAL');
+  const b = B(), m = G.mission;
+  if (b.over) fail('The battle is over.');
+  enemyTurn();
+  if (b.turn === m.rTurn) {
+    const edge = [];
+    for (let r = 0; r < ROWS; r++) { const h = fromOff(COLS - 1, r); if (passable(h) && !b.units.some((u) => onMap(u) && eq(u.h, h))) edge.push(h); }
+    const n = Math.min(m.rCount, edge.length);
+    for (let i = 0; i < n; i++) addUnit({ side: 'E', sid: null, maxHp: 7, weapon: 'AK', armor: null, util: null, hvt: false, acc: 0, h: edge.splice(Math.floor(rnd() * edge.length), 1)[0] });
+    if (n) emit({ type: 'alert', text: 'Engines to the east: enemy reinforcements have arrived.' });
+  }
+  b.turn++;
+  if (b.turn > b.limit) { emit({ type: 'alert', text: 'Extraction window closed. Anyone left must get out on foot.' }); strand(); }
+  else {
+    for (const u of squad()) u.ap = maxAp(u);
+    emit({ type: 'turn', text: `Turn ${b.turn} of ${b.limit}${b.turn === b.limit ? '. FINAL TURN, extract now!' : '.'}` });
+  }
+  recompute();
+  checkOver();
+}
+function abortMission() {
+  need('TACTICAL');
+  if (B().over) fail('The battle is over.');
+  emit({ type: 'alert', text: 'Mission aborted. Remaining operators break contact on foot.' });
+  strand();
+  checkOver();
+}
+
+// =====================================================================================
+// ENEMY AI: unaware = loiter near post and raise the alarm on sight;
+// alerted = shoot if the odds are acceptable, else score reachable hexes (closing, firing position, cover).
+// =====================================================================================
+function enemyTurn() {
+  const b = B();
+  for (const e of [...b.units]) {
+    if (e.side !== 'E' || !onMap(e)) continue;
+    e.ap = maxAp(e);
+    if (!b.alerted) {
+      if (!e.hvt && chance(50)) {
+        const reach = reachOf(e, 2);
+        const opts = Object.keys(reach.cost).filter((k) => k !== reach.origin && dist(unK(k), e.post) <= 3).sort();
+        if (opts.length) moveEnemy(e, pathTo(reach, unK(pick(opts))));
+      }
+      const p = squad().find((p) => onMap(p) && enemySees(e.h, p.h));
+      if (p) alarm(`${isVis(e.h) ? e.name : 'A sentry'} spotted ${p.name}! The area is alerted.`);
+    } else engage(e);
+  }
+}
+function bestTarget(e, from) {
+  let best = null, bc = -1;
+  for (const p of squad()) {
+    if (!onMap(p) || dist(from, p.h) > gun(e).range || !enemySees(from, p.h)) continue;
+    const c = hitChance(e, from, p).chance;
+    if (c > bc) { best = p; bc = c; }
+  }
+  return best;
+}
+function score(e, h) {
+  let near = null;
+  for (const p of squad()) if (onMap(p) && (!near || dist(h, p.h) < dist(h, near.h))) near = p;
+  if (!near) return 0;
+  let s = -dist(h, near.h);
+  const saved = e.h;
+  e.h = h;
+  const t = bestTarget(e, h);
+  if (t) s += 6 + hitChance(e, h, t).chance / 20;
+  e.h = saved;
+  return s + coverAt(h, near.h) / 10 + range(0, 5) / 10;
+}
+function engage(e) {
+  for (let guard = 0; guard < 6 && e.ap > 0 && onMap(e); guard++) {
+    const cost = gun(e).ap, t = bestTarget(e, e.h);
+    if (t && e.ap >= cost && hitChance(e, e.h, t).chance >= 25) { resolveShot(e, t); continue; }
+    if (e.hvt) return;
+    const reach = reachOf(e, e.ap >= cost * 2 ? e.ap - cost : e.ap);
+    let best = e.h, bs = score(e, e.h);
+    for (const k of Object.keys(reach.cost)) {
+      if (k === reach.origin) continue;
+      const h = unK(k), s = score(e, h);
+      if (s > bs + 0.01) { best = h; bs = s; }
+    }
+    if (eq(best, e.h)) return;
+    moveEnemy(e, pathTo(reach, best));
+  }
+}
+function moveEnemy(e, path) {
+  const was = isVis(e.h), seen = was ? [{ ...e.h }] : [];
+  for (const h of path) { e.ap -= TER[terr(h)].mc; e.h = h; if (isVis(h)) seen.push(h); }
+  if (!seen.length) return;
+  const now = isVis(e.h);
+  if (now) B().lastSeen[e.id] = K(e.h);
+  emit({ type: 'move', unit: e.id, path: seen, text: now && !was ? `Movement: ${e.name} sighted.` : null });
+}
+
+// =====================================================================================
+// PHASES: briefing → insertion → tactical → extraction → debrief
+// =====================================================================================
+function need(p) { if (G.phase !== p) fail(`Not possible during ${p.toLowerCase()}.`); }
+
+function buyIntel(id) {
+  need('BRIEFING');
+  const m = G.mission, i = INTEL[id];
+  if (m.intel.includes(id)) fail(`${i.label} already acquired.`);
+  if (G.rp < i.cost) fail(`${i.label} costs ${i.cost} RP; you have ${G.rp}.`);
+  G.rp -= i.cost;
+  m.intel.push(id);
+}
+function launch(o) {
+  need('BRIEFING');
+  if (!o.team.length || o.team.length > MAX_TEAM) fail(`Select between 1 and ${MAX_TEAM} operators.`);
+  const needed = {}, team = [];
+  for (const id of o.team) {
+    const s = soldier(id);
+    if (!s || !available(s)) fail('That operator is not available.');
+    const l = o.loadouts[id];
+    if (!l || !l.weapon) fail(`${s.name} needs a weapon.`);
+    if (ITEMS[l.weapon]?.slot !== 'WEAPON' || (l.armor && ITEMS[l.armor]?.slot !== 'ARMOR') || (l.utility && ITEMS[l.utility]?.slot !== 'UTILITY')) fail(`Invalid loadout for ${s.name}.`);
+    for (const it of [l.weapon, l.armor, l.utility]) if (it) needed[it] = (needed[it] || 0) + 1;
+    team.push(s);
+  }
+  for (const [it, n] of Object.entries(needed)) if ((G.armory[it] || 0) < n) fail(`The armory is short of ${ITEMS[it].label}.`);
+  const cost = VEH[o.insertion].cost + VEH[o.extraction].cost;
+  if (cost > G.rp) fail(`Transport costs ${cost} RP; you have ${G.rp}.`);
+  for (const [it, n] of Object.entries(needed)) G.armory[it] -= n;
+  G.rp -= cost;
+  const m = G.mission;
+  m.team = [...o.team];
+  m.loadouts = JSON.parse(JSON.stringify(o.loadouts));
+  m.ins = o.insertion;
+  m.ext = o.extraction;
+  makeBattle(m, team);
+  m.insReport = insertion(m);
+  G.phase = 'INSERTION';
+}
+function insertion(m) {
+  const rep = [{ HELO: 'The helicopter runs in low over the ridgeline toward the drop point.', GROUND: 'The convoy rolls in along the south road, lights off.', FOOT: 'The team moves in on foot through the treeline on the western approach.' }[m.ins]];
+  if (!chance(Math.round(VEH[m.ins].risk * compFactor(m.env)))) { rep.push('Insertion clean. The team is on the ground, undetected.'); return rep; }
+  const victim = pick(squad()), first = chance(50);
+  const injure = (n) => { victim.hp = Math.max(1, victim.hp - n); };
+  const delay = () => { B().limit = Math.max(B().turn + 2, B().limit - 2); };
+  if (m.ins === 'HELO') {
+    if (first) { rep.push('HOT LZ: small-arms fire on approach. The enemy knows you are here.'); alarm('Hot LZ: the enemy is alerted.'); }
+    else { rep.push(`Hard landing. ${victim.name} is hurt in the drop (-2 HP).`); injure(2); }
+  } else if (m.ins === 'GROUND') {
+    if (first) { rep.push(`IED strike on the lead vehicle! ${victim.name} is wounded (-3 HP).`); injure(3); }
+    else { rep.push('Roadblock. Forced detour: 2 turns lost on target.'); delay(); }
+  } else if (first) { rep.push('A goatherd spots the team and runs for the compound. Expect them to be ready.'); alarm('Spotted on approach: the enemy is alerted.'); }
+  else { rep.push('Flooded gully. The approach takes longer than planned: 2 turns lost.'); delay(); }
+  return rep;
+}
+function extraction(m) {
+  const b = B(), rep = [];
+  const out = squad().filter((u) => u.exfil && u.hp > 0), left = squad().filter((u) => u.stranded && u.hp > 0);
+  const zone = b.ext.map(unK);
+  const near = b.units.filter((e) => e.side === 'E' && onMap(e) && Math.min(...zone.map((z) => dist(z, e.h))) <= 6).length;
+  const hot = b.alerted && near > 0;
+  if (out.length) {
+    rep.push({ HELO: 'Rotor wash flattens the clearing as the helicopter flares in.', GROUND: 'The trucks swing round on the road, tailgates down.', FOOT: 'The team slips back out through the western treeline.' }[m.ext]);
+    if (hot) {
+      rep.push(`${near} hostile(s) within range of the extraction point. Taking fire!`);
+      const c = { HELO: 30, GROUND: 25, FOOT: 40 }[m.ext];
+      for (const u of out) {
+        if (!chance(c)) continue;
+        const d = range(1, 3);
+        u.hp = Math.max(0, u.hp - d);
+        rep.push(u.hp > 0 ? `${u.name} is hit during extraction (-${d} HP).` : `${u.name} is killed during extraction.`);
+      }
+    } else rep.push('Extraction clean. No contact.');
+  }
+  for (const u of left) {
+    rep.push(`${u.name} missed the extraction and attempts to escape on foot...`);
+    if (chance(b.alerted ? 45 : 20)) { u.missing = true; rep.push(`Contact lost. ${u.name} is missing in action.`); }
+    else { const d = range(1, 4); u.hp = Math.max(1, u.hp - d); u.exfil = true; rep.push(`${u.name} reaches friendly lines two days later, battered (-${d} HP).`); }
+  }
+  if (!out.length && !left.length) rep.push('No operators made it to extraction.');
+  return rep;
+}
+function debrief(m) {
+  const b = B(), sq = squad();
+  const anyOut = sq.some((u) => u.exfil && u.hp > 0), casualties = sq.some((u) => u.hp <= 0 || u.missing);
+  const carrier = b.carrier != null ? unitById(b.carrier) : null;
+  const intelOut = !!carrier && carrier.exfil && carrier.hp > 0;
+  const done = (t) => ({ RETRIEVE_INTEL: intelOut, ELIMINATE_HVT: b.hvtKilled, NO_CASUALTIES: anyOut && !casualties, UNDETECTED: anyOut && !b.alerted })[t];
+  const success = anyOut && done(m.primary);
+  const rp = 2 + (success ? 8 : 0) + (done(m.secondary) ? 4 : 0);
+  G.rp += rp;
+  const soldiers = [], lost = [], gained = [], notes = [];
+  for (const u of sq) {
+    const s = soldier(u.sid), before = rankIdx(s.xp);
+    let xp = 0, status;
+    if (u.hp <= 0 || u.missing) {
+      status = u.missing ? 'MIA' : 'KIA';
+      s.alive = false;
+      for (const it of [u.weapon, u.armor, u.util]) if (it) lost.push(`${ITEMS[it].label} (${u.name})`);
+    } else {
+      xp = 10 + (success ? 10 : 0) + u.kills * 8 + (u.killedHvt ? 25 : 0) + (carrier === u && intelOut ? 15 : 0);
+      if (u.hp <= u.maxHp / 2) { status = 'Heavy wound: misses next mission'; s.recovery = 2; }
+      else status = u.hp < u.maxHp ? 'Light wound' : 'Fit for duty';
+      for (const it of [u.weapon, u.armor, u.util]) if (it) G.armory[it] = (G.armory[it] || 0) + 1;
+    }
+    if (u.consumed) lost.push(`${ITEMS[u.consumed].label} (expended)`);
+    s.xp += xp; s.kills += u.kills; s.missions++;
+    const after = rankIdx(s.xp);
+    soldiers.push({ name: u.name, status, hp: u.hp, maxHp: u.maxHp, kills: u.kills, xp, rank: RANKS[after][1], promoted: s.alive && after !== before ? RANKS[after][1] : null });
+  }
+  if (anyOut) {
+    const dead = b.units.filter((u) => u.side === 'E' && u.hp <= 0).length;
+    for (let i = 0; i < dead; i++) if (chance(30)) { G.armory.AK = (G.armory.AK || 0) + 1; gained.push('AK Rifle (captured)'); }
+    if (b.hvtKilled && chance(50)) { G.armory.SMG++; gained.push("SMG (HVT's personal weapon)"); }
+    if (intelOut) { const it = chance(50) ? 'MEDKIT' : 'FRAG'; G.armory[it] += 2; gained.push(`2x ${ITEMS[it].label} (cache location from recovered intel)`); }
+  }
+  const weapons = () => Object.keys(ITEMS).filter((k) => ITEMS[k].slot === 'WEAPON').reduce((n, k) => n + (G.armory[k] || 0), 0);
+  while (weapons() < 4) { G.armory.CARBINE++; gained.push('Carbine (quartermaster replacement)'); }
+  while (G.roster.filter((s) => s.alive).length < 6) notes.push(`New recruit assigned: ${recruit(0).name}.`);
+  G.flown++;
+  return { success, objectives: [{ label: OBJ[m.primary].label, primary: true, ok: done(m.primary) }, { label: OBJ[m.secondary].label, primary: false, ok: done(m.secondary) }], soldiers, lost, gained, rp, notes };
+}
+function proceed() {
+  if (G.phase === 'INSERTION') G.phase = 'TACTICAL';
+  else if (G.phase === 'EXTRACTION') { G.debrief = debrief(G.mission); G.phase = 'DEBRIEF'; }
+  else if (G.phase === 'DEBRIEF') beginBriefing();
+  else fail('Nothing to continue.');
+}
+
+// =====================================================================================
+// RENDERER: isometric hex view. Pure drawing, no rules.
+// =====================================================================================
+const SQ3 = Math.sqrt(3), ISO = 0.6;
+const TCOL = { OPEN: '#5b6447', ROAD: '#7d7058', ROUGH: '#41593a', WATER: '#2f5871', LOW_COVER: '#8b7752', WALL: '#948f84' };
+const THEIGHT = { LOW_COVER: 0.32, WALL: 0.8 };
+const C = { player: '#63c3d8', enemy: '#e2645b', hvt: '#e6b752', reach: '99,195,216', path: '#a3e6f5', ext: '120,220,140', ins: '92,160,230', gren: '255,150,60', intel: '#f2d14b' };
+function shade(hex, f) {
+  const n = parseInt(hex.slice(1), 16), c = (v) => Math.max(0, Math.min(255, Math.round(v * f)));
+  return `rgb(${c((n >> 16) & 255)},${c((n >> 8) & 255)},${c(n & 255)})`;
+}
+function hash(q, r, i) {
+  let h = (q * 374761393 + r * 668265263 + i * 1442695041) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967295;
+}
+class HexView {
+  constructor(canvas) { this.cv = canvas; this.x = canvas.getContext('2d'); this.s = 20; this.ox = 0; this.oy = 0; }
+  fit(cols, rows) {
+    const dpr = window.devicePixelRatio || 1, w = this.cv.clientWidth, h = this.cv.clientHeight;
+    if (this.cv.width !== Math.round(w * dpr) || this.cv.height !== Math.round(h * dpr)) { this.cv.width = Math.round(w * dpr); this.cv.height = Math.round(h * dpr); }
+    this.x.setTransform(dpr, 0, 0, dpr, 0, 0);
+    this.w = w; this.h = h;
+    const pad = 14, head = 1.25, uw = SQ3 * (cols + 0.5), uh = (1.5 * (rows - 1) + 2) * ISO + head;
+    this.s = Math.max(6, Math.min((w - pad * 2) / uw, (h - pad * 2 - 34) / uh));
+    this.ox = (w - uw * this.s) / 2 + (SQ3 / 2) * this.s;
+    this.oy = (h - uh * this.s) / 2 + this.s * (head + ISO);
+  }
+  center(q, r) { return { x: this.ox + this.s * SQ3 * (q + r / 2), y: this.oy + this.s * 1.5 * r * ISO }; }
+  pick(px, py) {
+    const x = (px - this.ox) / this.s, y = (py - this.oy) / (this.s * ISO);
+    const fq = (SQ3 / 3) * x - y / 3, fr = (2 / 3) * y;
+    return cround(fq, fr, -fq - fr);
+  }
+  corners(x, y, lift = 0, sc = 1) {
+    const p = [];
+    for (let i = 0; i < 6; i++) { const a = (Math.PI / 180) * (60 * i - 30); p.push([x + this.s * sc * Math.cos(a), y + this.s * sc * Math.sin(a) * ISO - lift]); }
+    return p;
+  }
+  poly(p, fill, stroke, lw = 1) {
+    const c = this.x;
+    c.beginPath(); c.moveTo(p[0][0], p[0][1]);
+    for (let i = 1; i < p.length; i++) c.lineTo(p[i][0], p[i][1]);
+    c.closePath();
+    if (fill) { c.fillStyle = fill; c.fill(); }
+    if (stroke) { c.strokeStyle = stroke; c.lineWidth = lw; c.stroke(); }
+  }
+  draw(sc, now) {
+    const c = this.x;
+    c.clearRect(0, 0, this.w, this.h);
+    const rows = new Map(), byRow = new Map(), anim = [];
+    for (const t of sc.tiles) { if (!rows.has(t.r)) rows.set(t.r, []); rows.get(t.r).push(t); }
+    for (const u of sc.units) {
+      if (sc.anim && sc.anim.has(u.id)) { anim.push(u); continue; }
+      if (!byRow.has(u.r)) byRow.set(u.r, []);
+      byRow.get(u.r).push(u);
+    }
+    for (const r of [...rows.keys()].sort((a, b) => a - b)) {
+      for (const t of rows.get(r).sort((a, b) => a.q - b.q)) this.tile(t, sc, now);
+      for (const g of sc.ghosts || []) if (g.r === r) this.ghost(g);
+      for (const u of byRow.get(r) || []) this.unit(u, this.center(u.q, u.r), sc, now);
+    }
+    for (const u of anim) this.unit(u, sc.anim.get(u.id), sc, now);
+    if (sc.path && sc.path.length > 1) {
+      c.strokeStyle = C.path; c.lineWidth = 2; c.setLineDash([5, 4]); c.beginPath();
+      sc.path.forEach((h, i) => { const p = this.center(h.q, h.r); i ? c.lineTo(p.x, p.y) : c.moveTo(p.x, p.y); });
+      c.stroke(); c.setLineDash([]);
+    }
+    this.fx(sc.fx || [], now);
+    if (sc.label) this.label(sc.label);
+  }
+  tile(t, sc, now) {
+    const { x, y } = this.center(t.q, t.r), k = K(t);
+    if (!t.t) this.poly(this.corners(x, y), '#14181a', 'rgba(255,255,255,0.05)');
+    else {
+      const f = t.v ? 1 : 0.5, base = TCOL[t.t], h = (THEIGHT[t.t] || 0) * this.s;
+      if (h > 0) {
+        const top = this.corners(x, y, h), bot = this.corners(x, y, 0);
+        this.poly([bot[1], bot[2], top[2], top[1]], shade(base, 0.72 * f), 'rgba(0,0,0,0.35)');
+        this.poly([bot[2], bot[3], top[3], top[2]], shade(base, 0.56 * f), 'rgba(0,0,0,0.35)');
+        this.poly(top, shade(base, 1.05 * f), 'rgba(0,0,0,0.35)');
+      } else { this.poly(this.corners(x, y), shade(base, f), 'rgba(0,0,0,0.28)'); this.decorate(t, x, y, f); }
+    }
+    const z = sc.zones || {};
+    if (z.ext && z.ext.has(k)) this.poly(this.corners(x, y, 0, 0.92), `rgba(${C.ext},0.22)`, `rgba(${C.ext},0.75)`, 1.5);
+    else if (z.ins && z.ins.has(k)) this.poly(this.corners(x, y, 0, 0.92), `rgba(${C.ins},0.14)`, `rgba(${C.ins},0.45)`);
+    if (sc.grange && sc.grange.has(k)) this.poly(this.corners(x, y, 0, 0.9), `rgba(${C.gren},0.10)`);
+    if (sc.blast && sc.blast.has(k)) this.poly(this.corners(x, y, 0, 0.9), `rgba(${C.gren},0.42)`, `rgba(${C.gren},0.9)`);
+    if (sc.reach && sc.reach.has(k)) { const on = sc.pathSet && sc.pathSet.has(k); this.poly(this.corners(x, y, 0, 0.86), `rgba(${C.reach},${on ? 0.38 : 0.16})`, on ? C.path : null); }
+    if (sc.hover && eq(sc.hover, t)) this.poly(this.corners(x, y, (THEIGHT[t.t] || 0) * this.s), null, 'rgba(255,255,255,0.85)', 1.5);
+    if (z.obj === k) {
+      const cy = y - this.s * 0.45 + Math.sin(now / 300) * 2, s = this.s, c = this.x;
+      c.beginPath(); c.moveTo(x, cy - s * 0.22); c.lineTo(x + s * 0.16, cy); c.lineTo(x, cy + s * 0.22); c.lineTo(x - s * 0.16, cy); c.closePath();
+      c.fillStyle = C.intel; c.fill(); c.strokeStyle = '#3a2f08'; c.lineWidth = 1; c.stroke();
+    }
+  }
+  decorate(t, x, y, f) {
+    const c = this.x, s = this.s;
+    if (t.t === 'ROUGH') {
+      c.strokeStyle = shade('#6f8f55', f); c.lineWidth = 1.2;
+      for (let i = 0; i < 5; i++) {
+        const dx = (hash(t.q, t.r, i) - 0.5) * s * 1.1, dy = (hash(t.q, t.r, i + 9) - 0.5) * s * 0.6;
+        c.beginPath(); c.moveTo(x + dx - 2, y + dy); c.lineTo(x + dx, y + dy - 5); c.lineTo(x + dx + 2, y + dy); c.stroke();
+      }
+    } else if (t.t === 'WATER') {
+      c.strokeStyle = `rgba(160,210,240,${0.35 * f})`; c.lineWidth = 1;
+      c.beginPath(); c.moveTo(x - s * 0.4, y); c.quadraticCurveTo(x, y - 3, x + s * 0.4, y); c.stroke();
+    } else if (t.t === 'ROAD') { c.fillStyle = `rgba(230,210,160,${0.25 * f})`; c.fillRect(x - s * 0.25, y - 1, s * 0.5, 2); }
+  }
+  unit(u, pos, sc, now) {
+    const c = this.x, s = this.s, { x, y } = pos;
+    c.beginPath(); c.ellipse(x, y, s * 0.36, s * 0.36 * ISO, 0, 0, Math.PI * 2); c.fillStyle = 'rgba(0,0,0,0.38)'; c.fill();
+    if (sc.selectedId === u.id) {
+      c.lineWidth = 2; c.strokeStyle = `rgba(170,232,250,${0.6 + 0.4 * Math.sin(now / 180)})`;
+      c.beginPath(); c.ellipse(x, y, s * 0.5, s * 0.5 * ISO, 0, 0, Math.PI * 2); c.stroke();
+    }
+    if (sc.targets && sc.targets.has(u.id)) {
+      c.lineWidth = 2; c.strokeStyle = u.side === 'P' ? 'rgba(120,220,140,0.9)' : 'rgba(255,90,80,0.9)'; c.setLineDash([4, 3]);
+      c.beginPath(); c.ellipse(x, y, s * 0.5, s * 0.5 * ISO, 0, 0, Math.PI * 2); c.stroke(); c.setLineDash([]);
+    }
+    let col = u.side === 'P' ? C.player : u.hvt ? C.hvt : C.enemy;
+    if (u.side === 'P' && u.ap === 0) col = shade(col, 0.55);
+    c.fillStyle = col; c.strokeStyle = 'rgba(0,0,0,0.65)'; c.lineWidth = 1.2;
+    c.beginPath(); c.roundRect(x - s * 0.17, y - s * 0.72, s * 0.34, s * 0.64, s * 0.09); c.fill(); c.stroke();
+    c.beginPath(); c.arc(x, y - s * 0.88, s * 0.15, 0, Math.PI * 2); c.fill(); c.stroke();
+    if (u.carrier) { c.fillStyle = C.intel; c.fillRect(x + s * 0.08, y - s * 0.55, s * 0.14, s * 0.14); }
+    const bw = s * 0.7, bx = x - bw / 2, by = y - s * 1.18, ratio = Math.max(0, u.hp / u.maxHp);
+    c.fillStyle = 'rgba(0,0,0,0.6)'; c.fillRect(bx - 1, by - 1, bw + 2, 5);
+    c.fillStyle = ratio > 0.6 ? '#73d08c' : ratio > 0.3 ? '#e3c351' : '#e2645b'; c.fillRect(bx, by, bw * ratio, 3);
+  }
+  ghost(g) {
+    const c = this.x, s = this.s, { x, y } = this.center(g.q, g.r);
+    c.save(); c.setLineDash([3, 3]); c.strokeStyle = 'rgba(226,100,91,0.75)'; c.lineWidth = 1.4;
+    c.beginPath(); c.roundRect(x - s * 0.17, y - s * 0.72, s * 0.34, s * 0.64, s * 0.09); c.stroke();
+    c.beginPath(); c.arc(x, y - s * 0.88, s * 0.15, 0, Math.PI * 2); c.stroke(); c.restore();
+    c.fillStyle = 'rgba(226,100,91,0.9)'; c.font = `bold ${Math.round(s * 0.42)}px sans-serif`; c.textAlign = 'center'; c.fillText('?', x, y - s * 0.3);
+  }
+  label({ q, r, text, color }) {
+    const c = this.x, s = this.s, { x, y } = this.center(q, r);
+    c.font = `600 ${Math.max(12, Math.round(s * 0.42))}px Barlow, sans-serif`;
+    const w = c.measureText(text).width + 12, hg = Math.max(19, s * 0.62), bx = x - w / 2, by = y - s * 1.75 - hg;
+    c.fillStyle = 'rgba(10,12,14,0.9)'; c.strokeStyle = color; c.lineWidth = 1;
+    c.beginPath(); c.roundRect(bx, by, w, hg, 4); c.fill(); c.stroke();
+    c.fillStyle = color; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(text, x, by + hg / 2 + 1); c.textBaseline = 'alphabetic';
+  }
+  fx(list, now) {
+    const c = this.x, s = this.s;
+    for (const f of list) {
+      const t = (now - f.t0) / f.dur;
+      if (t < 0 || t > 1) continue;
+      if (f.kind === 'tracer') {
+        const a = this.center(f.from.q, f.from.r), b = this.center(f.to.q, f.to.r), hd = Math.min(1, t * 2.2);
+        c.strokeStyle = f.hit ? `rgba(255,225,120,${1 - t})` : `rgba(210,210,210,${0.8 - 0.8 * t})`; c.lineWidth = 2;
+        c.beginPath(); c.moveTo(a.x, a.y - s * 0.55); c.lineTo(a.x + (b.x - a.x) * hd, a.y - s * 0.55 + (b.y - a.y) * hd); c.stroke();
+      } else if (f.kind === 'text') {
+        const p = this.center(f.at.q, f.at.r), yy = p.y - s * 1.35 - t * s * 0.9;
+        c.globalAlpha = 1 - t * t; c.font = `bold ${Math.max(13, Math.round(s * 0.5))}px Barlow, sans-serif`; c.textAlign = 'center';
+        c.lineWidth = 3; c.strokeStyle = 'rgba(0,0,0,0.8)'; c.strokeText(f.text, p.x, yy); c.fillStyle = f.color; c.fillText(f.text, p.x, yy); c.globalAlpha = 1;
+      } else if (f.kind === 'boom') {
+        const p = this.center(f.at.q, f.at.r), rr = s * 2 * t + 2;
+        c.fillStyle = `rgba(255,170,70,${0.55 * (1 - t)})`; c.beginPath(); c.ellipse(p.x, p.y, rr, rr * ISO, 0, 0, Math.PI * 2); c.fill();
+      } else if (f.kind === 'flash') {
+        const p = this.center(f.at.q, f.at.r);
+        c.strokeStyle = `rgba(255,90,80,${1 - t})`; c.lineWidth = 2; c.beginPath(); c.ellipse(p.x, p.y, s * (0.4 + t), s * (0.4 + t) * ISO, 0, 0, Math.PI * 2); c.stroke();
+      }
+    }
+  }
+}
+
+// =====================================================================================
+// UI
+// =====================================================================================
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+let toastTimer;
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => (t.hidden = true), 3200); }
+
+const SAVE_KEY = 'skirm-save-v1';
+function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(G)); } catch (e) { /* storage unavailable: play continues unsaved */ } }
+
+let mounted = null;
+const draft = { mission: null, team: [], loadouts: {}, insertion: 'FOOT', extraction: 'FOOT' };
+const tac = { view: null, selected: null, mode: 'move', hover: null, busy: false, fx: [], anim: new Map(), raf: 0, abortArmed: false, cache: null, pointer: 'mouse' };
+
+function run(fn) {
+  if (tac.busy) return;
+  pending = [];
+  try { fn(); } catch (e) {
+    pending = [];
+    if (e instanceof Rule) return toast(e.message);
+    console.error(e);
+    return toast('Unexpected error: ' + e.message);
+  }
+  const evs = pending;
+  pending = [];
+  persist();
+  refresh();
+  if (G.phase === 'TACTICAL' && evs.length) playEvents(evs);
+}
+
+const PHASES = [['BRIEFING', 'Briefing'], ['INSERTION', 'Insertion'], ['TACTICAL', 'Operation'], ['EXTRACTION', 'Extraction'], ['DEBRIEF', 'Debrief']];
+function refresh() {
+  if (G.phase !== mounted) { mounted = G.phase; mount(); }
+  const idx = PHASES.findIndex(([p]) => p === G.phase);
+  $('#phases').innerHTML = PHASES.map(([p, l], i) => `<span class="${i === idx ? 'on' : i < idx ? 'done' : ''}">${l}</span>`).join('<i>›</i>');
+  $('#stats').innerHTML = `<span><b>Mission</b>${G.flown + 1}</span><span><b>RP</b>${G.rp}</span><span><b>Operators</b>${G.roster.filter((s) => s.alive).length}</span>`;
+  if (G.phase === 'BRIEFING') renderBriefing();
+  else if (G.phase === 'INSERTION' || G.phase === 'EXTRACTION') renderReport();
+  else if (G.phase === 'TACTICAL') updateTactical();
+  else renderDebrief();
+}
+function mount() {
+  cancelAnimationFrame(tac.raf);
+  window.scrollTo(0, 0);
+  const v = $('#view');
+  v.innerHTML = '';
+  if (G.phase === 'TACTICAL') mountTactical(v);
+}
+
+// ------------------------------------------------------------------ briefing
+function remaining() {
+  const left = { ...G.armory };
+  for (const id of draft.team) for (const it of Object.values(draft.loadouts[id])) if (it) left[it] = (left[it] || 0) - 1;
+  return left;
+}
+function defaultLoadout() {
+  const left = remaining(), first = (p) => p.find((x) => (left[x] || 0) > 0) || null;
+  return { weapon: first(['CARBINE', 'SMG', 'DMR', 'LMG', 'AK']), armor: first(['VEST', 'PLATE']), utility: first(['MEDKIT', 'FRAG']) };
+}
+function syncDraft() {
+  if (draft.mission === G.mission.n + ':' + G.flown + ':' + G.mission.codename) return;
+  draft.mission = G.mission.n + ':' + G.flown + ':' + G.mission.codename;
+  Object.assign(draft, { team: [], loadouts: {}, insertion: 'FOOT', extraction: 'FOOT' });
+  for (const s of G.roster) {
+    if (!available(s) || draft.team.length >= MAX_TEAM) continue;
+    const l = defaultLoadout();
+    if (!l.weapon) break;
+    draft.team.push(s.id);
+    draft.loadouts[s.id] = l;
+  }
+}
+function renderBriefing() {
+  syncDraft();
+  const m = G.mission, left = remaining(), cost = VEH[draft.insertion].cost + VEH[draft.extraction].cost;
+  const okBudget = cost <= G.rp, okKit = draft.team.length > 0 && draft.team.every((id) => draft.loadouts[id].weapon) && Object.values(left).every((n) => n >= 0);
+  const intelRows = Object.entries(INTEL).map(([id, i]) => {
+    const own = m.intel.includes(id);
+    return `<div class="intel-row"><div><b>${i.label}</b><small>${i.desc}</small></div>${own ? '<span class="chip ok">Acquired</span>' : `<button class="btn" type="button" data-intel="${id}" ${G.rp < i.cost ? 'disabled' : ''}>Buy · ${i.cost} RP</button>`}</div>`;
+  }).join('');
+  const humint = m.intel.includes('HUMINT') ? `<div class="humint"><div><b>${m.spawns.length}</b> hostiles confirmed. Positions marked on the map.</div><div>${m.rTurn ? `Expect ${m.rCount} reinforcements from the east around turn ${m.rTurn}.` : 'No reinforcements expected.'}</div></div>` : '';
+  const select = (sid, slot, cur, none) => {
+    const opts = Object.keys(ITEMS).filter((k) => ITEMS[k].slot === slot).map((k) => {
+      const n = (left[k] || 0) + (cur === k ? 1 : 0);
+      if (n <= 0 && cur !== k) return '';
+      return `<option value="${k}" ${cur === k ? 'selected' : ''}>${ITEMS[k].label} (${n} in stock)</option>`;
+    }).join('');
+    return `<select id="lo-${sid}-${slot}" data-sid="${sid}" data-slot="${slot}" aria-label="${slot.toLowerCase()}">${none ? '<option value="">None</option>' : ''}${opts}</select>`;
+  };
+  const roster = G.roster.filter((s) => s.alive).map((s) => {
+    const on = draft.team.includes(s.id), l = draft.loadouts[s.id], nx = nextXp(s.xp), pct = nx > 0 ? Math.min(100, Math.round((s.xp / nx) * 100)) : 100, ok = available(s);
+    return `<div class="op ${on ? 'on' : ''} ${ok ? '' : 'off'}">
+      <label class="op-head"><input type="checkbox" id="pick-${s.id}" data-pick="${s.id}" ${on ? 'checked' : ''} ${ok ? '' : 'disabled'}>
+        <span class="rank">${RANKS[rankIdx(s.xp)][0]}</span><span class="name">${esc(s.name)}</span>
+        <span class="meta">${s.missions} ops · ${s.kills} kills</span>${ok ? '' : `<span class="chip warn">Recovering</span>`}</label>
+      <div class="xp"><i style="width:${pct}%"></i><small>${s.xp}${nx > 0 ? ' / ' + nx : ''} XP</small></div>
+      ${on ? `<div class="loadout">${select(s.id, 'WEAPON', l.weapon, false)}${select(s.id, 'ARMOR', l.armor, true)}${select(s.id, 'UTILITY', l.utility, true)}</div>
+      <div class="loadout-hint">${[l.weapon, l.armor, l.utility].filter(Boolean).map(itemSummary).join(' · ')}</div>` : ''}</div>`;
+  }).join('');
+  const fallen = G.roster.filter((s) => !s.alive).map((s) => `${RANKS[rankIdx(s.xp)][0]} ${esc(s.name)}`);
+  const vehicles = (f) => Object.entries(VEH).map(([id, v]) => `<label class="veh ${draft[f] === id ? 'on' : ''}"><input type="radio" id="${f}-${id}" name="${f}" value="${id}" ${draft[f] === id ? 'checked' : ''}>
+    <span class="veh-head"><b>${v.label}</b><span class="cost">${v.cost ? v.cost + ' RP' : 'Free'}</span></span><small>${v.desc}</small></label>`).join('');
+
+  $('#view').innerHTML = `<section class="briefing">
+    <div class="col">
+      <div class="card"><div class="eyebrow">Mission ${m.n} · Briefing</div><h1>${esc(m.codename)}</h1><p class="area">${esc(m.area)}</p>
+        <dl class="facts"><dt>Conditions</dt><dd>${envSummary(m.env)}</dd><dt>Threat</dt><dd>${threat(m)}</dd></dl>
+        <ul class="objectives"><li><span class="tag primary">Primary</span><b>${OBJ[m.primary].label}</b>${OBJ[m.primary].desc}</li>
+          <li><span class="tag">Secondary</span><b>${OBJ[m.secondary].label}</b>${OBJ[m.secondary].desc}</li></ul></div>
+      <div class="card"><h3>Area of operations</h3><div class="preview-wrap"><canvas id="preview"></canvas></div>
+        <div class="legend"><span><i class="sw ins"></i>Insertion</span><span><i class="sw ext"></i>Extraction (chosen)</span><span><i class="sw obj"></i>Objective</span>
+        ${m.intel.includes('HUMINT') ? '<span><i class="sw foe"></i>Hostile</span>' : ''}${m.intel.includes('SATELLITE') ? '' : '<span>Terrain unknown without satellite imagery</span>'}</div></div>
+      <div class="card"><h3>Intelligence</h3>${intelRows}${humint}</div>
+    </div>
+    <div class="col">
+      <div class="card"><h3>Team <span class="count">${draft.team.length}/${MAX_TEAM}</span></h3><div class="roster">${roster}</div>
+        ${fallen.length ? `<div class="fallen">In memoriam: ${fallen.join(', ')}</div>` : ''}</div>
+      <div class="card"><h3>Insertion</h3><div class="vehicles">${vehicles('insertion')}</div><h3>Extraction</h3><div class="vehicles">${vehicles('extraction')}</div></div>
+      <div class="card launch"><div class="budget"><span>Requisition <b>${G.rp}</b></span><span>Transport <b>${cost}</b></span><span class="${okBudget ? '' : 'bad'}">Remaining <b>${G.rp - cost}</b></span></div>
+        <button class="btn primary big" type="button" id="launch" ${okBudget && okKit ? '' : 'disabled'}>Launch mission</button></div>
+    </div></section>`;
+
+  const v = $('#view');
+  v.querySelectorAll('[data-intel]').forEach((b) => b.addEventListener('click', () => run(() => buyIntel(b.dataset.intel))));
+  v.querySelectorAll('[data-pick]').forEach((cb) => cb.addEventListener('change', () => {
+    const id = +cb.dataset.pick;
+    if (cb.checked) {
+      if (draft.team.length >= MAX_TEAM) { toast(`Maximum team size is ${MAX_TEAM}.`); return renderBriefing(); }
+      const l = defaultLoadout();
+      if (!l.weapon) { toast('No weapons left in the armory.'); return renderBriefing(); }
+      draft.team.push(id); draft.loadouts[id] = l;
+    } else { draft.team = draft.team.filter((x) => x !== id); delete draft.loadouts[id]; }
+    renderBriefing();
+  }));
+  v.querySelectorAll('select[data-sid]').forEach((s) => s.addEventListener('change', () => { draft.loadouts[s.dataset.sid][s.dataset.slot.toLowerCase()] = s.value || null; renderBriefing(); }));
+  v.querySelectorAll('input[type=radio]').forEach((r) => r.addEventListener('change', () => { draft[r.name] = r.value; renderBriefing(); }));
+  $('#launch').addEventListener('click', () => run(() => launch({ team: draft.team, loadouts: Object.fromEntries(draft.team.map((id) => [id, draft.loadouts[id]])), insertion: draft.insertion, extraction: draft.extraction })));
+  drawPreview();
+}
+function drawPreview() {
+  const cv = $('#preview');
+  if (!cv) return;
+  const m = G.mission, mp = m.map, sat = m.intel.includes('SATELLITE'), v = new HexView(cv);
+  v.fit(mp.cols, mp.rows);
+  const foes = m.intel.includes('HUMINT') ? m.spawns.map((s, i) => ({ id: -1 - i, side: 'E', q: s.h.q, r: s.h.r, hp: 1, maxHp: 1, hvt: s.hvt })) : [];
+  v.draw({ tiles: mp.hexes.map((h) => ({ q: h.q, r: h.r, t: sat ? mp.t[K(h)] : null, v: true })), zones: { ins: new Set(mp.ins), ext: new Set(mp.ext[draft.extraction]), obj: mp.obj }, units: foes }, performance.now());
+}
+
+// ------------------------------------------------------------------ reports
+function renderReport() {
+  const m = G.mission, ins = G.phase === 'INSERTION', lines = ins ? m.insReport : m.extReport;
+  $('#view').innerHTML = `<section class="report card"><div class="eyebrow">Mission ${m.n} · ${ins ? 'Insertion' : 'Extraction'}</div><h1>${esc(m.codename)}</h1>
+    <ol class="narrative">${lines.map((l, i) => `<li style="animation-delay:${i * 450}ms" class="${/HOT|IED|spotted|killed|missing|fire|lost/i.test(l) ? 'bad' : ''}">${esc(l)}</li>`).join('')}</ol>
+    <button class="btn primary big" type="button" id="continue">${ins ? 'Begin operation' : 'Proceed to debrief'}</button></section>`;
+  $('#continue').addEventListener('click', () => run(proceed));
+}
+
+// ------------------------------------------------------------------ tactical
+function mountTactical(v) {
+  v.innerHTML = `<section class="tactical">
+    <div class="board"><div class="board-scroll"><canvas id="board"></canvas></div><div class="hud" id="hud"></div><div class="hint" id="hint"></div></div>
+    <aside class="side"><div class="card" id="objectives"></div><div class="card" id="squad"></div><div class="card" id="actions"></div>
+      <div class="card log"><h3>Combat log</h3><ol id="log"></ol></div></aside></section>`;
+  const cv = $('#board');
+  tac.view = new HexView(cv);
+  Object.assign(tac, { selected: null, mode: 'move', hover: null, fx: [], abortArmed: false });
+  tac.anim.clear();
+  const at = (e) => { const r = cv.getBoundingClientRect(); return tac.view.pick(e.clientX - r.left, e.clientY - r.top); };
+  cv.addEventListener('pointerdown', (e) => { tac.pointer = e.pointerType; });
+  cv.addEventListener('pointermove', (e) => { if (e.pointerType === 'mouse') { tac.hover = at(e); updateHint(); } });
+  cv.addEventListener('mouseleave', () => { tac.hover = null; updateHint(); });
+  cv.addEventListener('click', (e) => {
+    const h = at(e);
+    if (tac.pointer !== 'mouse') { // touch: first tap previews, second tap on the same hex confirms
+      const there = unitAt(h);
+      if (!(there && there.side === 'P' && tac.mode === 'move') && !eq(tac.hover, h)) { tac.hover = h; updateHint(); return; }
+    }
+    tac.hover = h;
+    boardClick();
+    if (tac.pointer !== 'mouse') tac.hover = null;
+  });
+  cv.addEventListener('contextmenu', (e) => { e.preventDefault(); setMode('move'); });
+  const loop = (now) => {
+    if (G.phase !== 'TACTICAL') return;
+    tac.view.fit(COLS, ROWS);
+    tac.view.draw(scene(), now);
+    tac.fx = tac.fx.filter((f) => now - f.t0 < f.dur);
+    tac.raf = requestAnimationFrame(loop);
+  };
+  tac.raf = requestAnimationFrame(loop);
+}
+const mine = () => squad().filter(onMap);
+const visibleUnit = (u) => onMap(u) && (u.side === 'P' || isVis(u.h));
+const unitAt = (h) => h && B().units.find((u) => visibleUnit(u) && eq(u.h, h));
+const sel = () => mine().find((u) => u.id === tac.selected) || null;
+
+function orders(u) { // what the selected operator can do right now, computed from the rules
+  const reach = reachOf(u, u.ap), moves = new Map();
+  for (const [k, c] of Object.entries(reach.cost)) if (k !== reach.origin) moves.set(k, { c, prev: reach.prev[k] });
+  const targets = new Map();
+  for (const t of B().units) if (t.side === 'E' && canShoot(u, t)) targets.set(t.id, hitChance(u, u.h, t));
+  const heal = mine().filter((t) => canHeal(u, t)).map((t) => t.id);
+  return { reach, moves, targets, heal, grenade: u.util === 'FRAG' && u.ap >= GR_AP, intel: canIntel(u), exfil: canExfil(u) };
+}
+function ensureSelection() {
+  const list = mine();
+  if (!list.length) { tac.selected = null; return; }
+  const cur = sel();
+  if (!cur || (cur.ap === 0 && list.some((u) => u.ap > 0))) { tac.selected = (list.find((u) => u.ap > 0) || list[0]).id; tac.mode = 'move'; }
+}
+function setMode(m) { tac.mode = tac.mode === m ? 'move' : m; renderActions(); updateHint(); }
+
+function scene() {
+  const b = B(), u = sel(), o = tac.cache;
+  const sc = {
+    tiles: M().hexes.map((h) => { const k = K(h); return { q: h.q, r: h.r, t: b.explored[k] ? M().t[k] : null, v: !!b.visible[k] }; }),
+    zones: { ins: new Set(M().ins), ext: new Set(b.ext), obj: b.intelHex },
+    units: b.units.filter(visibleUnit).map((x) => ({ id: x.id, side: x.side, q: x.h.q, r: x.h.r, hp: x.hp, maxHp: x.maxHp, ap: x.ap, hvt: x.hvt, carrier: b.carrier === x.id })),
+    ghosts: Object.entries(b.lastSeen).filter(([id]) => { const e = unitById(+id); return e && onMap(e) && !isVis(e.h); }).map(([, k]) => unK(k)),
+    selectedId: tac.selected, hover: tac.hover, anim: tac.anim, fx: tac.fx,
+  };
+  if (!u || !o || tac.busy) return sc;
+  if (tac.mode === 'move') {
+    sc.reach = o.moves;
+    sc.targets = o.targets;
+    if (tac.hover) {
+      const k = K(tac.hover);
+      if (o.moves.has(k)) {
+        sc.path = [u.h, ...pathTo(o.reach, tac.hover)];
+        sc.pathSet = new Set(sc.path.map(K));
+        sc.label = { q: tac.hover.q, r: tac.hover.r, text: `${o.moves.get(k).c} AP`, color: C.path };
+      }
+      const t = unitAt(tac.hover);
+      if (t && o.targets.has(t.id)) sc.label = { q: t.h.q, r: t.h.r, text: `${o.targets.get(t.id).chance}%`, color: '#ff8a80' };
+    }
+  } else if (tac.mode === 'grenade') {
+    sc.grange = new Set(M().hexes.filter((h) => dist(h, u.h) <= GR_RANGE).map(K));
+    if (tac.hover && dist(tac.hover, u.h) <= GR_RANGE) sc.blast = new Set(M().hexes.filter((h) => dist(h, tac.hover) <= 1).map(K));
+  } else if (tac.mode === 'medkit') sc.targets = new Map(o.heal.map((id) => [id, 0]));
+  return sc;
+}
+
+function boardClick() {
+  if (tac.busy || !tac.hover) return;
+  const h = tac.hover, u = sel(), o = tac.cache, there = unitAt(h);
+  if (tac.mode === 'medkit' && u) {
+    if (there && o.heal.includes(there.id)) return act(u.id, 'MEDKIT', null, there.id);
+    return toast('Pick yourself or an adjacent wounded operator.');
+  }
+  if (tac.mode === 'grenade' && u) return act(u.id, 'GRENADE', h, null);
+  if (there && there.side === 'P') { tac.selected = there.id; tac.mode = 'move'; return updateTactical(); }
+  if (!u) return;
+  if (there && there.side === 'E') {
+    if (o.targets.has(there.id)) return act(u.id, 'SHOOT', null, there.id);
+    return toast(u.ap < gun(u).ap ? `Not enough AP: ${gun(u).ap} needed to fire.` : 'No clear shot: out of range or no line of sight.');
+  }
+  if (o.moves.has(K(h))) return act(u.id, 'MOVE', h, null);
+}
+function act(uid, type, hex, tid) { tac.mode = 'move'; run(() => perform(uid, type, hex, tid)); }
+
+function updateTactical() {
+  ensureSelection();
+  const b = B(), u = sel();
+  tac.cache = u ? orders(u) : null;
+  const marks = { done: '✓', progress: '◐', pending: '○', failed: '✗' };
+  const carrier = b.carrier != null ? unitById(b.carrier) : null;
+  $('#hud').innerHTML = `<span class="turn">Turn <b>${b.turn}</b> / ${b.limit}</span><span class="chip ${b.alerted ? 'bad' : 'ok'}">${b.alerted ? 'Alerted' : 'Undetected'}</span>${carrier ? `<span class="chip gold">Intel: ${esc(carrier.name)}</span>` : ''}`;
+  const kia = squad().some((x) => x.hp <= 0);
+  const obj = (t, primary) => {
+    const st = { RETRIEVE_INTEL: [carrier ? 'progress' : 'pending', carrier ? 'Carrier must extract' : 'Find and secure the cache'], ELIMINATE_HVT: [b.hvtKilled ? 'done' : 'pending', b.hvtKilled ? 'Target down' : 'Target in the compound'], NO_CASUALTIES: [kia ? 'failed' : 'progress', kia ? 'Operator lost' : 'All operators alive'], UNDETECTED: [b.alerted ? 'failed' : 'progress', b.alerted ? 'Alarm raised' : 'Undetected'] }[t];
+    return `<div class="obj ${st[0]}"><span class="mark">${marks[st[0]]}</span><div><b>${primary ? 'Primary' : 'Secondary'}: ${OBJ[t].label}</b><small>${st[1]}</small></div></div>`;
+  };
+  $('#objectives').innerHTML = `<h3>Objectives</h3>${obj(G.mission.primary, true)}${obj(G.mission.secondary, false)}`;
+  $('#squad').innerHTML = `<h3>Squad</h3>` + (mine().length ? mine().map((x) => `<button class="sq ${x.id === tac.selected ? 'on' : ''}" type="button" data-unit="${x.id}">
+    <span class="name">${esc(x.name)}${b.carrier === x.id ? ' <i class="gold">◆</i>' : ''}</span><span class="bar"><i style="width:${(x.hp / x.maxHp) * 100}%"></i></span>
+    <span class="pips" aria-label="${x.ap} AP">${'●'.repeat(x.ap)}${'○'.repeat(Math.max(0, maxAp(x) - x.ap))}</span></button>`).join('') : '<p class="muted">No operators on the map.</p>');
+  $('#squad').querySelectorAll('[data-unit]').forEach((el) => el.addEventListener('click', () => { tac.selected = +el.dataset.unit; tac.mode = 'move'; updateTactical(); }));
+  renderActions();
+  $('#log').innerHTML = b.log.map((e) => `<li class="ev-${e.type}">${esc(e.text)}</li>`).join('');
+  $('#log').scrollTop = $('#log').scrollHeight;
+  updateHint();
+}
+function renderActions() {
+  const u = sel(), o = tac.cache, box = $('#actions');
+  if (!u || !o) { box.innerHTML = '<h3>Orders</h3><p class="muted">Awaiting extraction.</p>'; return; }
+  const g = gun(u);
+  box.innerHTML = `<h3>${esc(u.name)}</h3>
+    <div class="unit-stats"><span>HP <b>${u.hp}/${u.maxHp}</b></span><span>AP <b>${u.ap}/${maxAp(u)}</b></span>
+      <span>${ITEMS[u.weapon].label} <small>${g.ap} AP · range ${g.range}</small></span>${u.armor ? `<span>${ITEMS[u.armor].label}</span>` : ''}
+      <span>${u.util ? ITEMS[u.util].label : '<small>No utility</small>'}</span></div>
+    <div class="orders">
+      <button class="btn ${tac.mode === 'grenade' ? 'armed' : ''}" type="button" data-order="grenade" ${o.grenade ? '' : 'disabled'}>Grenade</button>
+      <button class="btn ${tac.mode === 'medkit' ? 'armed' : ''}" type="button" data-order="medkit" ${o.heal.length ? '' : 'disabled'}>Medkit</button>
+      <button class="btn" type="button" data-order="intel" ${o.intel ? '' : 'disabled'}>Secure intel</button>
+      <button class="btn" type="button" data-order="exfil" ${o.exfil ? '' : 'disabled'}>Exfiltrate</button></div>
+    <div class="orders end"><button class="btn danger" type="button" data-order="abort">${tac.abortArmed ? 'Confirm abort' : 'Abort'}</button>
+      <button class="btn primary" type="button" data-order="end">End turn</button></div>`;
+  box.querySelectorAll('[data-order]').forEach((b) => b.addEventListener('click', () => order(b.dataset.order)));
+}
+function order(o) {
+  if (tac.busy) return;
+  const u = sel(), c = tac.cache;
+  if (o !== 'abort') tac.abortArmed = false;
+  if (o === 'grenade' && c?.grenade) setMode('grenade');
+  else if (o === 'medkit' && c?.heal.length) setMode('medkit');
+  else if (o === 'intel' && c?.intel) act(u.id, 'INTEL');
+  else if (o === 'exfil' && c?.exfil) act(u.id, 'EXFIL');
+  else if (o === 'end') { tac.mode = 'move'; run(endTurn); }
+  else if (o === 'abort') {
+    if (!tac.abortArmed) { tac.abortArmed = true; renderActions(); setTimeout(() => { tac.abortArmed = false; if (G.phase === 'TACTICAL') renderActions(); }, 3000); }
+    else { tac.abortArmed = false; run(abortMission); }
+  }
+}
+function updateHint() {
+  const el = $('#hint');
+  if (!el || G.phase !== 'TACTICAL') return;
+  const u = sel(), o = tac.cache, touch = tac.pointer !== 'mouse';
+  let text = u ? `${u.name}: ${touch ? 'tap' : 'click'} a highlighted hex to move or a ringed hostile to fire.` : 'All operators have left the map.';
+  if (u && o && tac.hover) {
+    const there = unitAt(tac.hover), hc = there && o.targets.get(there.id), mv = o.moves.get(K(tac.hover)), again = touch ? ' Tap again to confirm.' : '';
+    if (tac.mode === 'grenade') text = `Grenade: radius 1, 3-5 damage, ignores cover. It hurts your own team too.${again}`;
+    else if (tac.mode === 'medkit') text = `Medkit: ${touch ? 'tap' : 'click'} yourself or an adjacent wounded operator.`;
+    else if (hc) text = `Fire at ${there.name} (${there.hp}/${there.maxHp} HP): ${hc.chance}%${hc.mods.length ? ' [' + hc.mods.join(', ') + ']' : ''}.${again}`;
+    else if (there && there.side === 'E') text = `${there.name}: ${ITEMS[there.weapon].label}, ${there.hp}/${there.maxHp} HP. No shot from here.`;
+    else if (mv) text = `Move: ${mv.c} AP.${again}`;
+  }
+  el.textContent = text;
+}
+
+async function playEvents(events) {
+  tac.busy = true;
+  const v = tac.view, fx = (f) => tac.fx.push({ t0: performance.now(), ...f });
+  for (const e of events) if (e.type === 'move' && e.path.length > 1) tac.anim.set(e.unit, v.center(e.path[0].q, e.path[0].r));
+  for (const e of events) {
+    if (e.type === 'move') { if (e.path.length > 1) await animateMove(e.unit, e.path); tac.anim.delete(e.unit); }
+    else if (e.type === 'shot') {
+      if (e.from) fx({ kind: 'tracer', from: e.from, to: e.to, hit: e.hit, dur: 320 }); else fx({ kind: 'flash', at: e.to, dur: 500 });
+      fx({ kind: 'text', at: e.to, text: e.hit ? `-${e.amount}` : 'MISS', color: e.hit ? '#ffd27a' : '#cfd6dc', dur: 1000 });
+      await sleep(340);
+    } else if (e.type === 'grenade') { fx({ kind: 'tracer', from: e.from, to: e.to, hit: false, dur: 260 }); await sleep(240); fx({ kind: 'boom', at: e.to, dur: 600 }); await sleep(200); }
+    else if (e.type === 'damage') { fx({ kind: 'text', at: e.to, text: `-${e.amount}`, color: '#ff8a80', dur: 1000 }); await sleep(90); }
+    else if (e.type === 'kill') { fx({ kind: 'text', at: e.to, text: 'DOWN', color: '#ff6b6b', dur: 1200 }); await sleep(220); }
+    else if (e.type === 'heal') { fx({ kind: 'text', at: e.to, text: `+${e.amount}`, color: '#7ee07e', dur: 1000 }); await sleep(200); }
+    else if (e.type === 'intel') fx({ kind: 'text', at: e.to, text: 'INTEL', color: C.intel, dur: 1200 });
+    else if (e.type === 'exfil') fx({ kind: 'text', at: e.to, text: 'EXFIL', color: '#8be09b', dur: 1200 });
+    else if (e.type === 'alert') { banner(e.text); await sleep(250); }
+  }
+  tac.anim.clear();
+  tac.busy = false;
+  if (G.phase === 'TACTICAL') updateTactical();
+}
+function animateMove(id, path) {
+  const v = tac.view, pts = path.map((h) => v.center(h.q, h.r)), t0 = performance.now(), total = 110 * (pts.length - 1);
+  return new Promise((res) => {
+    const tick = (now) => {
+      const t = Math.min(1, (now - t0) / total), f = t * (pts.length - 1), i = Math.min(pts.length - 2, Math.floor(f)), k = f - i;
+      tac.anim.set(id, { x: pts[i].x + (pts[i + 1].x - pts[i].x) * k, y: pts[i].y + (pts[i + 1].y - pts[i].y) * k });
+      t < 1 ? requestAnimationFrame(tick) : res();
+    };
+    requestAnimationFrame(tick);
+  });
+}
+function banner(text) {
+  const b = $('.board');
+  if (!b) return;
+  const el = document.createElement('div');
+  el.className = 'banner'; el.textContent = text; b.appendChild(el);
+  setTimeout(() => el.remove(), 2200);
+}
+
+// ------------------------------------------------------------------ debrief
+function renderDebrief() {
+  const d = G.debrief, m = G.mission;
+  const list = (a, empty) => (a.length ? `<ul>${a.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : `<p class="muted">${empty}</p>`);
+  $('#view').innerHTML = `<section class="debrief">
+    <div class="card"><div class="eyebrow">Mission ${m.n} · Debrief</div><h1>${esc(m.codename)}</h1>
+      <div class="verdict ${d.success ? 'ok' : 'bad'}">${d.success ? 'Mission success' : 'Mission failed'}</div>
+      <ul class="obj-results">${d.objectives.map((o) => `<li class="${o.ok ? 'ok' : 'bad'}"><span>${o.ok ? '✓' : '✗'}</span>${o.primary ? 'Primary' : 'Secondary'}: <b>${o.label}</b></li>`).join('')}</ul>
+      <p>Requisition awarded: <b>+${d.rp} RP</b></p></div>
+    <div class="card"><h3>Personnel</h3><div class="table-wrap"><table class="personnel"><thead><tr><th>Operator</th><th>Status</th><th>HP</th><th>Kills</th><th>XP</th><th>Rank</th></tr></thead><tbody>
+      ${d.soldiers.map((s) => `<tr class="${/KIA|MIA/.test(s.status) ? 'lost' : ''}"><td>${esc(s.name)}</td><td>${s.status}</td><td>${s.hp}/${s.maxHp}</td><td>${s.kills}</td><td>${s.xp ? '+' + s.xp : '-'}</td><td>${s.promoted ? `<span class="chip gold">Promoted: ${s.promoted}</span>` : s.rank}</td></tr>`).join('')}
+    </tbody></table></div></div>
+    <div class="card split"><div><h3>Gear lost</h3>${list(d.lost, 'Nothing lost.')}</div><div><h3>Gear gained</h3>${list(d.gained, 'Nothing recovered.')}</div>${d.notes.length ? `<div><h3>Notes</h3>${list(d.notes, '')}</div>` : ''}</div>
+    <button class="btn primary big" type="button" id="next">Next mission</button></section>`;
+  $('#next').addEventListener('click', () => run(proceed));
+}
+
+// ------------------------------------------------------------------ input + boot
+document.addEventListener('keydown', (e) => {
+  if (G?.phase !== 'TACTICAL' || e.target.closest('input,select,textarea')) return;
+  const k = e.key.toLowerCase();
+  if (k === 'tab') {
+    e.preventDefault();
+    const list = mine();
+    if (!list.length) return;
+    tac.selected = list[(list.findIndex((u) => u.id === tac.selected) + 1) % list.length].id;
+    tac.mode = 'move';
+    updateTactical();
+  } else if (k === 'escape') setMode('move');
+  else if (k === 'e') order('end');
+  else if (k === 'g') order('grenade');
+  else if (k === 'h') order('medkit');
+  else if (k === 'i') order('intel');
+  else if (k === 'x') order('exfil');
+});
+window.addEventListener('resize', () => { if (G?.phase === 'BRIEFING') drawPreview(); });
+$('#btn-new').addEventListener('click', (e) => {
+  const b = e.currentTarget;
+  if (b.dataset.armed) {
+    delete b.dataset.armed; b.textContent = 'New campaign';
+    if (tac.busy) return;
+    draft.mission = null; mounted = null;
+    newCampaign((Math.random() * 2 ** 31) | 0);
+    persist(); refresh();
+    return;
+  }
+  b.dataset.armed = '1'; b.textContent = 'Tap again to restart';
+  setTimeout(() => { delete b.dataset.armed; b.textContent = 'New campaign'; }, 3000);
+});
+
+function start(data) {
+  let save = data && data.save;
+  if (!save) { try { save = localStorage.getItem(SAVE_KEY); } catch (e) { save = null; } }
+  try { G = save ? JSON.parse(save) : null; } catch (e) { G = null; }
+  if (!G || G.v !== 1) newCampaign((Math.random() * 2 ** 31) | 0);
+  window.claude?.hot?.snapshot?.(() => ({ save: JSON.stringify(G) }));
+  refresh();
+}
+window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+})();
+</script>
