@@ -1,3 +1,8 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>SKIRM</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -27,6 +32,9 @@
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
+:root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body { margin: 0; }
+[hidden] { display: none !important; }
 html, body { height: 100%; }
 body { background: var(--bg); color: var(--fg); font: 15px/1.45 var(--body); }
 body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
@@ -194,6 +202,8 @@ main { flex: 1; min-height: 0; padding-block: 16px; padding-left: max(16px, env(
 }
 </style>
 
+</head>
+<body>
 <div id="app">
   <header class="top">
     <div class="brand">SKIRM <span>tactical ops</span></div>
@@ -1488,3 +1498,5 @@ function start(data) {
 window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
 })();
 </script>
+</body>
+</html>

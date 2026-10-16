@@ -4,7 +4,9 @@ A minimal, playable version of the whole loop in `todo.md`:
 
 **Briefing → Insertion → Tactical (turn-based isometric hex) → Extraction → Debrief → next Briefing**
 
-The Java server owns the game. The browser only displays it.
+**Play in the browser:** https://smiley-gpu.github.io/SKIRM/. This is `index.html`, a standalone build where the rules engine and AI are ported to JavaScript. It needs no server, works on phones, and saves in browser storage.
+
+In the Java version below, the server owns the game and the browser only displays it.
 
 ## Run
 
