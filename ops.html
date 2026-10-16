@@ -1,0 +1,1426 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SKIRM Ops Board</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* SKIRM, abstract mode: the mission is a route of stages, each resolved by approach + committed operators + dice. */
+:root {
+  --bg: #0d1112;
+  --panel: #151b1c;
+  --panel-2: #1c2425;
+  --line: #2a3537;
+  --fg: #dde5e3;
+  --muted: #86948f;
+  --accent: #63c3d8;
+  --accent-ink: #052129;
+  --ok: #73d08c;
+  --warn: #e3c351;
+  --bad: #e2645b;
+  --gold: #e6b752;
+  --toast-bg: #2b1614;
+  --toast-fg: #ffd9d4;
+  --display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --body: "Barlow", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  --radius: 6px;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+:root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body { margin: 0; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--fg); font: 15px/1.45 var(--body); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+#app { min-height: 100%; display: flex; flex-direction: column; }
+h1 { font: 700 30px/1.05 var(--display); letter-spacing: 0.01em; margin: 2px 0 4px; text-wrap: balance; text-transform: uppercase; }
+h2 { font: 700 24px/1.1 var(--display); letter-spacing: 0.01em; margin: 2px 0 4px; text-transform: uppercase; }
+h3 { font: 600 13px/1.2 var(--display); text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); margin: 0 0 10px; }
+small, .muted { color: var(--muted); }
+button, select, input { font: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.top {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  padding-block: 10px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  background: var(--bg); border-bottom: 1px solid var(--line);
+}
+.brand { font: 700 20px/1 var(--display); letter-spacing: 0.24em; }
+.brand span { font-weight: 500; letter-spacing: 0.06em; color: var(--muted); margin-left: 6px; font-size: 15px; }
+.phases { display: flex; gap: 6px; align-items: center; flex: 1; font: 600 13px/1 var(--display); text-transform: uppercase; letter-spacing: 0.1em; min-width: 0; }
+.phases span { color: #56625f; }
+.phases span.done { color: var(--muted); }
+.phases span.on { color: var(--accent); }
+.phases i { color: #3a4644; font-style: normal; }
+.stats { display: flex; gap: 14px; font: 13px var(--mono); font-variant-numeric: tabular-nums; }
+.stats b { color: var(--muted); font-weight: 400; margin-right: 4px; }
+.top a.btn { text-decoration: none; }
+
+main { flex: 1; min-height: 0; padding-block: 16px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; min-width: 0; }
+.eyebrow { font: 600 13px/1 var(--display); text-transform: uppercase; letter-spacing: 0.16em; color: var(--accent); }
+.btn { background: var(--panel-2); color: var(--fg); border: 1px solid var(--line); border-radius: 5px; padding: 8px 12px; cursor: pointer; touch-action: manipulation; }
+.btn:hover:not(:disabled) { border-color: #4b5b58; }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+.btn.danger { color: var(--bad); }
+.btn.armed { border-color: var(--gold); color: var(--gold); }
+.btn.ghost { background: transparent; }
+.btn.big { padding: 12px 22px; font: 700 17px/1 var(--display); text-transform: uppercase; letter-spacing: 0.1em; }
+.chip { display: inline-block; font: 600 12px/1 var(--display); padding: 4px 8px; border-radius: 99px; border: 1px solid currentColor; text-transform: uppercase; letter-spacing: 0.1em; white-space: nowrap; }
+.chip.ok { color: var(--ok); } .chip.warn { color: var(--warn); } .chip.bad { color: var(--bad); }
+.chip.gold, .gold { color: var(--gold); font-style: normal; }
+#toast {
+  position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); z-index: 50;
+  background: var(--toast-bg); color: var(--toast-fg); border: 1px solid var(--bad); padding: 10px 16px; border-radius: 6px; max-width: min(90vw, 560px);
+}
+
+/* briefing */
+.briefing { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 16px; max-width: 1400px; margin: 0 auto; }
+.col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.area { color: var(--muted); margin: 0 0 12px; }
+.facts { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 0 0 14px; }
+.facts dt { color: var(--muted); } .facts dd { margin: 0; }
+.objectives { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.objectives li { background: var(--panel-2); padding: 8px 10px; border-radius: 5px; }
+.objectives b { margin-right: 6px; }
+.tag { font: 600 11px/1 var(--display); text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); border: 1px solid var(--line); border-radius: 3px; padding: 3px 6px; margin-right: 8px; }
+.tag.primary { color: var(--gold); border-color: var(--gold); }
+.intel-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid var(--line); }
+.intel-row:first-of-type { border-top: 0; }
+.intel-row small { display: block; }
+.humint { margin-top: 8px; padding: 10px; background: #261816; border: 1px solid #4b2825; border-radius: 5px; display: grid; gap: 4px; }
+.count { color: var(--fg); margin-left: 6px; }
+.roster { display: grid; gap: 8px; }
+.op { background: var(--panel-2); border: 1px solid transparent; border-radius: 5px; padding: 8px 10px; }
+.op.on { border-color: #2f5a63; } .op.off { opacity: 0.55; }
+.op-head { display: flex; align-items: center; gap: 10px; cursor: pointer; flex-wrap: wrap; }
+.op-head input { accent-color: var(--accent); width: 18px; height: 18px; }
+.rank { font: 600 12px var(--mono); color: var(--gold); min-width: 32px; }
+.name { font-weight: 600; }
+.op .meta { color: var(--muted); font-size: 13px; margin-left: auto; }
+.xp { position: relative; height: 4px; background: #0b0f10; border-radius: 2px; margin: 6px 0 14px 28px; }
+.xp i { position: absolute; inset: 0 auto 0 0; background: #3b8095; border-radius: 2px; }
+.xp small { position: absolute; right: 0; top: 5px; font: 11px var(--mono); }
+.loadout { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 0 0 4px 28px; }
+.loadout select { background: #0e1314; color: var(--fg); border: 1px solid var(--line); border-radius: 4px; padding: 6px; font-size: 14px; min-width: 0; width: 100%; }
+.loadout-hint { margin-left: 28px; font-size: 12px; color: var(--muted); }
+.fallen { margin-top: 10px; font-size: 13px; color: var(--muted); font-style: italic; }
+.cls { display: inline-block; font: 700 11px/1 var(--display); text-transform: uppercase; letter-spacing: 0.1em; padding: 3px 6px; border-radius: 3px; background: var(--cls-bg); color: var(--cls-fg); white-space: nowrap; }
+.cls-heavy { --cls-bg: #3a2c1d; --cls-fg: #f0b86a; }
+.cls-scout { --cls-bg: #1f3324; --cls-fg: #8fd9a0; }
+.cls-medic { --cls-bg: #3a1f22; --cls-fg: #ff9e9e; }
+.cls-drone { --cls-bg: #1b2f3a; --cls-fg: #8fd3ec; }
+.ability { margin: 4px 0 0 28px; font-size: 13px; color: var(--muted); }
+.skillline { margin: 4px 0 0 28px; font: 12px var(--mono); color: var(--muted); display: flex; gap: 10px; flex-wrap: wrap; }
+.skillline b { color: var(--fg); font-weight: 600; }
+.recruit { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); display: grid; gap: 8px; font-size: 14px; color: var(--muted); }
+.recruit-btns, .class-pick { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 6px; }
+.class-card { display: grid; gap: 6px; justify-items: start; text-align: left; }
+.class-card small { font-size: 12.5px; }
+.vehicles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 14px; }
+.veh { background: var(--panel-2); border: 1px solid var(--line); border-radius: 5px; padding: 8px 10px; cursor: pointer; display: grid; gap: 4px; align-content: start; }
+.veh.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.veh input { position: absolute; opacity: 0; pointer-events: none; }
+.veh-head { display: flex; justify-content: space-between; gap: 6px; }
+.veh .cost { font: 12px var(--mono); color: var(--gold); }
+.veh small { font-size: 12.5px; }
+.launch { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.budget { display: flex; gap: 18px; font: 14px var(--mono); font-variant-numeric: tabular-nums; flex-wrap: wrap; }
+.budget .bad { color: var(--bad); }
+.howto ol { margin: 0; padding-left: 18px; display: grid; gap: 4px; color: var(--muted); font-size: 14px; }
+.howto b { color: var(--fg); font-weight: 600; }
+
+/* route track (briefing preview and operation) */
+.route { list-style: none; margin: 0; padding: 0 0 4px; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(150px, 1fr); gap: 8px; overflow-x: auto; }
+.node { background: var(--panel-2); border: 1px solid var(--line); border-radius: 5px; padding: 8px 10px; min-width: 0; display: grid; gap: 2px; align-content: start; }
+.node.cur { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.node.done { opacity: 0.55; }
+.node.skipped { opacity: 0.4; text-decoration: line-through; }
+.node .k { font: 600 11px/1.2 var(--display); text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); }
+.node.cur .k { color: var(--accent); }
+.node b { font-weight: 600; font-size: 14px; }
+.node small { font-size: 12.5px; }
+
+/* operation */
+.ops { max-width: 1400px; margin: 0 auto; display: grid; gap: 12px; }
+.ops-head { display: grid; gap: 12px; }
+.clocks { display: flex; gap: 12px 28px; flex-wrap: wrap; align-items: flex-end; }
+.meter { display: grid; gap: 5px; }
+.meter .label { font: 600 12px/1 var(--display); text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); }
+.meter .label b { color: var(--fg); margin-left: 6px; letter-spacing: 0.06em; }
+.pipbar { display: flex; gap: 4px; }
+.pipbar i { width: 22px; height: 10px; border-radius: 2px; background: #0a0d0e; border: 1px solid var(--line); }
+.pipbar.alert i.on { background: var(--warn); border-color: var(--warn); }
+.pipbar.alert i.on.hot { background: var(--bad); border-color: var(--bad); }
+.pipbar.alert i.tier { margin-left: 8px; }
+.pipbar.time i.on { background: var(--accent); border-color: var(--accent); }
+.meter small { font-size: 12.5px; }
+.ops-grid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 12px; align-items: start; }
+.sit-text { color: var(--muted); margin: 0 0 14px; }
+.section-label { font: 600 12px/1 var(--display); text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); margin: 0 0 8px; }
+.appr-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px; margin-bottom: 16px; }
+.appr { text-align: left; display: grid; gap: 6px; align-content: start; background: var(--panel-2); border: 1px solid var(--line); color: var(--fg); border-radius: 5px; padding: 10px; cursor: pointer; touch-action: manipulation; }
+.appr.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.appr .row { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+.appr small { font-size: 13px; }
+.diff { font: 600 13px var(--mono); color: var(--gold); white-space: nowrap; }
+.tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.tags span { font-size: 12px; color: var(--muted); border: 1px solid var(--line); border-radius: 3px; padding: 1px 5px; }
+.tags .loud { color: #ffb6ae; border-color: #4b2825; }
+.tags .good { color: var(--ok); border-color: #1f4a2d; }
+.sk { display: inline-block; font: 700 11px/1 var(--display); letter-spacing: 0.1em; text-transform: uppercase; padding: 3px 6px; border-radius: 3px; }
+.sk-assault { background: #3a2c1d; color: #f0b86a; }
+.sk-stealth { background: #1f3324; color: #8fd9a0; }
+.sk-recon { background: #1b2f3a; color: #8fd3ec; }
+.sk-tech { background: #2e2640; color: #c9b8f5; }
+.commit { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px; margin-bottom: 16px; }
+.opbtn { display: grid; gap: 4px; text-align: left; background: var(--panel-2); border: 1px solid var(--line); color: var(--fg); border-radius: 5px; padding: 8px 10px; cursor: pointer; touch-action: manipulation; }
+.opbtn.on { border-color: var(--accent); background: #16292d; }
+.opbtn:disabled { opacity: 0.4; cursor: not-allowed; }
+.opbtn .name { font-size: 14px; }
+.dots { font: 13px var(--mono); color: var(--accent); letter-spacing: 1px; }
+.gear { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+.gear .btn.on, .leadrow .btn.on { border-color: var(--gold); color: var(--gold); }
+.leadrow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: -8px 0 16px; }
+.leadrow .btn { padding: 4px 10px; font-size: 13px; }
+.calc { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; background: #0e1314; border: 1px solid var(--line); border-radius: 5px; padding: 12px; margin-bottom: 14px; font-size: 13.5px; }
+.calc ul { list-style: none; margin: 4px 0 0; padding: 0; color: var(--muted); }
+.calc .big { font: 700 24px/1 var(--display); color: var(--fg); }
+.oddsbar { display: flex; height: 10px; border-radius: 3px; overflow: hidden; grid-column: 1 / -1; background: #0a0d0e; }
+.oddsbar .s { background: var(--ok); } .oddsbar .p { background: var(--warn); } .oddsbar .f { background: var(--bad); }
+.oddstext { grid-column: 1 / -1; font: 13px var(--mono); display: flex; gap: 14px; flex-wrap: wrap; }
+.oddstext .s { color: var(--ok); } .oddstext .p { color: var(--warn); } .oddstext .f { color: var(--bad); }
+.risk { grid-column: 1 / -1; display: grid; gap: 2px; font-size: 13px; }
+.risk .bad { color: #ffb6ae; } .risk .ok { color: var(--ok); }
+.actions-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; align-items: center; }
+.actions-row .grow { flex: 1; }
+.dice { display: flex; flex-wrap: wrap; gap: 6px; margin: 14px 0; }
+.die { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 6px; background: #0e1314; border: 1px solid var(--line); font: 700 20px var(--mono); color: var(--muted); animation: reveal 0.35s both; }
+.die.hit { background: #13301e; border-color: var(--ok); color: var(--ok); }
+.die.re { box-shadow: 0 0 0 2px var(--warn); }
+.outcome { font: 700 22px/1 var(--display); text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 6px; }
+.outcome.SUCCESS { color: var(--ok); } .outcome.PARTIAL { color: var(--warn); } .outcome.FAIL { color: var(--bad); }
+.costs { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 6px; margin: 12px 0; }
+.costs .btn { text-align: left; display: grid; gap: 2px; }
+.forks { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
+.fork { display: grid; gap: 6px; align-content: start; background: var(--panel-2); border: 1px solid var(--line); border-radius: 5px; padding: 12px; }
+.fork .btn { justify-self: start; margin-top: 6px; }
+.fork ul { margin: 0; padding-left: 16px; font-size: 13.5px; color: var(--muted); }
+.unit { background: var(--panel-2); border: 1px solid transparent; border-radius: 5px; padding: 8px 10px; margin-bottom: 6px; display: grid; gap: 5px; }
+.unit.down { border-color: #4b2825; }
+.unit.gone { opacity: 0.5; }
+.unit .head { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.unit .hp { margin-left: auto; font: 12px var(--mono); color: var(--muted); }
+.unit .skills { font: 12px var(--mono); color: var(--muted); display: flex; gap: 8px; flex-wrap: wrap; }
+.unit .skills b { color: var(--fg); font-weight: 600; }
+.unit .care { display: flex; gap: 6px; flex-wrap: wrap; }
+.unit .care .btn { padding: 4px 8px; font-size: 13px; }
+.bar { height: 5px; background: #0a0d0e; border-radius: 3px; overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--ok); }
+.bar i.low { background: var(--bad); }
+.log ol { list-style: none; margin: 0; padding: 0; font-size: 13.5px; max-height: 340px; overflow-y: auto; }
+.log li { padding: 3px 0; border-bottom: 1px solid #1c2425; color: #b6c1be; }
+.log .ev-turn { color: var(--accent); font-weight: 600; padding-top: 8px; }
+.log .ev-alert, .log .ev-down { color: #ffb6ae; } .log .ev-kill { color: var(--bad); } .log .ev-intel { color: var(--gold); } .log .ev-good { color: var(--ok); }
+
+/* reports */
+.report { max-width: 720px; margin: 24px auto; padding: 24px 28px; }
+.narrative { padding-left: 20px; margin: 18px 0 26px; display: grid; gap: 10px; font-size: 16px; }
+.narrative li { animation: reveal 0.5s both; }
+.narrative li.bad { color: #ffb6ae; }
+@keyframes reveal { from { opacity: 0.15; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+/* debrief */
+.debrief { max-width: 960px; margin: 0 auto; display: grid; gap: 16px; }
+.verdict { display: inline-block; margin: 10px 0; padding: 6px 14px; border-radius: 5px; font: 700 18px/1 var(--display); text-transform: uppercase; letter-spacing: 0.14em; }
+.verdict.ok { background: #13301e; color: var(--ok); } .verdict.bad { background: #341715; color: var(--bad); }
+.obj-results { list-style: none; padding: 0; display: grid; gap: 4px; }
+.obj-results span { display: inline-block; width: 20px; }
+.obj-results .ok span { color: var(--ok); } .obj-results .bad span { color: var(--bad); }
+.table-wrap { overflow-x: auto; }
+.personnel { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.personnel th, .personnel td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.personnel th { color: var(--muted); font-weight: 500; font-size: 13px; }
+.personnel tr.lost td { color: var(--bad); }
+.split { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+.split ul { margin: 0; padding-left: 18px; }
+.debrief > .btn { justify-self: end; }
+
+@media (max-width: 980px) {
+  .briefing, .ops-grid { grid-template-columns: 1fr; }
+  .vehicles { grid-template-columns: 1fr; }
+  .phases { display: none; }
+  .launch { flex-direction: column; align-items: stretch; }
+}
+@media (max-width: 520px) {
+  .loadout { grid-template-columns: 1fr; }
+  .stats { gap: 10px; font-size: 12px; }
+  .calc { grid-template-columns: 1fr; }
+  h1 { font-size: 26px; }
+  .pipbar i { width: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .narrative li, .die { animation: none; }
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="top">
+    <div class="brand">SKIRM <span>ops board</span></div>
+    <nav class="phases" id="phases" aria-label="Mission phase"></nav>
+    <div class="stats" id="stats"></div>
+    <a class="btn ghost" href="index.html">Hex tactics</a>
+    <button id="btn-new" class="btn ghost" type="button">New campaign</button>
+  </header>
+  <main id="view"><p class="muted">Loading command terminal…</p></main>
+</div>
+<div id="toast" role="status" hidden></div>
+
+<script>
+'use strict';
+(() => {
+// =====================================================================================
+// RULES DATA: every balance number lives in these tables.
+// =====================================================================================
+const SKILLS = {
+  ASSAULT: { label: 'Assault', short: 'ASL' },
+  STEALTH: { label: 'Stealth', short: 'STL' },
+  RECON: { label: 'Recon', short: 'RCN' },
+  TECH: { label: 'Tech', short: 'TEC' },
+};
+// Weapons and armour add or remove dice; utilities are spent for a one-off effect.
+const ITEMS = {
+  CARBINE: { slot: 'WEAPON', label: 'Carbine', dice: { ASSAULT: 1 } },
+  SMG: { slot: 'WEAPON', label: 'SMG', dice: { STEALTH: 1 } },
+  DMR: { slot: 'WEAPON', label: 'Marksman Rifle', dice: { RECON: 1 } },
+  LMG: { slot: 'WEAPON', label: 'LMG', dice: { ASSAULT: 1, STEALTH: -1 } },
+  AK: { slot: 'WEAPON', label: 'AK Rifle', dice: { ASSAULT: 1 } },
+  VEST: { slot: 'ARMOR', label: 'Soft Vest', dr: 1 },
+  PLATE: { slot: 'ARMOR', label: 'Plate Carrier', dr: 2, dice: { STEALTH: -1 } },
+  MEDKIT: { slot: 'UTILITY', label: 'Medkit' },
+  FRAG: { slot: 'UTILITY', label: 'Frag Grenade' },
+  BREACH: { slot: 'UTILITY', label: 'Breaching Charge' },
+  DRONE: { slot: 'UTILITY', label: 'Recon Drone' },
+};
+const GEAR_USE = { // consumables spent inside a test
+  FRAG: { skills: ['ASSAULT'], dice: 2 },
+  BREACH: { skills: ['TECH', 'ASSAULT'], dice: 2, alert: 1 },
+};
+const VEH = {
+  HELO: { label: 'Helicopter', cost: 4, risk: 25, time: 2, exfil: { all: -1 }, desc: '+2 time on target. Loud: a bad LZ can alert the area. Fast pickup: exfil tests -1, but under fire if the area is alerted.' },
+  GROUND: { label: 'Ground Convoy', cost: 2, risk: 20, time: 1, exfil: { ASSAULT: -1 }, desc: '+1 time on target. Exposed to IEDs and roadblocks. Truck guns: fighting withdrawal -1.' },
+  FOOT: { label: 'On Foot', cost: 0, risk: 10, time: 0, exfil: { STEALTH: -1, ASSAULT: 1 }, desc: 'No extra time, rarely detected. Exfil: Stealth -1, but Assault +1 with no fire support.' },
+};
+const INTEL = {
+  SATELLITE: { label: 'Satellite Imagery', cost: 2, desc: 'Reveals which entry points and targets lie on the route, and how each approach route affects the perimeter.' },
+  HUMINT: { label: 'Deep Intelligence', cost: 3, desc: 'Reveals enemy numbers at every stage and reinforcement timing. Objective tests -1 difficulty.' },
+};
+const OBJ = {
+  RETRIEVE_INTEL: { label: 'Retrieve Intel', desc: 'Secure the intel cache inside the compound and get its carrier out.' },
+  ELIMINATE_HVT: { label: 'Eliminate HVT', desc: 'A high-value target is holed up in the compound. Neutralise him.' },
+  NO_CASUALTIES: { label: 'Leave No One', desc: 'Bring every operator home alive.' },
+  UNDETECTED: { label: 'Ghost', desc: 'Complete the operation without the alert ever reaching the alarm line.' },
+};
+// An approach route shapes the stage that follows it.
+const ROUTES = {
+  RIVERBED: { label: 'Dry riverbed', text: 'Out of sight below the banks, but slow going.', time: 2, mod: { STEALTH: -1 } },
+  TRACK: { label: 'Farm track', text: 'The quickest way in, across open fields.', time: 1, mod: { STEALTH: 1 } },
+  RIDGE: { label: 'Ridgeline', text: 'High ground with a view over the target.', time: 2, mod: { RECON: -1 }, reveal: 2 },
+  ORCHARD: { label: 'Orchard rows', text: 'Tree cover right up to the outer wall.', time: 1, mod: {} },
+  CULVERT: { label: 'Storm culvert', text: 'Comes up right under the perimeter. Cramped.', time: 1, mod: { ASSAULT: 1, TECH: -1 } },
+};
+// Situations. Each approach: skill tested, base difficulty, extra time, and what success does.
+// kills: true = all hostiles at the stage; loud = they shoot back even when it works.
+const SIT = {
+  SENTRY: { kind: 'PERIMETER', label: 'Sentry post', text: 'Two guards with a radio watch the approach.', foes: 2, opts: [
+    { skill: 'STEALTH', diff: 3, label: 'Slip past', desc: 'Work around them in dead ground.' },
+    { skill: 'ASSAULT', diff: 3, label: 'Take them down', desc: 'Fast and violent. The shots will carry.', kills: true, loud: true, alert: 1 },
+    { skill: 'RECON', diff: 3, label: 'Time the rotation', desc: 'Watch, wait for the shift change, then move.', time: 1 }] },
+  PATROL: { kind: 'PERIMETER', label: 'Roving patrol', text: 'A three-man patrol sweeps the ground between you and the wall.', foes: 3, opts: [
+    { skill: 'STEALTH', diff: 3, label: 'Go to ground', desc: 'Lie still and let them walk past.' },
+    { skill: 'ASSAULT', diff: 4, label: 'Ambush', desc: 'Hit them from cover, all at once.', kills: true, loud: true, alert: 1 },
+    { skill: 'RECON', diff: 2, label: 'Shadow and avoid', desc: 'Track their route and slip in behind them.', time: 1 }] },
+  TOWER: { kind: 'PERIMETER', label: 'Watchtower', text: 'A searchlight sweeps the open ground from a tower on the wall.', foes: 1, opts: [
+    { skill: 'RECON', diff: 3, label: 'Overwatch shot', desc: 'One suppressed round from long range.', kills: true },
+    { skill: 'STEALTH', diff: 4, label: 'Crawl under the light', desc: 'Move only when the beam swings away.' },
+    { skill: 'TECH', diff: 3, label: 'Cut the generator', desc: 'Kill the power and walk in in the dark.', time: 1 }] },
+  GATE: { kind: 'PERIMETER', label: 'Chained gate', text: 'The only gap in the wire is a gate with a heavy chain.', foes: 0, opts: [
+    { skill: 'TECH', diff: 3, label: 'Cut the chain', desc: 'Bolt cutters and patience.' },
+    { skill: 'ASSAULT', diff: 2, label: 'Blow the gate', desc: 'Certain, and very loud.', alert: 2 },
+    { skill: 'STEALTH', diff: 3, label: 'Find a gap in the wire', desc: 'Walk the fence line looking for a weak spot.', time: 1 }] },
+  MINES: { kind: 'PERIMETER', label: 'Tripwire field', text: 'The approach is strung with tripwires and buried charges.', foes: 0, hazard: true, opts: [
+    { skill: 'TECH', diff: 3, label: 'Clear a lane', desc: 'Disarm a path, one device at a time.', time: 1 },
+    { skill: 'RECON', diff: 3, label: 'Spot the wires', desc: 'Read the ground and step around them.' },
+    { skill: 'STEALTH', diff: 4, label: 'Follow the goat track', desc: 'Where the locals walk, there are no mines.' }] },
+  DOGS: { kind: 'PERIMETER', label: 'Guard dogs', text: 'A handler walks two dogs along the outer wall.', foes: 1, opts: [
+    { skill: 'STEALTH', diff: 4, label: 'Stay downwind', desc: 'Keep the wind in your face and move slow.' },
+    { skill: 'ASSAULT', diff: 2, label: 'Silence them', desc: 'Quick and ugly. Someone might hear.', kills: true, loud: true, alert: 1 },
+    { skill: 'TECH', diff: 3, label: 'Drug the bait', desc: 'Leave something tasty and wait.', time: 1 }] },
+  INTEL: { kind: 'OBJECTIVE', label: 'Intel cache', text: 'The documents are in a safe in the main building.', foes: 2, opts: [
+    { skill: 'STEALTH', diff: 4, label: 'Lift it quietly', desc: 'In and out before anyone looks up.', intel: true },
+    { skill: 'TECH', diff: 3, label: 'Crack the safe', desc: 'Slow work with a stethoscope and a drill.', intel: true, time: 1 },
+    { skill: 'ASSAULT', diff: 3, label: 'Storm the building', desc: 'Clear it room by room, then take the safe.', intel: true, kills: true, loud: true, alert: 2 }] },
+  HVT: { kind: 'OBJECTIVE', label: 'High-value target', text: 'The HVT sleeps in the main building with his bodyguards.', foes: 3, opts: [
+    { skill: 'ASSAULT', diff: 4, label: 'Raid', desc: 'Breach and clear. Everyone inside goes down.', hvt: true, kills: true, loud: true, alert: 2 },
+    { skill: 'STEALTH', diff: 5, label: 'Silent kill', desc: 'Get to his bedside without waking anyone.', hvt: true },
+    { skill: 'RECON', diff: 4, label: 'Long shot', desc: 'Wait for him at the window, from the ridge.', hvt: true, alert: 2, time: 1 }] },
+  CACHE: { kind: 'OPTIONAL', label: 'Weapons cache', text: 'A guarded arms cache sits in an outbuilding.', foes: 1, opts: [
+    { skill: 'TECH', diff: 3, label: 'Pick the lock', desc: 'Quietly empty it.', cache: true },
+    { skill: 'ASSAULT', diff: 3, label: 'Grab it', desc: 'Drop the guard and take what you can carry.', cache: true, kills: true, loud: true, alert: 1 }] },
+  BREAK: { kind: 'EXFIL', label: 'Break contact', text: 'Get everyone to the extraction point.', foes: 1, opts: [
+    { skill: 'STEALTH', diff: 3, label: 'Ghost out', desc: 'Leave the way you came, silently.' },
+    { skill: 'ASSAULT', diff: 3, label: 'Fighting withdrawal', desc: 'Bound back under covering fire.', loud: true },
+    { skill: 'TECH', diff: 3, label: 'Booby-trap the trail', desc: 'Slow the pursuit with charges and wire.' }] },
+};
+const KIND = { APPROACH: 'Approach', PERIMETER: 'Perimeter', OBJECTIVE: 'Objective', OPTIONAL: 'Optional', EXFIL: 'Exfil' };
+const COSTS = {
+  ALERT: { label: '+1 alert', desc: 'Someone heard something.' },
+  TIME: { label: '-1 time', desc: 'It took longer than planned.' },
+  WOUND: { label: 'Take a hit', desc: 'One committed operator is hurt.' },
+};
+const RANKS = [['PVT', 'Private', 0], ['PFC', 'Private First Class', 20], ['CPL', 'Corporal', 50], ['SGT', 'Sergeant', 90], ['SSG', 'Staff Sergeant', 140], ['LT', 'Lieutenant', 200]];
+const MAX_TEAM = 4, MAX_SUPPORT = 2, BASE_TIME = 8, ALERT_TIER = 3, ALERT_MAX = 6, STEALTH_LIMIT = 2, BLEED_STAGES = 2;
+const MK_HEAL = 5, MEDIC_HEAL = 8, REVIVE_HP = 3, RECRUIT_COST = 3, ROSTER_MIN = 6, ROSTER_MAX = 8;
+// Class = permanent role fixed at recruitment: dice per skill, HP, and what gear it may carry (default-pick order).
+const CLASSES = {
+  HEAVY: { label: 'Heavy', hp: 12, dice: { ASSAULT: 3, STEALTH: 1, RECON: 1, TECH: 2 }, weapons: ['LMG', 'CARBINE', 'AK'], armor: ['PLATE', 'VEST'], utility: ['BREACH', 'FRAG'],
+    ability: 'Breacher: a Breaching Charge adds +2 dice to a Tech or Assault test (loud: +1 alert). Toughest class.' },
+  SCOUT: { label: 'Scout', hp: 9, dice: { ASSAULT: 2, STEALTH: 3, RECON: 3, TECH: 1 }, weapons: ['DMR', 'SMG', 'CARBINE', 'AK'], armor: ['VEST'], utility: ['FRAG', 'MEDKIT'],
+    ability: 'Ghost: never counts toward the Stealth noise limit.' },
+  MEDIC: { label: 'Medic', hp: 10, dice: { ASSAULT: 2, STEALTH: 2, RECON: 1, TECH: 1 }, weapons: ['CARBINE', 'SMG', 'AK'], armor: ['VEST'], utility: ['MEDKIT'],
+    ability: `Revive: once per stage, gets a downed operator back up with ${REVIVE_HP} HP. Medkits heal +${MEDIC_HEAL}.` },
+  DRONE: { label: 'Drone Operator', hp: 10, dice: { ASSAULT: 1, STEALTH: 2, RECON: 3, TECH: 3 }, weapons: ['SMG', 'CARBINE', 'AK'], armor: ['VEST'], utility: ['DRONE', 'FRAG'],
+    ability: 'Recon drone: reveals the next two stages, +1 die on Recon tests while up, one strike (+2 Assault dice). Can be shot down.' },
+};
+const ADJ = ['Silent', 'Iron', 'Broken', 'Pale', 'Crimson', 'Hollow', 'Distant', 'Bitter', 'Northern', 'Sudden'];
+const NOUN = ['Harrier', 'Lantern', 'Anvil', 'Meridian', 'Thicket', 'Sparrow', 'Bastion', 'Ember', 'Gauntlet', 'Kestrel'];
+const AREAS = ['Walled farmstead in the Varra highlands', "Abandoned pumping station on the Dry Fork", "Smuggler's waystation near the Kessel border crossing", 'Fortified orchard outside the town of Ostrow', 'Derelict customs post in the Saltmarsh lowlands'];
+const FIRST = ['Alex', 'Sam', 'Jordan', 'Riley', 'Casey', 'Morgan', 'Niko', 'Tariq', 'Elena', 'Mika', 'Jonas', 'Aino', 'Viktor', 'Lena', 'Omar', 'Petra', 'Dario', 'Iris', 'Kai', 'Sasha'];
+const LAST = ['Hale', 'Korhonen', 'Reyes', 'Novak', 'Brandt', 'Okafor', 'Lindqvist', 'Marsh', 'Varga', 'Sato', 'Kowalski', 'Moreau', 'Haddad', 'Petrov', 'Quinn', 'Aalto', 'Ferreira', 'Doyle', 'Ivanova', 'Kerr'];
+
+const rankIdx = (xp) => { let i = 0; RANKS.forEach((r, k) => { if (xp >= r[2]) i = k; }); return i; };
+const nextXp = (xp) => { const i = rankIdx(xp); return i + 1 < RANKS.length ? RANKS[i + 1][2] : -1; };
+const rankDice = (xp) => { const i = rankIdx(xp); return i >= 4 ? 2 : i >= 2 ? 1 : 0; };
+const compFactor = (e) => ({ DAY: 1, DUSK: 0.8, NIGHT: 0.6 })[e.time];
+/** Difficulty modifiers from time of day and weather, per skill. */
+function envMods(e, skill) {
+  const out = [];
+  const t = { DAY: { STEALTH: 1 }, DUSK: {}, NIGHT: { STEALTH: -1, RECON: 1 } }[e.time][skill];
+  if (t) out.push({ label: e.time === 'DAY' ? 'Daylight' : 'Darkness', v: t });
+  const w = { CLEAR: {}, RAIN: { STEALTH: -1, RECON: 1 }, FOG: { STEALTH: -1, RECON: 1 } }[e.weather][skill];
+  if (w) out.push({ label: e.weather === 'RAIN' ? 'Heavy rain' : 'Dense fog', v: w });
+  return out;
+}
+function envSummary(e) {
+  const base = `${{ DAY: 'Daylight', DUSK: 'Dusk', NIGHT: 'Night' }[e.time]}, ${{ CLEAR: 'clear skies', RAIN: 'heavy rain', FOG: 'dense fog' }[e.weather]}.`;
+  const fx = Object.keys(SKILLS).map((k) => [k, envMods(e, k).reduce((s, x) => s + x.v, 0)]).filter(([, v]) => v)
+    .map(([k, v]) => `${SKILLS[k].label} ${v > 0 ? 'harder' : 'easier'} (${v > 0 ? '+' : ''}${v})`);
+  return `${base} ${fx.length ? fx.join(', ') + '.' : 'No effect on tests.'}`;
+}
+const signed = (v) => (v > 0 ? '+' : '') + v;
+function itemSummary(id) {
+  const it = ITEMS[id];
+  if (it.slot !== 'UTILITY') return [it.dr ? `-${it.dr} damage taken` : '', ...Object.entries(it.dice || {}).map(([k, v]) => `${signed(v)} ${SKILLS[k].label}`)].filter(Boolean).join(', ');
+  return {
+    MEDKIT: `Field care: heal +${MK_HEAL} (medic +${MEDIC_HEAL}) or get a downed operator up`,
+    FRAG: `+${GEAR_USE.FRAG.dice} dice on one Assault test`,
+    BREACH: `+${GEAR_USE.BREACH.dice} dice on one Tech or Assault test, loud (+1 alert)`,
+    DRONE: 'Launch: reveals 2 stages ahead, +1 Recon die, 1 strike',
+  }[id];
+}
+/** Dice an operator brings to a skill test: class + rank + weapon + armour. */
+function diceFor(cls, xp, weapon, armor, skill) {
+  let n = CLASSES[cls].dice[skill] + rankDice(xp);
+  for (const it of [weapon, armor]) if (it && ITEMS[it].dice?.[skill]) n += ITEMS[it].dice[skill];
+  return Math.max(0, n);
+}
+
+// =====================================================================================
+// SEEDED RNG + small helpers
+// =====================================================================================
+let G = null; // the whole save game: plain JSON
+function rnd() { // mulberry32, state kept in the save so reloads stay deterministic
+  let t = (G.rs = (G.rs + 0x6D2B79F5) | 0);
+  t = Math.imul(t ^ (t >>> 15), t | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
+const range = (lo, hi) => lo + Math.floor(rnd() * (hi - lo + 1));
+const chance = (p) => rnd() * 100 < p;
+const pick = (a) => a[Math.floor(rnd() * a.length)];
+const pickN = (a, k) => { const c = [...a], out = []; while (out.length < k && c.length) out.push(c.splice(Math.floor(rnd() * c.length), 1)[0]); return out; };
+const d6 = () => range(1, 6);
+const HIT = 5; // a die showing 5 or 6 is a success
+
+/** Exact odds for n dice against difficulty d: success, partial (one short), fail. */
+function odds(n, d) {
+  let dist = [1];
+  for (let i = 0; i < n; i++) {
+    const next = new Array(dist.length + 1).fill(0);
+    dist.forEach((p, k) => { next[k] += p * (2 / 3); next[k + 1] += p / 3; });
+    dist = next;
+  }
+  const at = (k) => dist[k] || 0;
+  let s = 0;
+  for (let k = d; k < dist.length; k++) s += at(k);
+  const p = d >= 1 ? at(d - 1) : 0;
+  return { s, p, f: Math.max(0, 1 - s - p) };
+}
+
+class Rule extends Error {}
+const fail = (m) => { throw new Rule(m); };
+
+// =====================================================================================
+// CAMPAIGN + MISSION GENERATION
+// =====================================================================================
+function newCampaign(seed) {
+  G = { v: 1, mode: 'ops', rs: seed | 0, phase: 'BRIEFING', rp: 12, flown: 0, nextSid: 1, roster: [], used: {}, recruits: 0,
+    armory: { CARBINE: 4, SMG: 2, DMR: 1, LMG: 2, AK: 0, VEST: 4, PLATE: 2, MEDKIT: 3, FRAG: 4, BREACH: 3, DRONE: 2 },
+    mission: null, battle: null, debrief: null };
+  [[60, 'HEAVY'], [25, 'MEDIC'], [25, 'SCOUT'], [0, 'DRONE'], [0, 'HEAVY'], [0, 'SCOUT']].forEach(([xp, cls]) => recruit(xp, cls));
+  beginBriefing();
+}
+function recruit(xp, cls) {
+  let name;
+  do name = pick(FIRST) + ' ' + pick(LAST); while (G.used[name]);
+  G.used[name] = 1;
+  const s = { id: G.nextSid++, name, cls, xp, kills: 0, missions: 0, recovery: 0, alive: true };
+  G.roster.push(s);
+  return s;
+}
+const soldier = (id) => G.roster.find((s) => s.id === id);
+const available = (s) => s.alive && s.recovery === 0;
+
+function beginBriefing() {
+  for (const s of G.roster) if (s.recovery > 0) s.recovery--;
+  G.mission = genMission(G.flown + 1);
+  G.battle = null;
+  G.debrief = null;
+  G.phase = 'BRIEFING';
+}
+
+/** A mission is a route: approach → perimeter (1-2) → objective → optional target → exfil. Forks offer two choices. */
+function genMission(n) {
+  const codename = 'Operation ' + pick(ADJ) + ' ' + pick(NOUN);
+  const area = pick(AREAS);
+  const env = { time: pick(['DAY', 'DUSK', 'NIGHT']), weather: chance(60) ? 'CLEAR' : chance(50) ? 'RAIN' : 'FOG' };
+  const primary = chance(50) ? 'RETRIEVE_INTEL' : 'ELIMINATE_HVT';
+  const secondary = pick(Object.keys(OBJ).filter((o) => o !== primary));
+  const sitFor = (o) => (o === 'RETRIEVE_INTEL' ? 'INTEL' : 'HVT');
+  const perimeter = Object.keys(SIT).filter((k) => SIT[k].kind === 'PERIMETER');
+  const route = [{ kind: 'APPROACH', choices: pickN(Object.keys(ROUTES), 2), pick: null }];
+  for (let i = 0; i < (n >= 3 ? 2 : 1); i++) route.push({ kind: 'PERIMETER', choices: pickN(perimeter, 2), pick: null });
+  route.push({ kind: 'OBJECTIVE', choices: [sitFor(primary)], pick: 0 });
+  if (secondary === 'RETRIEVE_INTEL' || secondary === 'ELIMINATE_HVT') route.push({ kind: 'OPTIONAL', choices: [sitFor(secondary)], pick: 0 });
+  else if (chance(50)) route.push({ kind: 'OPTIONAL', choices: ['CACHE'], pick: 0 });
+  route.push({ kind: 'EXFIL', choices: ['BREAK'], pick: 0 });
+  let rAt = 0, rCount = 0;
+  if (chance(55)) { rAt = range(3, 5); rCount = range(1, 2); }
+  return { n, codename, area, env, primary, secondary, route, rAt, rCount, intel: [], team: [], loadouts: {}, ins: null, ext: null, insReport: [], extReport: [] };
+}
+const hasObj = (m, t) => m.primary === t || m.secondary === t;
+function threat(m) {
+  const n = m.route.reduce((s, st) => s + (st.kind === 'APPROACH' ? 0 : Math.max(...st.choices.map((c) => SIT[c].foes))), 0);
+  return n <= 5 ? 'Light: a squad-sized element.' : n <= 7 ? 'Moderate: a reinforced squad.' : 'Heavy: platoon-strength presence.';
+}
+
+// =====================================================================================
+// OPERATION ENGINE: every rule check lives here. Commands throw Rule before mutating anything.
+// =====================================================================================
+const B = () => G.battle;
+const team = () => B().units;
+const active = (u) => u.hp > 0 && !u.downed && !u.exfil && !u.stranded && !u.missing;
+const unitById = (id) => team().find((u) => u.id === id);
+const dr = (u) => (u.armor ? ITEMS[u.armor].dr : 0);
+const opDice = (u, skill) => diceFor(u.cls, soldier(u.sid).xp, u.weapon, u.armor, skill);
+const cur = () => B().stages[B().stage];
+const sitOf = (st) => (st.kind === 'APPROACH' || st.pick == null ? null : SIT[st.choices[st.pick]]);
+const alerted = () => B().alert >= ALERT_TIER;
+
+function log(text, kind = 'info') {
+  const l = B().log;
+  l.push({ text, kind });
+  if (l.length > 120) l.splice(0, l.length - 120);
+}
+
+function makeOp(m, members) {
+  G.battle = { units: [], nextId: 1, alert: 0, alerted: false, time: BASE_TIME + VEH[m.ins].time, timeMax: 0, stage: 0,
+    stages: JSON.parse(JSON.stringify(m.route)), attempts: 0, reinf: 0, state: 'PLAN', roll: null, revived: [],
+    drone: { up: false, op: null, strike: 0, used: false }, hvtKilled: false, carrier: null, cache: false, kills: 0, over: false, done: false, log: [] };
+  const b = G.battle;
+  for (const s of members) {
+    const l = m.loadouts[s.id];
+    b.units.push({ id: b.nextId++, sid: s.id, name: s.name, cls: s.cls, maxHp: CLASSES[s.cls].hp, hp: CLASSES[s.cls].hp,
+      weapon: l.weapon, armor: l.armor, util: l.utility, consumed: null, kills: 0, killedHvt: false, revives: 0, tests: 0,
+      downed: false, bleed: 0, exfil: false, stranded: false, missing: false, droneLost: false });
+  }
+  b.stages[0].seen = true;
+  log(`Stage 1: ${KIND.APPROACH}. Choose a route in.`, 'turn');
+}
+
+/** Hostiles at a stage. Reinforcements add one everywhere that is defended, and their full number at the exfil. */
+function foesOf(st, sit) {
+  const b = B();
+  if (st.kind === 'EXFIL') return (alerted() ? 3 : 1) + b.reinf;
+  return sit.foes ? sit.foes + (b.reinf ? 1 : 0) : 0;
+}
+/** Difficulty with an itemised breakdown, so the UI never has to guess. */
+function difficulty(st, sit, opt, ids) {
+  const b = B(), m = G.mission, mods = [{ label: 'Base', v: opt.diff }];
+  const add = (label, v) => { if (v) mods.push({ label, v }); };
+  add('Enemy experience', Math.floor((m.n - 1) / 3));
+  for (const e of envMods(m.env, opt.skill)) add(e.label, e.v);
+  add('Approach route', st.mod?.[opt.skill] || 0);
+  if (opt.skill === 'STEALTH') {
+    add('Area alerted', alerted() ? 1 : 0);
+    const bodies = ids.map(unitById).filter((u) => u && u.cls !== 'SCOUT').length;
+    add(`Noise: ${bodies} non-Scouts`, Math.max(0, bodies - STEALTH_LIMIT));
+    add('Carrying wounded', team().filter((u) => u.downed).length);
+  }
+  if (opt.skill === 'ASSAULT') { add('Enemy dug in (alerted)', alerted() ? 1 : 0); add('Enemy reinforced', b.reinf ? 1 : 0); }
+  if (st.kind === 'OBJECTIVE' && m.intel.includes('HUMINT')) add('Deep intel on the layout', -1);
+  if (st.kind === 'EXFIL') { const x = VEH[m.ext].exfil; add(`${VEH[m.ext].label} pickup`, (x.all || 0) + (x[opt.skill] || 0)); }
+  return { value: Math.max(1, mods.reduce((s, x) => s + x.v, 0)), mods };
+}
+/** Dice pool with breakdown: the lead rolls their full skill, each supporter adds one die. */
+function poolOf(opt, ids, gearIds, strike, leadId) {
+  const parts = ids.map((id) => { const u = unitById(id); return id === leadId ? { label: `${u.name} (lead)`, v: opDice(u, opt.skill) } : { label: `${u.name} (support)`, v: 1 }; });
+  for (const id of gearIds) { const u = unitById(id); parts.push({ label: ITEMS[u.util].label, v: GEAR_USE[u.util].dice }); }
+  if (B().drone.up && opt.skill === 'RECON') parts.push({ label: 'Drone overwatch', v: 1 });
+  if (strike) parts.push({ label: 'Drone strike', v: 2 });
+  return { value: parts.reduce((s, x) => s + x.v, 0), parts };
+}
+const gearUsable = (u, opt) => !!u && active(u) && !!GEAR_USE[u.util] && GEAR_USE[u.util].skills.includes(opt.skill);
+/** The strongest legal fireteam for an approach: its best lead plus the next best in support. */
+const fireteam = (opt, ids) => [...ids].sort((a, c) => opDice(unitById(c), opt.skill) - opDice(unitById(a), opt.skill)).slice(0, 1 + MAX_SUPPORT);
+const bestLead = (opt, ids) => [...ids].sort((a, c) => opDice(unitById(c), opt.skill) - opDice(unitById(a), opt.skill))[0] ?? null;
+const canStrike = (opt) => opt.skill === 'ASSAULT' && B().drone.up && B().drone.strike > 0;
+
+function need(p) { if (G.phase !== p) fail(`Not possible during ${p.toLowerCase()}.`); }
+function needPlan() {
+  need('OPERATION');
+  if (B().over) fail('The operation is over.');
+  if (B().state !== 'PLAN') fail('Resolve the current roll first.');
+}
+
+function raise(n, text) {
+  const b = B();
+  if (!n) return;
+  b.alert = Math.min(ALERT_MAX, b.alert + n);
+  if (text) log(`${text} Alert ${b.alert}/${ALERT_MAX}.`, 'alert');
+  if (b.alert >= ALERT_TIER && !b.alerted) { b.alerted = true; log('The enemy is alerted. Stealth gets harder and they shoot back harder.', 'alert'); }
+}
+function hurt(u, base) {
+  const d = Math.max(1, (base ?? range(3, 5)) - dr(u));
+  if (u.downed) return killUnit(u, `${u.name} is hit again while down and is KIA.`);
+  u.hp -= d;
+  if (u.hp > 0) return log(`${u.name} is hit (-${d} HP).`, 'down');
+  u.hp = 0; u.downed = true; u.bleed = BLEED_STAGES;
+  log(`${u.name} is DOWN (-${d}). Get them up within ${BLEED_STAGES} stages or they die.`, 'down');
+}
+function killUnit(u, text) {
+  const b = B();
+  u.downed = false; u.hp = 0;
+  log(text, 'kill');
+  if (b.carrier === u.id) {
+    const other = team().find(active);
+    b.carrier = other ? other.id : null;
+    log(other ? `${other.name} takes the intel.` : 'The intel is lost.', 'intel');
+  }
+}
+function droneLost() {
+  const b = B(), op = unitById(b.drone.op);
+  b.drone.up = false;
+  op.droneLost = true; op.util = null;
+  log('The drone is shot down.', 'kill');
+}
+/** Enemy fire: one die per hostile (+1 when alerted); each die at or above thresh is a hit on a committed operator. */
+function returnFire(foes, thresh, ids, leadId) {
+  const b = B(), n = foes + (alerted() ? 1 : 0);
+  if (n <= 0) return;
+  const hits = Array.from({ length: n }, d6).filter((d) => d >= thresh).length;
+  log(`Enemy fire: ${n} ${n === 1 ? 'die' : 'dice'}, ${hits} hit${hits === 1 ? '' : 's'}.`, hits ? 'alert' : 'info');
+  for (let i = 0; i < hits; i++) {
+    if (b.drone.up && chance(33)) { droneLost(); continue; }
+    const exposed = ids.map(unitById).filter(active), lead = unitById(leadId);
+    const t = i === 0 && lead && active(lead) ? lead : exposed.length ? pick(exposed) : pick(team().filter(active));
+    if (!t) return;
+    hurt(t);
+  }
+}
+
+// ---------------------------------------------------------------- commands
+function chooseRoute(i) {
+  needPlan();
+  const b = B(), st = cur();
+  if (st.kind !== 'APPROACH') fail('There is no route to choose here.');
+  const r = ROUTES[st.choices[i]];
+  if (!r) fail('Unknown route.');
+  if (r.time > b.time) fail(`That route takes ${r.time} time; only ${b.time} left.`);
+  b.time -= r.time;
+  st.pick = i;
+  const next = b.stages[b.stage + 1];
+  next.mod = { ...r.mod };
+  log(`Route: ${r.label} (${r.time} time).`, 'info');
+  if (r.reveal) for (let k = 1; k <= r.reveal; k++) if (b.stages[b.stage + k]) b.stages[b.stage + k].seen = true;
+  if (r.reveal) log('From the ridge you can see the next stages.', 'good');
+  settle(true);
+}
+function chooseFork(i) {
+  needPlan();
+  const st = cur();
+  if (st.kind === 'APPROACH' || st.pick != null) fail('Nothing to choose here.');
+  if (!SIT[st.choices[i]]) fail('Unknown option.');
+  st.pick = i;
+  log(`Going in via the ${SIT[st.choices[i]].label.toLowerCase()}.`, 'info');
+}
+function execute(o) {
+  needPlan();
+  const b = B(), st = cur(), sit = sitOf(st);
+  if (!sit) fail('Choose a way in first.');
+  const opt = sit.opts[o.opt];
+  if (!opt) fail('Pick an approach.');
+  const ids = [...new Set(o.ids || [])];
+  if (!ids.length) fail('Commit at least one operator.');
+  for (const id of ids) if (!unitById(id) || !active(unitById(id))) fail('That operator cannot act.');
+  const gearIds = [...new Set(o.gear || [])];
+  for (const id of gearIds) if (!ids.includes(id) || !gearUsable(unitById(id), opt)) fail('That gear cannot be used on this test.');
+  const lead = o.lead ?? bestLead(opt, ids);
+  if (!ids.includes(lead)) fail('The lead must be one of the committed operators.');
+  if (ids.length > 1 + MAX_SUPPORT) fail(`A fireteam is a lead and at most ${MAX_SUPPORT} in support.`);
+  const strike = !!o.strike;
+  if (strike && !canStrike(opt)) fail('No drone strike available.');
+  const cost = 1 + (opt.time || 0);
+  if (cost > b.time) fail(`That takes ${cost} time; only ${b.time} left.`);
+  const pool = poolOf(opt, ids, gearIds, strike, lead), diff = difficulty(st, sit, opt, ids);
+  if (pool.value < 1) fail('No dice: commit someone who has that skill.');
+
+  b.time -= cost;
+  b.attempts++;
+  log(`${opt.label}: ${unitById(lead).name} leads${ids.length > 1 ? ` with ${ids.length - 1} in support` : ''}, ${pool.value} dice vs difficulty ${diff.value}.`, 'turn');
+  for (const id of gearIds) {
+    const u = unitById(id), g = GEAR_USE[u.util];
+    log(`${u.name} uses a ${ITEMS[u.util].label.toLowerCase()}.`, 'info');
+    u.consumed = u.util; u.util = null;
+    raise(g.alert || 0, 'The charge goes off.');
+  }
+  if (strike) { b.drone.strike--; log('The drone drops its munition.', 'info'); }
+  b.roll = { opt: o.opt, ids, lead, dice: Array.from({ length: pool.value }, d6), rerolled: [], diff: diff.value, pushed: false };
+  b.state = 'ROLLED';
+}
+const successes = (r) => r.dice.filter((d) => d >= HIT).length;
+const outcomeOf = (r) => { const s = successes(r); return s >= r.diff ? 'SUCCESS' : s === r.diff - 1 ? 'PARTIAL' : 'FAIL'; };
+/** Re-roll every failed die once, at the price of noise. */
+function push() {
+  need('OPERATION');
+  const b = B(), r = b.roll;
+  if (b.state !== 'ROLLED') fail('Nothing to push.');
+  if (r.pushed) fail('You can only push once.');
+  if (outcomeOf(r) === 'SUCCESS') fail('Already a success.');
+  r.pushed = true;
+  r.rerolled = [];
+  r.dice = r.dice.map((d, i) => { if (d >= HIT) return d; r.rerolled.push(i); return d6(); });
+  raise(1, 'Pushing it makes noise.');
+}
+/** Apply the roll. A partial success needs the player to pick its cost. */
+function resolve(cost) {
+  need('OPERATION');
+  const b = B();
+  if (b.state !== 'ROLLED') fail('Nothing to resolve.');
+  const st = cur(), sit = sitOf(st), opt = sit.opts[b.roll.opt], out = outcomeOf(b.roll), ids = b.roll.ids, foes = foesOf(st, sit);
+  if (out === 'PARTIAL' && !COSTS[cost]) fail('Choose what the partial success costs.');
+  const members = ids.map(unitById), lead = unitById(b.roll.lead), leadId = lead.id;
+  b.roll = null;
+  b.state = 'PLAN';
+  if (out === 'FAIL') {
+    log(`${opt.label} fails.`, 'alert');
+    if (opt.skill === 'ASSAULT') { raise(2, 'A firefight breaks out.'); returnFire(foes, 4, ids, leadId); }
+    else if (foes) { raise(2, 'Spotted!'); returnFire(foes, 4, ids, leadId); }
+    else if (sit.hazard) { const t = active(lead) ? lead : pick(members.filter(active)); if (t) { log('A tripwire goes off.', 'alert'); hurt(t, range(3, 5)); } }
+    else raise(1, 'Too much noise.');
+    return settle(false);
+  }
+  if (out === 'PARTIAL') {
+    log(`${opt.label}: success, at a cost (${COSTS[cost].label}).`, 'alert');
+    if (cost === 'ALERT') raise(1, 'Someone heard something.');
+    else if (cost === 'TIME') b.time = Math.max(0, b.time - 1);
+    else { const t = active(lead) ? lead : pick(members.filter(active)); if (t) hurt(t); }
+  } else log(`${opt.label}: clean success.`, 'good');
+  for (const u of members) u.tests++;
+  raise(opt.alert || 0, 'That was loud.');
+  if (opt.kills && foes) {
+    const alive = members.filter((u) => u.hp > 0), shooters = (alive.length ? alive : members).sort((a, c) => (c === lead) - (a === lead));
+    for (let k = 0; k < foes; k++) shooters[k % shooters.length].kills++;
+    b.kills += foes;
+    log(`${foes} hostile${foes > 1 ? 's' : ''} down.`, 'kill');
+  }
+  if (opt.loud && foes) returnFire(foes, 5, ids, leadId);
+  if (opt.hvt) { b.hvtKilled = true; lead.killedHvt = true; lead.kills++; b.kills++; log(`${lead.name} confirms the HVT is dead.`, 'intel'); }
+  if (opt.intel) { const c = active(lead) ? lead : team().find(active); b.carrier = c ? c.id : null; if (c) log(`${c.name} has the intel.`, 'intel'); }
+  if (opt.cache) { b.cache = true; log('Cache secured. The quartermaster will be pleased.', 'intel'); }
+  if (st.kind === 'EXFIL') {
+    for (const u of team()) {
+      if (active(u)) u.exfil = true;
+      else if (u.downed) { u.downed = false; u.hp = 1; u.exfil = true; log(`${u.name} is carried out.`, 'good'); }
+    }
+    b.done = true;
+    log('The team reaches the extraction point.', 'good');
+  }
+  settle(true);
+}
+/** After every command: reinforcements, QRF, the clock, and moving on. */
+function settle(cleared) {
+  const b = B(), m = G.mission;
+  if (m.rAt && !b.reinf && b.attempts >= m.rAt && !b.done) {
+    b.reinf = m.rCount;
+    log(`Engines to the east: ${m.rCount === 1 ? 'a vehicle' : 'two vehicles'} of reinforcements arrive.`, 'alert');
+    raise(1);
+  }
+  if (b.done) return finish();
+  if (!team().some(active)) { log('Nobody is left standing.', 'kill'); return finish(); }
+  const exfilAt = b.stages.findIndex((s) => s.kind === 'EXFIL');
+  if (b.alert >= ALERT_MAX && b.stage < exfilAt) {
+    log('Quick reaction force inbound! Abandon everything and get to the extraction point.', 'alert');
+    for (let i = b.stage + (cleared ? 1 : 0); i < exfilAt; i++) b.stages[i].skipped = true;
+    b.stage = exfilAt - 1;
+    cleared = true;
+  }
+  if (cleared) advance();
+  if (b.time <= 0 && !b.done) {
+    log('The extraction window has closed. Everyone left must get out on foot.', 'alert');
+    for (const u of team()) if (active(u)) u.stranded = true;
+    finish();
+  }
+}
+function advance() {
+  const b = B();
+  for (const u of team()) if (u.downed && --u.bleed <= 0) killUnit(u, `${u.name} bled out.`);
+  b.revived = [];
+  b.stage++;
+  const st = cur();
+  st.seen = true;
+  log(`Stage ${b.stage + 1}: ${KIND[st.kind]}${st.pick != null ? ' · ' + SIT[st.choices[st.pick]].label : ''}.`, 'turn');
+}
+function skip() {
+  needPlan();
+  if (cur().kind !== 'OPTIONAL') fail('Only optional targets can be skipped.');
+  cur().skipped = true;
+  log('Optional target skipped.', 'info');
+  settle(true);
+}
+function abort() {
+  need('OPERATION');
+  if (B().over) fail('The operation is over.');
+  B().state = 'PLAN'; B().roll = null;
+  log('Mission aborted. Everyone breaks contact on foot.', 'alert');
+  for (const u of team()) if (active(u)) u.stranded = true;
+  finish();
+}
+function finish() {
+  const b = B();
+  b.over = true;
+  for (const u of team()) if (u.downed) killUnit(u, `${u.name} could not be recovered and is lost.`);
+  b.drone.up = false; // flies home if it is still up; debrief settles the item
+  G.mission.extReport = extraction(G.mission);
+  G.phase = 'EXTRACTION';
+}
+
+// ---------------------------------------------------------------- field care (between tests, free)
+function revive(medicId, targetId) {
+  needPlan();
+  const b = B(), md = unitById(medicId), t = unitById(targetId);
+  if (!md || md.cls !== 'MEDIC' || !active(md)) fail('Only a medic who is standing can revive.');
+  if (b.revived.includes(md.id)) fail(`${md.name} has already revived someone at this stage.`);
+  if (!t || !t.downed) fail('Nobody to revive.');
+  t.downed = false; t.hp = REVIVE_HP; md.revives++;
+  b.revived.push(md.id);
+  log(`${md.name} gets ${t.name} back on their feet (${REVIVE_HP} HP).`, 'good');
+}
+function treat(holderId, targetId) {
+  needPlan();
+  const h = unitById(holderId), t = unitById(targetId);
+  if (!h || !active(h) || h.util !== 'MEDKIT') fail('No medkit there.');
+  if (!t || !(active(t) || t.downed) || t.hp >= t.maxHp) fail('They do not need treatment.');
+  const amount = Math.min(h.cls === 'MEDIC' ? MEDIC_HEAL : MK_HEAL, t.maxHp - t.hp);
+  h.consumed = 'MEDKIT'; h.util = null;
+  if (t.downed) t.downed = false;
+  t.hp += amount;
+  log(`${h.name} treats ${t === h ? 'their own wounds' : t.name} (+${amount}).`, 'good');
+}
+function launchDrone(uid) {
+  needPlan();
+  const b = B(), u = unitById(uid);
+  if (!u || !active(u) || u.util !== 'DRONE') fail('No drone to launch.');
+  if (b.drone.used) fail('The drone has already flown this mission.');
+  b.drone = { up: true, op: u.id, strike: 1, used: true };
+  for (let k = 1; k <= 2; k++) if (b.stages[b.stage + k]) b.stages[b.stage + k].seen = true;
+  log(`${u.name} launches the drone. The next two stages are revealed.`, 'good');
+}
+
+// =====================================================================================
+// PHASES: briefing → insertion → operation → extraction → debrief
+// =====================================================================================
+function buyIntel(id) {
+  need('BRIEFING');
+  const m = G.mission, i = INTEL[id];
+  if (m.intel.includes(id)) fail(`${i.label} already acquired.`);
+  if (G.rp < i.cost) fail(`${i.label} costs ${i.cost} RP; you have ${G.rp}.`);
+  G.rp -= i.cost;
+  m.intel.push(id);
+}
+function launch(o) {
+  need('BRIEFING');
+  if (!o.team.length || o.team.length > MAX_TEAM) fail(`Select between 1 and ${MAX_TEAM} operators.`);
+  const needed = {}, members = [];
+  for (const id of o.team) {
+    const s = soldier(id);
+    if (!s || !available(s)) fail('That operator is not available.');
+    const l = o.loadouts[id];
+    if (!l || !l.weapon) fail(`${s.name} needs a weapon.`);
+    const cl = CLASSES[s.cls];
+    for (const [it, list] of [[l.weapon, cl.weapons], [l.armor, cl.armor], [l.utility, cl.utility]])
+      if (it && !list.includes(it)) fail(`A ${cl.label} can't carry ${ITEMS[it]?.label ?? it}.`);
+    for (const it of [l.weapon, l.armor, l.utility]) if (it) needed[it] = (needed[it] || 0) + 1;
+    members.push(s);
+  }
+  for (const [it, n] of Object.entries(needed)) if ((G.armory[it] || 0) < n) fail(`The armory is short of ${ITEMS[it].label}.`);
+  const cost = VEH[o.insertion].cost + VEH[o.extraction].cost;
+  if (cost > G.rp) fail(`Transport costs ${cost} RP; you have ${G.rp}.`);
+  for (const [it, n] of Object.entries(needed)) G.armory[it] -= n;
+  G.rp -= cost;
+  const m = G.mission;
+  m.team = [...o.team];
+  m.loadouts = JSON.parse(JSON.stringify(o.loadouts));
+  m.ins = o.insertion;
+  m.ext = o.extraction;
+  makeOp(m, members);
+  m.insReport = insertion(m);
+  B().timeMax = B().time;
+  G.phase = 'INSERTION';
+}
+function insertion(m) {
+  const b = B(), rep = [{ HELO: 'The helicopter runs in low over the ridgeline toward the drop point.', GROUND: 'The convoy rolls in along the south road, lights off.', FOOT: 'The team moves in on foot through the treeline on the western approach.' }[m.ins]];
+  if (!chance(Math.round(VEH[m.ins].risk * compFactor(m.env)))) { rep.push('Insertion clean. The team is on the ground, undetected.'); return rep; }
+  const victim = pick(team()), first = chance(50);
+  const injure = (n) => { victim.hp = Math.max(1, victim.hp - n); };
+  const delay = () => { b.time = Math.max(3, b.time - 2); };
+  const alarm = () => raise(Math.max(0, ALERT_TIER - b.alert));
+  if (m.ins === 'HELO') {
+    if (first) { rep.push('HOT LZ: small-arms fire on approach. The enemy knows you are here.'); alarm(); }
+    else { rep.push(`Hard landing. ${victim.name} is hurt in the drop (-2 HP).`); injure(2); }
+  } else if (m.ins === 'GROUND') {
+    if (first) { rep.push(`IED strike on the lead vehicle! ${victim.name} is wounded (-3 HP).`); injure(3); }
+    else { rep.push('Roadblock. Forced detour: 2 time lost.'); delay(); }
+  } else if (first) { rep.push('A goatherd spots the team and runs for the compound. Expect them to be ready.'); alarm(); }
+  else { rep.push('Flooded gully. The approach takes longer than planned: 2 time lost.'); delay(); }
+  return rep;
+}
+function extraction(m) {
+  const b = B(), rep = [];
+  const out = team().filter((u) => u.exfil && u.hp > 0), left = team().filter((u) => u.stranded && u.hp > 0);
+  const hot = alerted();
+  if (out.length) {
+    rep.push({ HELO: 'Rotor wash flattens the clearing as the helicopter flares in.', GROUND: 'The trucks swing round on the road, tailgates down.', FOOT: 'The team slips back out through the western treeline.' }[m.ext]);
+    if (hot) {
+      rep.push(`The area is alerted (${b.alert}/${ALERT_MAX}). Taking fire at the extraction point!`);
+      const c = { HELO: 30, GROUND: 25, FOOT: 40 }[m.ext] + (b.alert - ALERT_TIER) * 5;
+      for (const u of out) {
+        if (!chance(c)) continue;
+        const d = range(1, 3);
+        u.hp = Math.max(0, u.hp - d);
+        rep.push(u.hp > 0 ? `${u.name} is hit during extraction (-${d} HP).` : `${u.name} is killed during extraction.`);
+      }
+    } else rep.push('Extraction clean. No contact.');
+  }
+  for (const u of left) {
+    rep.push(`${u.name} missed the extraction and attempts to escape on foot...`);
+    if (chance(hot ? 45 : 20)) { u.missing = true; rep.push(`Contact lost. ${u.name} is missing in action.`); }
+    else { const d = range(1, 4); u.hp = Math.max(1, u.hp - d); u.exfil = true; rep.push(`${u.name} reaches friendly lines two days later, battered (-${d} HP).`); }
+  }
+  if (!out.length && !left.length) rep.push('No operators made it to extraction.');
+  return rep;
+}
+function debrief(m) {
+  const b = B(), sq = team();
+  const anyOut = sq.some((u) => u.exfil && u.hp > 0), casualties = sq.some((u) => u.hp <= 0 || u.missing);
+  const carrier = b.carrier != null ? unitById(b.carrier) : null;
+  const intelOut = !!carrier && carrier.exfil && carrier.hp > 0;
+  const done = (t) => ({ RETRIEVE_INTEL: intelOut, ELIMINATE_HVT: b.hvtKilled, NO_CASUALTIES: anyOut && !casualties, UNDETECTED: anyOut && !b.alerted })[t];
+  const success = anyOut && done(m.primary);
+  const rp = 2 + (success ? 8 : 0) + (done(m.secondary) ? 4 : 0);
+  G.rp += rp;
+  const soldiers = [], lost = [], gained = [], notes = [];
+  for (const u of sq) {
+    const s = soldier(u.sid), before = rankIdx(s.xp);
+    let xp = 0, status;
+    if (u.hp <= 0 || u.missing) {
+      status = u.missing ? 'MIA' : 'KIA';
+      s.alive = false;
+      for (const it of [u.weapon, u.armor, u.util]) if (it) lost.push(`${ITEMS[it].label} (${u.name})`);
+    } else {
+      xp = 10 + (success ? 10 : 0) + u.kills * 8 + (u.killedHvt ? 25 : 0) + (carrier === u && intelOut ? 15 : 0) + u.revives * 10 + u.tests * 4;
+      if (u.hp <= u.maxHp / 2) { status = 'Heavy wound: misses next mission'; s.recovery = 2; }
+      else status = u.hp < u.maxHp ? 'Light wound' : 'Fit for duty';
+      for (const it of [u.weapon, u.armor, u.util]) if (it) G.armory[it] = (G.armory[it] || 0) + 1;
+    }
+    if (u.consumed) lost.push(`${ITEMS[u.consumed].label} (expended)`);
+    if (u.droneLost) lost.push('Recon Drone (shot down)');
+    s.xp += xp; s.kills += u.kills; s.missions++;
+    const after = rankIdx(s.xp);
+    soldiers.push({ name: u.name, cls: s.cls, status, hp: u.hp, maxHp: u.maxHp, kills: u.kills, xp, rank: RANKS[after][1], promoted: s.alive && after !== before ? RANKS[after][1] : null });
+  }
+  if (anyOut) {
+    for (let i = 0; i < b.kills; i++) if (chance(30)) { G.armory.AK = (G.armory.AK || 0) + 1; gained.push('AK Rifle (captured)'); }
+    if (b.hvtKilled && chance(50)) { G.armory.SMG++; gained.push("SMG (HVT's personal weapon)"); }
+    if (intelOut) { const it = chance(50) ? 'MEDKIT' : 'FRAG'; G.armory[it] += 2; gained.push(`2x ${ITEMS[it].label} (cache location from recovered intel)`); }
+    if (b.cache) {
+      const it = pick(['FRAG', 'BREACH', 'MEDKIT']); G.armory[it] += 2; gained.push(`2x ${ITEMS[it].label} (weapons cache)`);
+      if (chance(50)) { const w = pick(['DMR', 'LMG']); G.armory[w]++; gained.push(`${ITEMS[w].label} (weapons cache)`); }
+    }
+  }
+  const weapons = () => Object.keys(ITEMS).filter((k) => ITEMS[k].slot === 'WEAPON').reduce((n, k) => n + (G.armory[k] || 0), 0);
+  while (weapons() < 4) { G.armory.CARBINE++; gained.push('Carbine (quartermaster replacement)'); }
+  G.recruits = Math.max(0, ROSTER_MIN - G.roster.filter((s) => s.alive).length);
+  if (G.recruits) notes.push(`${G.recruits} replacement slot${G.recruits > 1 ? 's' : ''} open. Choose a class for each below.`);
+  G.flown++;
+  return { success, objectives: [{ label: OBJ[m.primary].label, primary: true, ok: done(m.primary) }, { label: OBJ[m.secondary].label, primary: false, ok: done(m.secondary) }], soldiers, lost, gained, rp, notes };
+}
+function proceed() {
+  if (G.phase === 'INSERTION') G.phase = 'OPERATION';
+  else if (G.phase === 'EXTRACTION') { G.debrief = debrief(G.mission); G.phase = 'DEBRIEF'; }
+  else if (G.phase === 'DEBRIEF') {
+    if (G.recruits > 0) fail('Choose a class for each replacement recruit first.');
+    beginBriefing();
+  } else fail('Nothing to continue.');
+}
+/** Free replacement slots after a debrief; otherwise buy an extra recruit during the briefing. */
+function enlist(cls) {
+  if (!CLASSES[cls]) fail('Unknown class.');
+  if (G.phase === 'DEBRIEF' && G.recruits > 0) { G.recruits--; return recruit(0, cls); }
+  need('BRIEFING');
+  if (G.roster.filter((s) => s.alive).length >= ROSTER_MAX) fail(`The roster is full (${ROSTER_MAX} operators).`);
+  if (G.rp < RECRUIT_COST) fail(`Recruiting costs ${RECRUIT_COST} RP; you have ${G.rp}.`);
+  G.rp -= RECRUIT_COST;
+  return recruit(0, cls);
+}
+
+// =====================================================================================
+// UI
+// =====================================================================================
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+let toastTimer;
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => (t.hidden = true), 3200); }
+
+const SAVE_KEY = 'skirm-ops-v1'; // separate from the hex game's save
+function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(G)); } catch (e) { /* storage unavailable: play continues unsaved */ } }
+
+let mounted = null;
+const draft = { mission: null, team: [], loadouts: {}, insertion: 'FOOT', extraction: 'FOOT' };
+const plan = { key: null, opt: 0, ids: [], lead: null, gear: [], strike: false, abortArmed: false };
+
+function run(fn) {
+  try { fn(); } catch (e) {
+    if (e instanceof Rule) return toast(e.message);
+    console.error(e);
+    return toast('Unexpected error: ' + e.message);
+  }
+  persist();
+  refresh();
+}
+
+const PHASES = [['BRIEFING', 'Briefing'], ['INSERTION', 'Insertion'], ['OPERATION', 'Operation'], ['EXTRACTION', 'Extraction'], ['DEBRIEF', 'Debrief']];
+function refresh() {
+  if (G.phase !== mounted) { mounted = G.phase; window.scrollTo(0, 0); }
+  const idx = PHASES.findIndex(([p]) => p === G.phase);
+  $('#phases').innerHTML = PHASES.map(([p, l], i) => `<span class="${i === idx ? 'on' : i < idx ? 'done' : ''}">${l}</span>`).join('<i>›</i>');
+  $('#stats').innerHTML = `<span><b>Mission</b>${G.flown + 1}</span><span><b>RP</b>${G.rp}</span><span><b>Operators</b>${G.roster.filter((s) => s.alive).length}</span>`;
+  if (G.phase === 'BRIEFING') renderBriefing();
+  else if (G.phase === 'INSERTION' || G.phase === 'EXTRACTION') renderReport();
+  else if (G.phase === 'OPERATION') renderOps();
+  else renderDebrief();
+}
+
+const classChip = (cls) => `<span class="cls cls-${cls.toLowerCase()}">${CLASSES[cls].label}</span>`;
+const skillChip = (k) => `<span class="sk sk-${k.toLowerCase()}">${SKILLS[k].label}</span>`;
+const skillLine = (f) => Object.keys(SKILLS).map((k) => `<span>${SKILLS[k].short} <b>${f(k)}</b></span>`).join('');
+
+// ------------------------------------------------------------------ route track (shared by briefing and operation)
+/** What the player knows about a stage: names (types) and enemy numbers (nums). */
+function knowledge(st, reached) {
+  const intel = G.mission.intel, seen = reached || !!st.seen;
+  return { types: seen || intel.includes('SATELLITE') || intel.includes('HUMINT'), nums: seen || intel.includes('HUMINT'), routes: seen || intel.includes('SATELLITE') };
+}
+function nodeHtml(st, i, curIdx) {
+  const reached = i <= curIdx, kn = knowledge(st, reached);
+  const state = st.skipped ? 'skipped' : i < curIdx ? 'done' : i === curIdx ? 'cur' : '';
+  let title, detail = '';
+  if (st.kind === 'APPROACH') {
+    title = st.pick != null ? ROUTES[st.choices[st.pick]].label : st.choices.map((c) => ROUTES[c].label).join(' / ');
+    detail = st.pick != null ? `${ROUTES[st.choices[st.pick]].time} time` : 'Pick one';
+  } else if (st.kind === 'EXFIL') {
+    title = 'Break contact';
+    detail = G.battle && G.phase === 'OPERATION' ? (() => { const f = foesOf(st, SIT.BREAK); return `${f} hostile${f === 1 ? '' : 's'} now`; })() : `Then ${VEH[G.phase === 'BRIEFING' ? draft.extraction : G.mission.ext].label.toLowerCase()} out`;
+  } else {
+    const sits = (st.pick != null ? [st.choices[st.pick]] : st.choices).map((c) => SIT[c]);
+    const named = st.kind === 'OBJECTIVE' || (st.kind === 'OPTIONAL' && sits[0] !== SIT.CACHE) || kn.types;
+    title = named ? sits.map((s) => s.label).join(' / ') : st.kind === 'OPTIONAL' ? 'Target of opportunity?' : `${sits.length} unscouted entry point${sits.length > 1 ? 's' : ''}`;
+    if (kn.nums) detail = sits.map((s) => { const f = G.battle && G.phase === 'OPERATION' ? foesOf(st, s) : s.foes; return `${f} hostile${f === 1 ? '' : 's'}`; }).join(' / ');
+    else detail = 'Strength unknown';
+  }
+  return `<li class="node ${state}"><span class="k">${i + 1} · ${KIND[st.kind]}</span><b>${esc(title)}</b><small>${esc(detail)}</small></li>`;
+}
+const routeHtml = (stages, curIdx) => `<ol class="route">${stages.map((st, i) => nodeHtml(st, i, curIdx)).join('')}</ol>`;
+
+// ------------------------------------------------------------------ briefing
+function remaining() {
+  const left = { ...G.armory };
+  for (const id of draft.team) for (const it of Object.values(draft.loadouts[id])) if (it) left[it] = (left[it] || 0) - 1;
+  return left;
+}
+function defaultLoadout(cls) {
+  const left = remaining(), first = (p) => p.find((x) => (left[x] || 0) > 0) || null, cl = CLASSES[cls];
+  return { weapon: first(cl.weapons), armor: first(cl.armor), utility: first(cl.utility) };
+}
+const classOf = (id) => soldier(+id).cls;
+function syncDraft() {
+  const key = G.mission.n + ':' + G.flown + ':' + G.mission.codename;
+  if (draft.mission === key) return;
+  draft.mission = key;
+  Object.assign(draft, { team: [], loadouts: {}, insertion: 'FOOT', extraction: 'FOOT' });
+  for (const s of G.roster) {
+    if (!available(s) || draft.team.length >= MAX_TEAM) continue;
+    const l = defaultLoadout(s.cls);
+    if (!l.weapon) break;
+    draft.team.push(s.id);
+    draft.loadouts[s.id] = l;
+  }
+}
+function renderBriefing() {
+  syncDraft();
+  const m = G.mission, left = remaining(), cost = VEH[draft.insertion].cost + VEH[draft.extraction].cost;
+  const okBudget = cost <= G.rp, okKit = draft.team.length > 0 && draft.team.every((id) => draft.loadouts[id].weapon) && Object.values(left).every((n) => n >= 0);
+  const intelRows = Object.entries(INTEL).map(([id, i]) => {
+    const own = m.intel.includes(id);
+    return `<div class="intel-row"><div><b>${i.label}</b><small>${i.desc}</small></div>${own ? '<span class="chip ok">Acquired</span>' : `<button class="btn" type="button" data-intel="${id}" ${G.rp < i.cost ? 'disabled' : ''}>Buy · ${i.cost} RP</button>`}</div>`;
+  }).join('');
+  const humint = m.intel.includes('HUMINT') ? `<div class="humint"><div>Enemy numbers are marked on the route. Objective tests are 1 easier.</div><div>${m.rAt ? `Expect ${m.rCount === 1 ? 'one vehicle' : 'two vehicles'} of reinforcements after your ${m.rAt}${['th', 'st', 'nd', 'rd'][m.rAt] || 'th'} action.` : 'No reinforcements expected.'}</div></div>` : '';
+  const select = (sid, slot, cur, none) => {
+    const allowed = CLASSES[classOf(sid)][{ WEAPON: 'weapons', ARMOR: 'armor', UTILITY: 'utility' }[slot]];
+    const opts = allowed.map((k) => {
+      const n = (left[k] || 0) + (cur === k ? 1 : 0);
+      if (n <= 0 && cur !== k) return '';
+      return `<option value="${k}" ${cur === k ? 'selected' : ''}>${ITEMS[k].label} (${n} in stock)</option>`;
+    }).join('');
+    return `<select id="lo-${sid}-${slot}" data-sid="${sid}" data-slot="${slot}" aria-label="${slot.toLowerCase()}">${none ? '<option value="">None</option>' : ''}${opts}</select>`;
+  };
+  const roster = G.roster.filter((s) => s.alive).map((s) => {
+    const on = draft.team.includes(s.id), l = draft.loadouts[s.id], nx = nextXp(s.xp), pct = nx > 0 ? Math.min(100, Math.round((s.xp / nx) * 100)) : 100, ok = available(s);
+    return `<div class="op ${on ? 'on' : ''} ${ok ? '' : 'off'}">
+      <label class="op-head"><input type="checkbox" id="pick-${s.id}" data-pick="${s.id}" ${on ? 'checked' : ''} ${ok ? '' : 'disabled'}>
+        <span class="rank">${RANKS[rankIdx(s.xp)][0]}</span><span class="name">${esc(s.name)}</span>${classChip(s.cls)}
+        <span class="meta">${CLASSES[s.cls].hp} HP · ${s.missions} ops · ${s.kills} kills</span>${ok ? '' : `<span class="chip warn">Recovering</span>`}</label>
+      <div class="skillline">${skillLine((k) => diceFor(s.cls, s.xp, on ? l.weapon : null, on ? l.armor : null, k))}<span class="muted">dice</span></div>
+      <div class="ability">${CLASSES[s.cls].ability}</div>
+      <div class="xp"><i style="width:${pct}%"></i><small>${s.xp}${nx > 0 ? ' / ' + nx : ''} XP</small></div>
+      ${on ? `<div class="loadout">${select(s.id, 'WEAPON', l.weapon, false)}${select(s.id, 'ARMOR', l.armor, true)}${select(s.id, 'UTILITY', l.utility, true)}</div>
+      <div class="loadout-hint">${[l.weapon, l.armor, l.utility].filter(Boolean).map((x) => `${ITEMS[x].label}: ${itemSummary(x)}`).join(' · ')}</div>` : ''}</div>`;
+  }).join('');
+  const fallen = G.roster.filter((s) => !s.alive).map((s) => `${RANKS[rankIdx(s.xp)][0]} ${esc(s.name)}`);
+  const vehicles = (f) => Object.entries(VEH).map(([id, v]) => `<label class="veh ${draft[f] === id ? 'on' : ''}"><input type="radio" id="${f}-${id}" name="${f}" value="${id}" ${draft[f] === id ? 'checked' : ''}>
+    <span class="veh-head"><b>${v.label}</b><span class="cost">${v.cost ? v.cost + ' RP' : 'Free'}</span></span><small>${v.desc}</small></label>`).join('');
+
+  $('#view').innerHTML = `<section class="briefing">
+    <div class="col">
+      <div class="card"><div class="eyebrow">Mission ${m.n} · Briefing</div><h1>${esc(m.codename)}</h1><p class="area">${esc(m.area)}</p>
+        <dl class="facts"><dt>Conditions</dt><dd>${envSummary(m.env)}</dd><dt>Threat</dt><dd>${threat(m)}</dd><dt>Time on target</dt><dd>${BASE_TIME + VEH[draft.insertion].time} (base ${BASE_TIME}, +${VEH[draft.insertion].time} from insertion)</dd></dl>
+        <ul class="objectives"><li><span class="tag primary">Primary</span><b>${OBJ[m.primary].label}</b>${OBJ[m.primary].desc}</li>
+          <li><span class="tag">Secondary</span><b>${OBJ[m.secondary].label}</b>${OBJ[m.secondary].desc}</li></ul></div>
+      <div class="card"><h3>Operation plan</h3>${routeHtml(m.route, -1)}
+        ${m.intel.includes('SATELLITE') || m.intel.includes('HUMINT') ? '' : '<p class="muted" style="margin:8px 0 0">Entry points are unscouted. Buy intel to see what is waiting.</p>'}</div>
+      <div class="card"><h3>Intelligence</h3>${intelRows}${humint}</div>
+      <div class="card howto"><h3>How a stage works</h3><ol>
+        <li><b>Pick an approach.</b> Each one tests a skill: Assault, Stealth, Recon or Tech.</li>
+        <li><b>Commit operators.</b> The lead rolls their dice for that skill and takes the first hit. Each supporter adds 1 die. More bodies make Stealth noisier (Scouts excepted), and only committed operators get shot.</li>
+        <li><b>Spend gear</b> for extra dice, then roll. Every 5 or 6 is a success. Meet the difficulty to succeed. One short is a success at a cost you choose.</li>
+        <li><b>Push</b> to re-roll the misses, at +1 alert. Every action spends time. At ${ALERT_TIER} alert the enemy is awake; at ${ALERT_MAX} a QRF forces you out.</li></ol></div>
+    </div>
+    <div class="col">
+      <div class="card"><h3>Team <span class="count">${draft.team.length}/${MAX_TEAM}</span></h3><div class="roster">${roster}</div>
+        ${fallen.length ? `<div class="fallen">In memoriam: ${fallen.join(', ')}</div>` : ''}
+        ${G.roster.filter((s) => s.alive).length < ROSTER_MAX ? `<div class="recruit"><span>Recruit an operator · ${RECRUIT_COST} RP</span><div class="recruit-btns">${Object.entries(CLASSES).map(([id, c]) =>
+          `<button class="btn" type="button" data-enlist="${id}" ${G.rp < RECRUIT_COST ? 'disabled' : ''}>${c.label}</button>`).join('')}</div></div>` : ''}</div>
+      <div class="card"><h3>Insertion</h3><div class="vehicles">${vehicles('insertion')}</div><h3>Extraction</h3><div class="vehicles">${vehicles('extraction')}</div></div>
+      <div class="card launch"><div class="budget"><span>Requisition <b>${G.rp}</b></span><span>Transport <b>${cost}</b></span><span class="${okBudget ? '' : 'bad'}">Remaining <b>${G.rp - cost}</b></span></div>
+        <button class="btn primary big" type="button" id="launch" ${okBudget && okKit ? '' : 'disabled'}>Launch mission</button></div>
+    </div></section>`;
+
+  const v = $('#view');
+  v.querySelectorAll('[data-intel]').forEach((b) => b.addEventListener('click', () => run(() => buyIntel(b.dataset.intel))));
+  v.querySelectorAll('[data-enlist]').forEach((b) => b.addEventListener('click', () => run(() => { const s = enlist(b.dataset.enlist); toast(`${s.name} joins as ${CLASSES[s.cls].label}.`); })));
+  v.querySelectorAll('[data-pick]').forEach((cb) => cb.addEventListener('change', () => {
+    const id = +cb.dataset.pick;
+    if (cb.checked) {
+      if (draft.team.length >= MAX_TEAM) { toast(`Maximum team size is ${MAX_TEAM}.`); return renderBriefing(); }
+      const l = defaultLoadout(classOf(id));
+      if (!l.weapon) { toast(`No weapon a ${CLASSES[classOf(id)].label} can carry is left in the armory.`); return renderBriefing(); }
+      draft.team.push(id); draft.loadouts[id] = l;
+    } else { draft.team = draft.team.filter((x) => x !== id); delete draft.loadouts[id]; }
+    renderBriefing();
+  }));
+  v.querySelectorAll('select[data-sid]').forEach((s) => s.addEventListener('change', () => { draft.loadouts[s.dataset.sid][s.dataset.slot.toLowerCase()] = s.value || null; renderBriefing(); }));
+  v.querySelectorAll('input[type=radio]').forEach((r) => r.addEventListener('change', () => { draft[r.name] = r.value; renderBriefing(); }));
+  $('#launch').addEventListener('click', () => run(() => launch({ team: draft.team, loadouts: Object.fromEntries(draft.team.map((id) => [id, draft.loadouts[id]])), insertion: draft.insertion, extraction: draft.extraction })));
+}
+
+// ------------------------------------------------------------------ reports
+function renderReport() {
+  const m = G.mission, ins = G.phase === 'INSERTION', lines = ins ? m.insReport : m.extReport;
+  $('#view').innerHTML = `<section class="report card"><div class="eyebrow">Mission ${m.n} · ${ins ? 'Insertion' : 'Extraction'}</div><h1>${esc(m.codename)}</h1>
+    <ol class="narrative">${lines.map((l, i) => `<li style="animation-delay:${i * 450}ms" class="${/HOT|IED|spotted|killed|missing|fire|lost/i.test(l) ? 'bad' : ''}">${esc(l)}</li>`).join('')}</ol>
+    <button class="btn primary big" type="button" id="continue">${ins ? 'Begin operation' : 'Proceed to debrief'}</button></section>`;
+  $('#continue').addEventListener('click', () => run(proceed));
+}
+
+// ------------------------------------------------------------------ operation
+/** Keep the planning selection while the same test is on the table; reset it when the situation changes. */
+function syncPlan() {
+  const b = B(), st = cur(), key = `${G.flown}:${b.stage}:${st.pick ?? '-'}`;
+  if (plan.key !== key) {
+    Object.assign(plan, { key, opt: 0, lead: null, gear: [], strike: false, abortArmed: false });
+    const sit = sitOf(st);
+    const all = team().filter(active).map((u) => u.id);
+    plan.ids = all.slice(0, 1 + MAX_SUPPORT);
+    if (sit) { // sensible default: the approach with the best odds for its strongest fireteam
+      let best = -1, ids = plan.ids;
+      sit.opts.forEach((o, i) => { plan.ids = fireteam(o, all); const p = previewOf(i).odds.s; if (p > best) { best = p; plan.opt = i; ids = plan.ids; } });
+      plan.ids = ids;
+    }
+  }
+  plan.ids = plan.ids.filter((id) => active(unitById(id)));
+  const sit = sitOf(st);
+  if (sit) {
+    const opt = sit.opts[plan.opt];
+    plan.gear = plan.gear.filter((id) => plan.ids.includes(id) && gearUsable(unitById(id), opt));
+    if (!plan.ids.includes(plan.lead)) plan.lead = bestLead(opt, plan.ids);
+    if (plan.strike && !canStrike(opt)) plan.strike = false;
+  }
+}
+function previewOf(i) {
+  const st = cur(), sit = sitOf(st), opt = sit.opts[i];
+  const ids = plan.ids.filter((id) => active(unitById(id)));
+  const gear = i === plan.opt ? plan.gear : [];
+  const lead = i === plan.opt && ids.includes(plan.lead) ? plan.lead : bestLead(opt, ids);
+  const pool = ids.length ? poolOf(opt, ids, gear, i === plan.opt && plan.strike, lead) : { value: 0, parts: [] };
+  const diff = difficulty(st, sit, opt, ids);
+  return { opt, pool, diff, lead, odds: odds(pool.value, diff.value), foes: foesOf(st, sit) };
+}
+function meters() {
+  const b = B(), m = G.mission;
+  const pips = (n, max, cls, f) => `<div class="pipbar ${cls}">${Array.from({ length: max }, (_, i) => `<i class="${f(i)}"></i>`).join('')}</div>`;
+  const alertState = b.alert >= ALERT_MAX ? 'QRF inbound' : b.alert >= ALERT_TIER ? 'Alerted' : 'Unaware';
+  const reinf = b.reinf ? '<span class="chip bad">Reinforced</span>' : m.rAt && m.intel.includes('HUMINT') ? `<small>Reinforcements after action ${m.rAt} (now ${b.attempts})</small>` : '';
+  return `<div class="clocks">
+    <div class="meter"><span class="label">Alert<b>${b.alert}/${ALERT_MAX} · ${alertState}</b></span>${pips(b.alert, ALERT_MAX, 'alert', (i) => `${i < b.alert ? 'on' : ''} ${i >= ALERT_TIER && i < b.alert ? 'hot' : ''} ${i === ALERT_TIER ? 'tier' : ''}`)}</div>
+    <div class="meter"><span class="label">Time<b>${b.time} left</b></span>${pips(b.time, b.timeMax, 'time', (i) => (i < b.time ? 'on' : ''))}</div>
+    <div class="meter">${reinf}${b.drone.up ? `<span class="chip ok">Drone up${b.drone.strike ? ' · strike ready' : ''}</span>` : ''}</div></div>`;
+}
+function tagsOf(opt, foes) {
+  const t = [];
+  if (opt.time) t.push(`<span>+${opt.time} time</span>`);
+  if (opt.alert) t.push(`<span class="loud">+${opt.alert} alert</span>`);
+  if (opt.loud && foes) t.push('<span class="loud">Return fire</span>');
+  if (opt.kills && foes) t.push(`<span class="good">Kills ${foes}</span>`);
+  if (opt.hvt) t.push('<span class="good">Kills the HVT</span>');
+  if (opt.intel) t.push('<span class="good">Gets the intel</span>');
+  if (opt.cache) t.push('<span class="good">Takes the cache</span>');
+  return t.join('');
+}
+function riskLines(p, sit) {
+  const { opt, foes } = p, n = foes + (alerted() ? 1 : 0), out = [];
+  if (opt.loud && foes) out.push(`<span class="bad">On success: ${n} return-fire dice, hit on 5+.</span>`);
+  if (opt.skill === 'ASSAULT') out.push(`<span class="bad">On failure: +2 alert${n ? `, ${n} return-fire dice hit on 4+` : ''}.</span>`);
+  else if (foes) out.push(`<span class="bad">On failure: spotted, +2 alert, ${n} return-fire dice hit on 4+.</span>`);
+  else if (sit.hazard) out.push('<span class="bad">On failure: a tripwire hurts one committed operator.</span>');
+  else out.push('<span class="bad">On failure: +1 alert.</span>');
+  out.push('<span class="muted">Failure costs the time but not the stage: you can try again.</span>');
+  return out.join('');
+}
+function forkHtml(st) {
+  const b = B();
+  if (st.kind === 'APPROACH') {
+    const sat = G.mission.intel.includes('SATELLITE');
+    return `<div class="eyebrow">Stage ${b.stage + 1} · Approach</div><h2>Choose your route in</h2><p class="sit-text">The route sets the time you spend and shapes the perimeter stage that follows.</p>
+      <div class="forks">${st.choices.map((c, i) => { const r = ROUTES[c]; const fx = Object.entries(r.mod).map(([k, v]) => `${SKILLS[k].label} ${signed(v)}`).join(', ');
+        return `<div class="fork"><b>${r.label}</b><small>${r.text}</small><div class="tags"><span>${r.time} time</span>${sat ? `<span>${fx ? 'Perimeter: ' + fx : 'No perimeter effect'}</span>` : '<span>Effect unknown without satellite imagery</span>'}${r.reveal ? '<span class="good">Reveals 2 stages</span>' : ''}</div>
+        <button class="btn primary" type="button" data-act="route" data-i="${i}" ${r.time > b.time ? 'disabled' : ''}>Take this route</button></div>`; }).join('')}</div>`;
+  }
+  return `<div class="eyebrow">Stage ${b.stage + 1} · ${KIND[st.kind]}</div><h2>Choose your way in</h2><p class="sit-text">Two entry points. You can see both from here.</p>
+    <div class="forks">${st.choices.map((c, i) => { const s = SIT[c], f = foesOf(st, s);
+      return `<div class="fork"><b>${s.label}</b><small>${s.text}</small><div class="tags"><span>${f ? f + ' hostile' + (f > 1 ? 's' : '') : 'Unguarded'}</span>${s.hazard ? '<span class="loud">Hazard</span>' : ''}</div>
+      <ul>${s.opts.map((o) => `<li>${SKILLS[o.skill].label} ${o.diff}: ${o.label}</li>`).join('')}</ul>
+      <button class="btn primary" type="button" data-act="fork" data-i="${i}">Go this way</button></div>`; }).join('')}</div>`;
+}
+function planHtml(st, sit) {
+  const b = B(), p = previewOf(plan.opt), opt = p.opt;
+  const appr = sit.opts.map((o, i) => { const q = previewOf(i);
+    return `<button class="appr ${i === plan.opt ? 'on' : ''}" type="button" data-act="opt" data-i="${i}" aria-pressed="${i === plan.opt}">
+      <span class="row">${skillChip(o.skill)}<span class="diff">Diff ${q.diff.value} · ${Math.round(q.odds.s * 100)}%</span></span>
+      <b>${o.label}</b><small>${o.desc}</small><span class="tags">${tagsOf(o, q.foes)}</span></button>`; }).join('');
+  const ops = team().map((u) => { const ok = active(u), on = plan.ids.includes(u.id), isLead = u.id === p.lead, n = on && !isLead ? 1 : opDice(u, opt.skill);
+    return `<button class="opbtn ${on ? 'on' : ''}" type="button" data-act="op" data-id="${u.id}" ${ok ? '' : 'disabled'} aria-pressed="${on}">
+      <span class="name">${esc(u.name)}</span><span>${classChip(u.cls)} <span class="muted">${u.hp}/${u.maxHp} HP</span></span>
+      <span class="dots">${ok ? '●'.repeat(n) || '–' : u.downed ? 'DOWN' : 'Out'} <span class="muted">${!ok ? '' : isLead ? 'Lead' : on ? 'Support' : `${n} as lead`}</span></span></button>`; }).join('');
+  const leads = plan.ids.length > 1 ? `<div class="leadrow"><span class="muted">Lead:</span>${plan.ids.map(unitById).map((u) => `<button class="btn ${u.id === p.lead ? 'on' : ''}" type="button" data-act="lead" data-id="${u.id}" aria-pressed="${u.id === p.lead}">${esc(u.name.split(' ')[0])} · ${opDice(u, opt.skill)}</button>`).join('')}</div>` : '';
+  const gearBtns = plan.ids.map(unitById).filter((u) => gearUsable(u, opt)).map((u) => `<button class="btn ${plan.gear.includes(u.id) ? 'on' : ''}" type="button" data-act="gear" data-id="${u.id}" aria-pressed="${plan.gear.includes(u.id)}">${ITEMS[u.util].label} · ${esc(u.name.split(' ')[0])} (+${GEAR_USE[u.util].dice}${GEAR_USE[u.util].alert ? ', loud' : ''})</button>`);
+  if (canStrike(opt)) gearBtns.push(`<button class="btn ${plan.strike ? 'on' : ''}" type="button" data-act="strike" aria-pressed="${plan.strike}">Drone strike (+2)</button>`);
+  const cost = 1 + (opt.time || 0), pct = (x) => Math.round(x * 100);
+  return `<div class="eyebrow">Stage ${b.stage + 1} · ${KIND[st.kind]}</div><h2>${esc(sit.label)}</h2>
+    <p class="sit-text">${esc(sit.text)} ${p.foes ? `<b>${p.foes} hostile${p.foes > 1 ? 's' : ''}.</b>` : ''}</p>
+    <div class="section-label">1 · Approach</div><div class="appr-list">${appr}</div>
+    <div class="section-label">2 · Commit operators <span class="muted">(the lead rolls their ${SKILLS[opt.skill].label} dice and takes the first hit; each supporter adds 1 die)</span></div><div class="commit">${ops}</div>${leads}
+    ${gearBtns.length ? `<div class="section-label">3 · Spend gear</div><div class="gear">${gearBtns.join('')}</div>` : ''}
+    <div class="calc">
+      <div><span class="big">${p.pool.value}</span> dice<ul>${p.pool.parts.map((x) => `<li>${esc(x.label)} ${signed(x.v)}</li>`).join('') || '<li>Nobody committed</li>'}</ul></div>
+      <div><span class="big">${p.diff.value}</span> difficulty<ul>${p.diff.mods.map((x) => `<li>${esc(x.label)} ${x.label === 'Base' ? x.v : signed(x.v)}</li>`).join('')}</ul></div>
+      <div class="oddsbar" aria-hidden="true"><i class="s" style="width:${pct(p.odds.s)}%"></i><i class="p" style="width:${pct(p.odds.p)}%"></i><i class="f" style="width:${pct(p.odds.f)}%"></i></div>
+      <div class="oddstext"><span class="s">Success ${pct(p.odds.s)}%</span><span class="p">At a cost ${pct(p.odds.p)}%</span><span class="f">Fail ${pct(p.odds.f)}%</span><span class="muted">before pushing</span></div>
+      <div class="risk">${riskLines(p, sit)}</div></div>
+    <div class="actions-row">
+      <button class="btn danger ${plan.abortArmed ? 'armed' : ''}" type="button" data-act="abort">${plan.abortArmed ? 'Tap again to abort' : 'Abort mission'}</button>
+      ${st.kind === 'OPTIONAL' ? '<button class="btn" type="button" data-act="skip">Skip this target</button>' : ''}<span class="grow"></span>
+      <button class="btn primary big" type="button" data-act="exec" ${p.pool.value && cost <= b.time ? '' : 'disabled'}>Execute · ${cost} time</button></div>`;
+}
+function rollHtml(st, sit) {
+  const b = B(), r = b.roll, opt = sit.opts[r.opt], out = outcomeOf(r), s = successes(r);
+  const word = { SUCCESS: 'Success', PARTIAL: 'Success at a cost', FAIL: 'Failure' }[out];
+  return `<div class="eyebrow">Stage ${b.stage + 1} · ${KIND[st.kind]} · ${esc(sit.label)}</div><h2>${esc(opt.label)}</h2>
+    <div class="dice">${r.dice.map((d, i) => `<span class="die ${d >= HIT ? 'hit' : ''} ${r.rerolled.includes(i) ? 're' : ''}" style="animation-delay:${i * 60}ms">${d}</span>`).join('')}</div>
+    <div class="outcome ${out}">${word}</div><p>${s} success${s === 1 ? '' : 'es'} against difficulty ${r.diff}.${r.pushed ? ' Pushed.' : ''}</p>
+    ${out === 'PARTIAL' ? `<div class="section-label">Choose the cost</div><div class="costs">${Object.entries(COSTS).map(([k, c]) => `<button class="btn" type="button" data-act="cost" data-c="${k}"><b>${c.label}</b><small>${c.desc}</small></button>`).join('')}</div>` : ''}
+    <div class="actions-row">${out !== 'SUCCESS' && !r.pushed ? `<button class="btn" type="button" data-act="push">Push: re-roll ${r.dice.length - s} misses (+1 alert)</button>` : ''}<span class="grow"></span>
+      ${out === 'PARTIAL' ? '' : `<button class="btn primary big" type="button" data-act="accept">${out === 'SUCCESS' ? 'Continue' : 'Accept failure'}</button>`}</div>`;
+}
+function squadHtml() {
+  const b = B(), medics = team().filter((u) => u.cls === 'MEDIC' && active(u) && !b.revived.includes(u.id)), kits = team().filter((u) => active(u) && u.util === 'MEDKIT');
+  const free = b.state === 'PLAN' && !b.over;
+  const rows = team().map((u) => {
+    const gone = u.hp <= 0 && !u.downed, pct = Math.round((u.hp / u.maxHp) * 100);
+    const status = gone ? '<span class="chip bad">KIA</span>' : u.downed ? `<span class="chip bad">Down · ${u.bleed} stage${u.bleed > 1 ? 's' : ''}</span>` : '';
+    const care = [];
+    if (free && u.downed) for (const md of medics) care.push(`<button class="btn" type="button" data-act="revive" data-m="${md.id}" data-t="${u.id}">Revive (${esc(md.name.split(' ')[0])})</button>`);
+    if (free && (u.downed || (active(u) && u.hp < u.maxHp))) for (const k of kits) care.push(`<button class="btn" type="button" data-act="treat" data-h="${k.id}" data-t="${u.id}">Medkit (${esc(k.name.split(' ')[0])})</button>`);
+    if (free && active(u) && u.util === 'DRONE' && !b.drone.used) care.push(`<button class="btn" type="button" data-act="drone" data-id="${u.id}">Launch drone</button>`);
+    return `<div class="unit ${u.downed ? 'down' : ''} ${gone ? 'gone' : ''}"><div class="head"><span class="name">${esc(u.name)}</span>${classChip(u.cls)}${status}${b.carrier === u.id ? '<span class="chip gold">Intel</span>' : ''}<span class="hp">${u.hp}/${u.maxHp}</span></div>
+      <div class="bar"><i class="${pct <= 50 ? 'low' : ''}" style="width:${pct}%"></i></div>
+      <div class="skills">${skillLine((k) => opDice(u, k))}${u.util ? `<span>· ${ITEMS[u.util].label}</span>` : ''}</div>
+      ${care.length ? `<div class="care">${care.join('')}</div>` : ''}</div>`;
+  }).join('');
+  return `<div class="card"><h3>Team</h3>${rows}</div>`;
+}
+function objectivesHtml() {
+  const b = B(), m = G.mission, carrier = b.carrier != null ? unitById(b.carrier) : null;
+  const st = (t) => ({ RETRIEVE_INTEL: carrier ? 'Carrier must get out' : 'Not secured', ELIMINATE_HVT: b.hvtKilled ? 'Confirmed dead' : 'Alive', NO_CASUALTIES: team().some((u) => u.hp <= 0 && !u.downed) ? 'Failed' : 'So far, so good', UNDETECTED: b.alerted ? 'Failed' : 'Undetected' })[t];
+  return `<div class="card"><h3>Objectives</h3><div class="muted" style="font-size:14px"><div><b style="color:var(--gold)">Primary</b> ${OBJ[m.primary].label}: ${st(m.primary)}</div><div><b>Secondary</b> ${OBJ[m.secondary].label}: ${st(m.secondary)}</div></div></div>`;
+}
+function renderOps() {
+  const b = B(), st = cur(), sit = sitOf(st);
+  syncPlan();
+  const main = st.kind === 'APPROACH' || !sit ? forkHtml(st) : b.state === 'ROLLED' ? rollHtml(st, sit) : planHtml(st, sit);
+  $('#view').innerHTML = `<section class="ops">
+    <div class="card ops-head">${meters()}${routeHtml(b.stages, b.stage)}</div>
+    <div class="ops-grid"><div class="card">${main}</div>
+      <aside class="col">${objectivesHtml()}${squadHtml()}<div class="card log"><h3>Log</h3><ol>${b.log.slice(-40).reverse().map((e) => `<li class="ev-${e.kind}">${esc(e.text)}</li>`).join('')}</ol></div></aside></div></section>`;
+}
+// One delegated handler for every operation-screen button.
+$('#view').addEventListener('click', (e) => {
+  const el = e.target.closest('[data-act]');
+  if (!el || G?.phase !== 'OPERATION') return;
+  const a = el.dataset.act, n = (k) => +el.dataset[k];
+  if (a !== 'abort') plan.abortArmed = false;
+  if (a === 'opt') { plan.opt = n('i'); plan.lead = null; return refresh(); }
+  if (a === 'lead') { plan.lead = n('id'); return refresh(); }
+  if (a === 'op') {
+    const id = n('id');
+    if (plan.ids.includes(id)) plan.ids = plan.ids.filter((x) => x !== id);
+    else if (plan.ids.length > MAX_SUPPORT) return toast(`A fireteam is a lead and ${MAX_SUPPORT} in support. Stand someone down first.`);
+    else plan.ids = [...plan.ids, id];
+    return refresh();
+  }
+  if (a === 'gear') { const id = n('id'); plan.gear = plan.gear.includes(id) ? plan.gear.filter((x) => x !== id) : [...plan.gear, id]; return refresh(); }
+  if (a === 'strike') { plan.strike = !plan.strike; return refresh(); }
+  if (a === 'abort') { if (!plan.abortArmed) { plan.abortArmed = true; return refresh(); } return run(abort); }
+  if (a === 'route') return run(() => chooseRoute(n('i')));
+  if (a === 'fork') return run(() => chooseFork(n('i')));
+  if (a === 'exec') return run(() => execute({ opt: plan.opt, ids: plan.ids, lead: previewOf(plan.opt).lead, gear: plan.gear, strike: plan.strike }));
+  if (a === 'push') return run(push);
+  if (a === 'accept') return run(() => resolve());
+  if (a === 'cost') return run(() => resolve(el.dataset.c));
+  if (a === 'skip') return run(skip);
+  if (a === 'revive') return run(() => revive(n('m'), n('t')));
+  if (a === 'treat') return run(() => treat(n('h'), n('t')));
+  if (a === 'drone') return run(() => launchDrone(n('id')));
+});
+
+// ------------------------------------------------------------------ debrief
+function renderDebrief() {
+  const d = G.debrief, m = G.mission;
+  const list = (a, empty) => (a.length ? `<ul>${a.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : `<p class="muted">${empty}</p>`);
+  $('#view').innerHTML = `<section class="debrief">
+    <div class="card"><div class="eyebrow">Mission ${m.n} · Debrief</div><h1>${esc(m.codename)}</h1>
+      <div class="verdict ${d.success ? 'ok' : 'bad'}">${d.success ? 'Mission success' : 'Mission failed'}</div>
+      <ul class="obj-results">${d.objectives.map((o) => `<li class="${o.ok ? 'ok' : 'bad'}"><span>${o.ok ? '✓' : '✗'}</span>${o.primary ? 'Primary' : 'Secondary'}: <b>${o.label}</b></li>`).join('')}</ul>
+      <p>Requisition awarded: <b>+${d.rp} RP</b></p></div>
+    <div class="card"><h3>Personnel</h3><div class="table-wrap"><table class="personnel"><thead><tr><th>Operator</th><th>Status</th><th>HP</th><th>Kills</th><th>XP</th><th>Rank</th></tr></thead><tbody>
+      ${d.soldiers.map((s) => `<tr class="${/KIA|MIA/.test(s.status) ? 'lost' : ''}"><td>${esc(s.name)} ${classChip(s.cls)}</td><td>${s.status}</td><td>${s.hp}/${s.maxHp}</td><td>${s.kills}</td><td>${s.xp ? '+' + s.xp : '-'}</td><td>${s.promoted ? `<span class="chip gold">Promoted: ${s.promoted}</span>` : s.rank}</td></tr>`).join('')}
+    </tbody></table></div></div>
+    <div class="card split"><div><h3>Gear lost</h3>${list(d.lost, 'Nothing lost.')}</div><div><h3>Gear gained</h3>${list(d.gained, 'Nothing recovered.')}</div>${d.notes.length ? `<div><h3>Notes</h3>${list(d.notes, '')}</div>` : ''}</div>
+    ${G.recruits > 0 ? `<div class="card"><h3>Replacements · ${G.recruits} to assign</h3><p class="muted">Pick the class of each new recruit.</p>
+      <div class="class-pick">${Object.entries(CLASSES).map(([id, c]) => `<button class="btn class-card" type="button" data-enlist="${id}">${classChip(id)}<small>${c.hp} HP · ${c.ability}</small></button>`).join('')}</div></div>` : ''}
+    <button class="btn primary big" type="button" id="next" ${G.recruits > 0 ? 'disabled' : ''}>Next mission</button></section>`;
+  $('#view').querySelectorAll('[data-enlist]').forEach((b) => b.addEventListener('click', () => run(() => { const s = enlist(b.dataset.enlist); toast(`${s.name} joins as ${CLASSES[s.cls].label}.`); })));
+  $('#next').addEventListener('click', () => run(proceed));
+}
+
+// ------------------------------------------------------------------ boot
+$('#btn-new').addEventListener('click', (e) => {
+  const b = e.currentTarget;
+  if (b.dataset.armed) {
+    delete b.dataset.armed; b.textContent = 'New campaign';
+    draft.mission = null; plan.key = null; mounted = null;
+    newCampaign((Math.random() * 2 ** 31) | 0);
+    persist(); refresh();
+    return;
+  }
+  b.dataset.armed = '1'; b.textContent = 'Tap again to restart';
+  setTimeout(() => { delete b.dataset.armed; b.textContent = 'New campaign'; }, 3000);
+});
+
+function start(data) {
+  let save = data && data.save;
+  if (!save) { try { save = localStorage.getItem(SAVE_KEY); } catch (e) { save = null; } }
+  try { G = save ? JSON.parse(save) : null; } catch (e) { G = null; }
+  if (!G || G.v !== 1 || G.mode !== 'ops') newCampaign((Math.random() * 2 ** 31) | 0);
+  window.claude?.hot?.snapshot?.(() => ({ save: JSON.stringify(G) }));
+  refresh();
+}
+// Test hook: ops.html?test exposes the rules API to automated play-throughs.
+if (/[?&]test\b/.test(location.search)) {
+  window.SKIRM = { get G() { return G; }, newCampaign, buyIntel, launch, proceed, enlist, chooseRoute, chooseFork, execute, push, resolve, skip, abort,
+    revive, treat, launchDrone, bestLead, odds, difficulty, poolOf, previewOf, cur, sitOf, active, team, outcomeOf, foesOf, Rule, CLASSES, ITEMS, SIT, available, refresh };
+}
+window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+})();
+</script>
+</body>
+</html>

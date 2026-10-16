@@ -6,6 +6,8 @@ A minimal, playable version of the whole loop in `todo.md`:
 
 **Play in the browser:** https://smiley-gpu.github.io/SKIRM/. This is `index.html`, a standalone build where the rules engine and AI are ported to JavaScript. It needs no server, works on phones, and saves in browser storage.
 
+**Alternative mode: Ops board** (`ops.html`). Missions resolve as a route of decision stages: pick an approach, pick a lead and supporters, spend gear, and roll dice with the odds shown. It replaces the hex battle and keeps the same briefing, classes and debrief. See `docs/abstract-mission-design.md`. The hex version is saved as tag `hex-v1`.
+
 In the Java version below, the server owns the game and the browser only displays it.
 
 ## Run
