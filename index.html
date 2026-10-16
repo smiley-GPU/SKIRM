@@ -118,6 +118,16 @@ main { flex: 1; min-height: 0; padding-block: 16px; padding-left: max(16px, env(
 .loadout select { background: #0e1314; color: var(--fg); border: 1px solid var(--line); border-radius: 4px; padding: 6px; font-size: 14px; min-width: 0; width: 100%; }
 .loadout-hint { margin-left: 28px; font-size: 12px; color: var(--muted); }
 .fallen { margin-top: 10px; font-size: 13px; color: var(--muted); font-style: italic; }
+.cls { display: inline-block; font: 700 11px/1 var(--display); text-transform: uppercase; letter-spacing: 0.1em; padding: 3px 6px; border-radius: 3px; background: var(--cls-bg); color: var(--cls-fg); white-space: nowrap; }
+.cls-heavy { --cls-bg: #3a2c1d; --cls-fg: #f0b86a; }
+.cls-scout { --cls-bg: #1f3324; --cls-fg: #8fd9a0; }
+.cls-medic { --cls-bg: #3a1f22; --cls-fg: #ff9e9e; }
+.cls-drone { --cls-bg: #1b2f3a; --cls-fg: #8fd3ec; }
+.ability { margin: 4px 0 0 28px; font-size: 13px; color: var(--muted); }
+.recruit { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); display: grid; gap: 8px; font-size: 14px; color: var(--muted); }
+.recruit-btns, .class-pick { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 6px; }
+.class-card { display: grid; gap: 6px; justify-items: start; text-align: left; }
+.class-card small { font-size: 12.5px; }
 .vehicles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 14px; }
 .veh { background: var(--panel-2); border: 1px solid var(--line); border-radius: 5px; padding: 8px 10px; cursor: pointer; display: grid; gap: 4px; align-content: start; }
 .veh.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
@@ -153,6 +163,9 @@ main { flex: 1; min-height: 0; padding-block: 16px; padding-left: max(16px, env(
 .obj.failed .mark, .obj.failed b { color: var(--bad); }
 .sq { display: grid; grid-template-columns: 1fr 70px auto; align-items: center; gap: 10px; width: 100%; text-align: left; background: var(--panel-2); border: 1px solid transparent; color: var(--fg); border-radius: 5px; padding: 8px 9px; margin-bottom: 6px; cursor: pointer; touch-action: manipulation; }
 .sq.on { border-color: var(--accent); }
+.sq.uav { margin-left: 14px; width: calc(100% - 14px); }
+.sq.downed { cursor: default; opacity: 0.85; border-color: #4b2825; }
+.sq .name .cls { margin-right: 4px; }
 .bar { height: 5px; background: #0a0d0e; border-radius: 3px; overflow: hidden; }
 .bar i { display: block; height: 100%; background: var(--ok); }
 .pips { font-size: 10px; letter-spacing: 1px; color: var(--accent); }
@@ -163,7 +176,7 @@ main { flex: 1; min-height: 0; padding-block: 16px; padding-left: max(16px, env(
 .log ol { list-style: none; margin: 0; padding: 0; overflow-y: auto; font-size: 13.5px; flex: 1; max-height: 320px; }
 .log li { padding: 3px 0; border-bottom: 1px solid #1c2425; color: #b6c1be; }
 .log .ev-turn { color: var(--accent); font-weight: 600; padding-top: 8px; }
-.log .ev-alert { color: #ffb6ae; } .log .ev-kill { color: var(--bad); } .log .ev-intel { color: var(--gold); }
+.log .ev-alert, .log .ev-down { color: #ffb6ae; } .log .ev-kill { color: var(--bad); } .log .ev-intel { color: var(--gold); }
 .log .ev-exfil, .log .ev-heal { color: var(--ok); }
 
 /* debrief */
@@ -231,6 +244,8 @@ const ITEMS = {
   PLATE: { slot: 'ARMOR', label: 'Plate Carrier', dr: 2, apPen: 1 },
   MEDKIT: { slot: 'UTILITY', label: 'Medkit' },
   FRAG: { slot: 'UTILITY', label: 'Frag Grenade' },
+  BREACH: { slot: 'UTILITY', label: 'Breaching Charge' },
+  DRONE: { slot: 'UTILITY', label: 'Recon Drone' },
 };
 const TER = {
   OPEN: { mc: 1, pass: true }, ROAD: { mc: 1, pass: true }, ROUGH: { mc: 2, pass: true },
@@ -252,7 +267,21 @@ const OBJ = {
   UNDETECTED: { label: 'Ghost', desc: 'Complete the operation without the enemy ever raising the alarm.' },
 };
 const RANKS = [['PVT', 'Private', 0], ['PFC', 'Private First Class', 20], ['CPL', 'Corporal', 50], ['SGT', 'Sergeant', 90], ['SSG', 'Staff Sergeant', 140], ['LT', 'Lieutenant', 200]];
-const MAX_TEAM = 4, BASE_TURNS = 12, GR_RANGE = 5, GR_AP = 2, MK_AP = 2, MK_HEAL = 5, COLS = 18, ROWS = 12, BASE_HP = 10;
+const MAX_TEAM = 4, BASE_TURNS = 12, GR_RANGE = 5, GR_AP = 2, MK_AP = 2, MK_HEAL = 5, COLS = 18, ROWS = 12;
+const MEDIC_HEAL = 8, BLEED_TURNS = 2, REVIVE_AP = 2, REVIVE_HP = 3, BREACH_AP = 2;
+const DRONE_LAUNCH_AP = 2, DRONE_HP = 3, DRONE_AP = 4, DRONE_VISION = 5, DRONE_TETHER = 8, STRIKE_AP = 2, STRIKE_RANGE = 3;
+const RECRUIT_COST = 3, ROSTER_MIN = 6, ROSTER_MAX = 8;
+// Class = permanent role fixed at recruitment. Gear lists are what the class may carry, in default-pick order.
+const CLASSES = {
+  HEAVY: { label: 'Heavy', letter: 'H', hp: 12, weapons: ['LMG', 'CARBINE', 'AK'], armor: ['PLATE', 'VEST'], utility: ['BREACH', 'FRAG'],
+    ability: 'Breach: blows an adjacent wall or cover into rubble (charge, 2 AP). Toughest class.' },
+  SCOUT: { label: 'Scout', letter: 'S', hp: 9, weapons: ['DMR', 'SMG', 'CARBINE', 'AK'], armor: ['VEST'], utility: ['FRAG', 'MEDKIT'],
+    ability: 'Stealth: enemies detect them at half range. Sees 2 hexes further.' },
+  MEDIC: { label: 'Medic', letter: 'M', hp: 10, weapons: ['CARBINE', 'SMG', 'AK'], armor: ['VEST'], utility: ['MEDKIT'],
+    ability: `Revive: brings a downed adjacent operator back (${REVIVE_AP} AP). Medkits heal +${MEDIC_HEAL}.` },
+  DRONE: { label: 'Drone Operator', letter: 'D', hp: 10, weapons: ['SMG', 'CARBINE', 'AK'], armor: ['VEST'], utility: ['DRONE', 'FRAG'],
+    ability: 'Recon drone: flies over walls, sees 5 hexes without line of sight, spots targets (+10 to hit), carries one strike.' },
+};
 const ADJ = ['Silent', 'Iron', 'Broken', 'Pale', 'Crimson', 'Hollow', 'Distant', 'Bitter', 'Northern', 'Sudden'];
 const NOUN = ['Harrier', 'Lantern', 'Anvil', 'Meridian', 'Thicket', 'Sparrow', 'Bastion', 'Ember', 'Gauntlet', 'Kestrel'];
 const AREAS = ['Walled farmstead in the Varra highlands', "Abandoned pumping station on the Dry Fork", "Smuggler's waystation near the Kessel border crossing", 'Fortified orchard outside the town of Ostrow', 'Derelict customs post in the Saltmarsh lowlands'];
@@ -269,7 +298,12 @@ function itemSummary(id) {
   const it = ITEMS[id];
   if (it.w) return `${it.w.ap} AP/shot, range ${it.w.range}, ${it.w.acc}% acc, ${it.w.min}-${it.w.max} dmg`;
   if (it.slot === 'ARMOR') return `-${it.dr} dmg taken${it.apPen ? `, -${it.apPen} AP` : ''}`;
-  return id === 'MEDKIT' ? `Heal +${MK_HEAL} (self or adjacent), ${MK_AP} AP` : `3-5 dmg in radius 1, range ${GR_RANGE}, ${GR_AP} AP, ignores cover`;
+  return {
+    MEDKIT: `Heal +${MK_HEAL} (medic +${MEDIC_HEAL}), self or adjacent, ${MK_AP} AP`,
+    FRAG: `3-5 dmg in radius 1, range ${GR_RANGE}, ${GR_AP} AP, ignores cover`,
+    BREACH: `Turns an adjacent wall or cover into rubble, ${BREACH_AP} AP, loud`,
+    DRONE: `Launch ${DRONE_LAUNCH_AP} AP · ${DRONE_HP} HP · sees ${DRONE_VISION} hexes · 1 strike`,
+  }[id];
 }
 
 // =====================================================================================
@@ -314,17 +348,17 @@ const fail = (m) => { throw new Rule(m); };
 // CAMPAIGN + MISSION GENERATION
 // =====================================================================================
 function newCampaign(seed) {
-  G = { v: 1, rs: seed | 0, phase: 'BRIEFING', rp: 12, flown: 0, nextSid: 1, roster: [], used: {},
-    armory: { CARBINE: 4, SMG: 2, DMR: 1, LMG: 1, AK: 0, VEST: 4, PLATE: 2, MEDKIT: 4, FRAG: 4 },
+  G = { v: 2, rs: seed | 0, phase: 'BRIEFING', rp: 12, flown: 0, nextSid: 1, roster: [], used: {}, recruits: 0,
+    armory: { CARBINE: 4, SMG: 2, DMR: 1, LMG: 2, AK: 0, VEST: 4, PLATE: 2, MEDKIT: 3, FRAG: 4, BREACH: 3, DRONE: 2 },
     mission: null, battle: null, debrief: null };
-  [60, 25, 25, 0, 0, 0].forEach((xp) => recruit(xp));
+  [[60, 'HEAVY'], [25, 'MEDIC'], [25, 'SCOUT'], [0, 'DRONE'], [0, 'HEAVY'], [0, 'SCOUT']].forEach(([xp, cls]) => recruit(xp, cls));
   beginBriefing();
 }
-function recruit(xp) {
+function recruit(xp, cls) {
   let name;
   do name = pick(FIRST) + ' ' + pick(LAST); while (G.used[name]);
   G.used[name] = 1;
-  const s = { id: G.nextSid++, name, xp, kills: 0, missions: 0, recovery: 0, alive: true };
+  const s = { id: G.nextSid++, name, cls, xp, kills: 0, missions: 0, recovery: 0, alive: true };
   G.roster.push(s);
   return s;
 }
@@ -458,12 +492,16 @@ function los(a, b) {
   for (let i = 1; i < l.length - 1; i++) { const t = terr(l[i]); if (!t || TER[t].block) return false; }
   return true;
 }
-const onMap = (u) => u.hp > 0 && !u.exfil && !u.stranded && !u.missing;
-const maxAp = (u) => 4 - (u.armor ? ITEMS[u.armor].apPen : 0);
+const onMap = (u) => u.hp > 0 && !u.exfil && !u.stranded && !u.missing; // active: can act and be targeted
+const present = (u) => onMap(u) || u.downed;                              // physically on the map
+const isDrone = (u) => u.kind === 'drone';
+const maxAp = (u) => (isDrone(u) ? DRONE_AP : 4 - (u.armor ? ITEMS[u.armor].apPen : 0));
 const gun = (u) => ITEMS[u.weapon].w;
 const dr = (u) => (u.armor ? ITEMS[u.armor].dr : 0);
 const unitById = (id) => B().units.find((u) => u.id === id);
-const squad = () => B().units.filter((u) => u.side === 'P');
+const squad = () => B().units.filter((u) => u.side === 'P' && !isDrone(u)); // operators, not drones
+const playerTargets = () => B().units.filter((u) => u.side === 'P' && onMap(u)); // what enemies can shoot
+const droneUsable = (d) => onMap(d) && onMap(unitById(d.op));
 const isVis = (h) => !!B().visible[K(h)];
 
 function emit(e) {
@@ -479,7 +517,7 @@ function makeBattle(m, team) {
   const b = G.battle, lz = m.map.ins.map(unK);
   team.forEach((s, i) => {
     const l = m.loadouts[s.id];
-    addUnit({ side: 'P', name: s.name, sid: s.id, maxHp: BASE_HP, weapon: l.weapon, armor: l.armor, util: l.utility, hvt: false, acc: rankIdx(s.xp) * 3, h: lz[i] });
+    addUnit({ side: 'P', name: s.name, sid: s.id, cls: s.cls, maxHp: CLASSES[s.cls].hp, weapon: l.weapon, armor: l.armor, util: l.utility, hvt: false, acc: rankIdx(s.xp) * 3, h: lz[i] });
   });
   for (const sp of m.spawns) addUnit({ side: 'E', sid: null, maxHp: sp.hvt ? 6 : 7, weapon: sp.w, armor: null, util: null, hvt: sp.hvt, acc: 0, h: { ...sp.h } });
   if (m.intel.includes('SATELLITE')) for (const h of m.map.hexes) b.explored[K(h)] = 1;
@@ -491,7 +529,8 @@ function addUnit(u) {
   const b = B();
   u.id = b.nextId++;
   if (u.side === 'E') u.name = u.hvt ? 'HVT' : (u.weapon === 'LMG' ? 'Gunner ' : 'Insurgent ') + u.id;
-  Object.assign(u, { hp: u.maxHp, post: { ...u.h }, consumed: null, kills: 0, killedHvt: false, exfil: false, stranded: false, missing: false });
+  Object.assign(u, { hp: u.maxHp, post: { ...u.h }, consumed: null, kills: 0, killedHvt: false, exfil: false, stranded: false, missing: false,
+    downed: false, bleed: 0, revives: 0, droneId: null, droneLost: false });
   u.ap = maxAp(u);
   b.units.push(u);
   return u;
@@ -501,7 +540,9 @@ function recompute() {
   const b = B(), R = vision(G.mission.env), vis = {};
   for (const u of b.units) {
     if (u.side !== 'P' || !onMap(u)) continue;
-    for (const h of M().hexes) if (dist(u.h, h) <= R && los(u.h, h)) vis[K(h)] = 1;
+    if (isDrone(u)) { for (const h of M().hexes) if (dist(u.h, h) <= DRONE_VISION) vis[K(h)] = 1; continue; } // overhead view ignores walls
+    const r = R + (u.cls === 'SCOUT' ? 2 : 0);
+    for (const h of M().hexes) if (dist(u.h, h) <= r && los(u.h, h)) vis[K(h)] = 1;
   }
   b.visible = vis;
   Object.assign(b.explored, vis);
@@ -512,11 +553,18 @@ function recompute() {
   }
 }
 const enemyVision = () => Math.max(2, vision(G.mission.env) - (B().alerted ? 0 : 2));
-const enemySees = (from, to) => dist(from, to) <= enemyVision() && los(from, to);
+// Scouts and drones are hard to spot: detected at half range.
+const enemySees = (from, to, target) => {
+  const r = target && (target.cls === 'SCOUT' || isDrone(target)) ? Math.max(2, enemyVision() >> 1) : enemyVision();
+  return dist(from, to) <= r && los(from, to);
+};
 const visibleEnemyIds = () => new Set(B().units.filter((e) => e.side === 'E' && onMap(e) && isVis(e.h)).map((e) => e.id));
 
+// Ground units walk passable terrain and block each other; drones fly over anything, tethered to their operator.
+const stepCost = (u, h) => (isDrone(u) ? 1 : TER[terr(h)].mc);
 function reachOf(u, budget) {
-  const occ = new Set(B().units.filter((o) => o !== u && onMap(o)).map((o) => K(o.h)));
+  const fly = isDrone(u), op = fly ? unitById(u.op) : null;
+  const occ = new Set(B().units.filter((o) => o !== u && present(o) && isDrone(o) === fly).map((o) => K(o.h)));
   const cost = { [K(u.h)]: 0 }, prev = {}, open = [{ h: u.h, c: 0 }];
   while (open.length) {
     let bi = 0;
@@ -525,8 +573,9 @@ function reachOf(u, budget) {
     if (n.c > cost[K(n.h)]) continue;
     for (const x of nbs(n.h)) {
       const t = terr(x), xk = K(x);
-      if (!t || !TER[t].pass || occ.has(xk)) continue;
-      const c = n.c + TER[t].mc;
+      if (!t || occ.has(xk)) continue;
+      if (fly ? dist(x, op.h) > DRONE_TETHER : !TER[t].pass) continue;
+      const c = n.c + stepCost(u, x);
       if (c > budget || (cost[xk] !== undefined && c >= cost[xk])) continue;
       cost[xk] = c;
       prev[xk] = K(n.h);
@@ -560,24 +609,32 @@ function hitChance(s, from, t) {
   if (env) { c += env; mods.push(`${env} conditions`); }
   const fall = (g.range + 1) >> 1;
   if (d > fall) { c -= (d - fall) * 4; mods.push(`-${(d - fall) * 4} range`); }
-  const cov = coverAt(t.h, from);
-  if (cov) { c -= cov; mods.push(`-${cov} cover`); }
-  if (terr(t.h) === 'ROUGH') { c -= 10; mods.push('-10 brush'); }
+  if (isDrone(t)) { c -= 20; mods.push('-20 small target'); }
+  else {
+    const cov = coverAt(t.h, from);
+    if (cov) { c -= cov; mods.push(`-${cov} cover`); }
+    if (terr(t.h) === 'ROUGH') { c -= 10; mods.push('-10 brush'); }
+  }
   if (d === 1) { c += 10; mods.push('+10 point blank'); }
   if (t.side === 'E' && !B().alerted) { c += 15; mods.push('+15 unaware'); }
+  if (t.side === 'E' && B().units.some((x) => isDrone(x) && droneUsable(x) && dist(x.h, t.h) <= DRONE_VISION)) { c += 10; mods.push('+10 drone spotting'); }
   return { chance: Math.max(5, Math.min(95, c)), mods };
 }
 
 // ---- rule queries
 function canShoot(s, t) {
-  if (t.side === s.side || !onMap(t) || s.ap < gun(s).ap) return false;
+  if (!s.weapon || t.side === s.side || !onMap(t) || s.ap < gun(s).ap) return false;
   if (s.side === 'P' && !isVis(t.h)) return false;
   return dist(s.h, t.h) <= gun(s).range && los(s.h, t.h);
 }
 const canGrenade = (u, h) => u.util === 'FRAG' && u.ap >= GR_AP && !!h && !!terr(h) && terr(h) !== 'WALL' && dist(u.h, h) <= GR_RANGE && los(u.h, h);
-const canHeal = (u, t) => u.util === 'MEDKIT' && u.ap >= MK_AP && t.side === u.side && onMap(t) && t.hp < t.maxHp && dist(u.h, t.h) <= 1;
-const canIntel = (u) => !!B().intelHex && K(u.h) === B().intelHex && u.ap >= 1;
-const canExfil = (u) => B().ext.includes(K(u.h)) && u.ap >= 1;
+const canHeal = (u, t) => u.util === 'MEDKIT' && u.ap >= MK_AP && t.side === u.side && !isDrone(t) && onMap(t) && t.hp < t.maxHp && dist(u.h, t.h) <= 1;
+const canIntel = (u) => !isDrone(u) && !!B().intelHex && K(u.h) === B().intelHex && u.ap >= 1;
+const canExfil = (u) => !isDrone(u) && B().ext.includes(K(u.h)) && u.ap >= 1;
+const canRevive = (u, t) => u.cls === 'MEDIC' && u.ap >= REVIVE_AP && t.side === 'P' && t.downed && dist(u.h, t.h) <= 1;
+const canBreach = (u, h) => u.util === 'BREACH' && u.ap >= BREACH_AP && !!h && dist(u.h, h) === 1 && (terr(h) === 'WALL' || terr(h) === 'LOW_COVER');
+const canLaunch = (u) => u.util === 'DRONE' && u.droneId == null && u.ap >= DRONE_LAUNCH_AP;
+const canStrike = (d, h) => isDrone(d) && d.strike > 0 && d.ap >= STRIKE_AP && !!h && !!terr(h) && dist(d.h, h) <= STRIKE_RANGE;
 
 // ---- commands
 function perform(uid, type, hex, tid) {
@@ -585,7 +642,36 @@ function perform(uid, type, hex, tid) {
   const b = B(), u = unitById(uid);
   if (b.over) fail('The battle is over.');
   if (!u || u.side !== 'P' || !onMap(u)) fail('No such operator on the map.');
+  if (isDrone(u) && !droneUsable(u)) fail('The drone has no operator able to fly it.');
+  if (isDrone(u) && type !== 'MOVE' && type !== 'STRIKE') fail('The drone can only move and strike.');
   if (type === 'MOVE') move(u, hex);
+  else if (type === 'REVIVE') {
+    const t = unitById(tid);
+    if (!t || !canRevive(u, t)) fail('A medic must be next to a downed operator, with 2 AP.');
+    u.ap -= REVIVE_AP; u.revives++;
+    Object.assign(t, { downed: false, bleed: 0, hp: REVIVE_HP, ap: 0 });
+    emit({ type: 'heal', unit: t.id, to: { ...t.h }, amount: REVIVE_HP, text: `${u.name} revives ${t.name} (${REVIVE_HP} HP). Back on their feet next turn.` });
+  } else if (type === 'BREACH') {
+    if (!canBreach(u, hex)) fail('Breach needs an adjacent wall or cover hex and 2 AP.');
+    u.ap -= BREACH_AP; u.consumed = u.util; u.util = null;
+    M().t[K(hex)] = 'ROUGH';
+    emit({ type: 'breach', unit: u.id, to: { ...hex }, text: `${u.name} blows a breach. The way is open.` });
+    alarm('Breaching charge! The area is alerted.');
+  } else if (type === 'LAUNCH') {
+    if (!canLaunch(u)) fail('Launching the drone needs 2 AP.');
+    if (B().units.some((d) => isDrone(d) && present(d) && eq(d.h, u.h))) fail('Another drone is hovering here.');
+    u.ap -= DRONE_LAUNCH_AP;
+    const d = addUnit({ side: 'P', kind: 'drone', name: `Drone ${u.name.split(' ')[0]}`, sid: null, cls: null, op: u.id, maxHp: DRONE_HP, weapon: null, armor: null, util: null, hvt: false, acc: 0, h: { ...u.h } });
+    d.strike = 1; d.ap = DRONE_AP >> 1;
+    u.droneId = d.id;
+    emit({ type: 'info', text: `${u.name} launches the recon drone.` });
+  } else if (type === 'STRIKE') {
+    if (!canStrike(u, hex)) fail(`Strike needs a target within ${STRIKE_RANGE} hexes of the drone and 2 AP.`);
+    u.ap -= STRIKE_AP; u.strike--;
+    emit({ type: 'grenade', unit: u.id, from: { ...u.h }, to: { ...hex }, text: `${u.name} drops its munition.` });
+    blast(u, hex);
+    alarm('Explosion! The area is alerted.');
+  }
   else if (type === 'SHOOT') { const t = unitById(tid); if (!t || !canShoot(u, t)) fail('No clear shot at that target.'); resolveShot(u, t); }
   else if (type === 'GRENADE') { if (!canGrenade(u, hex)) fail('Out of throwing range or no line of sight.'); grenade(u, hex); }
   else if (type === 'MEDKIT') { const t = unitById(tid); if (!t || !canHeal(u, t)) fail('Pick yourself or an adjacent wounded operator.'); heal(u, t); }
@@ -596,6 +682,8 @@ function perform(uid, type, hex, tid) {
   } else if (type === 'EXFIL') {
     if (!canExfil(u)) fail('Stand inside the extraction zone with 1 AP left.');
     u.ap -= 1; u.exfil = true;
+    const d = u.droneId != null ? unitById(u.droneId) : null;
+    if (d && onMap(d)) { d.exfil = true; u.droneId = null; } // operator takes the drone home
     emit({ type: 'exfil', unit: u.id, to: { ...u.h }, text: `${u.name} boarded extraction.` });
   }
   recompute();
@@ -607,11 +695,11 @@ function move(u, dest) {
   const known = visibleEnemyIds(), walked = [{ ...u.h }];
   let spotter = null, halt = null;
   for (const step of pathTo(reach, dest)) {
-    u.ap -= TER[terr(step)].mc;
+    u.ap -= stepCost(u, step);
     u.h = step;
     walked.push(step);
     recompute();
-    if (!B().alerted) spotter = B().units.find((e) => e.side === 'E' && onMap(e) && enemySees(e.h, u.h)) || null;
+    if (!B().alerted) spotter = B().units.find((e) => e.side === 'E' && onMap(e) && enemySees(e.h, u.h, u)) || null;
     const fresh = [...visibleEnemyIds()].filter((id) => !known.has(id));
     if (fresh.length) halt = `Contact! ${u.name} halts: ${fresh.length} hostile(s) sighted.`;
     if (spotter || halt) break;
@@ -625,13 +713,12 @@ function resolveShot(s, t) {
   s.ap -= gun(s).ap;
   const hit = rnd() * 100 < hc.chance;
   const dmg = hit ? Math.max(1, range(gun(s).min, gun(s).max) + (ambush ? 2 : 0) - dr(t)) : 0;
-  if (hit) t.hp = Math.max(0, t.hp - dmg);
   const seen = s.side === 'P' || isVis(s.h);
   emit({ type: 'shot', unit: t.id, from: seen ? { ...s.h } : null, to: { ...t.h }, hit, amount: dmg,
     text: seen ? `${s.name} fires at ${t.name} (${hc.chance}%): ${hit ? 'HIT for ' + dmg : 'miss'}` : `${t.name} takes fire from an unseen position: ${hit ? 'HIT for ' + dmg : 'miss'}` });
-  if (t.hp <= 0) killed(s, t);
+  if (hit) wound(t, dmg, s);
   if (!b.alerted) {
-    const silent = s.side === 'P' && t.hp <= 0 && !b.units.some((o) => o.side === 'E' && onMap(o) && (enemySees(o.h, s.h) || enemySees(o.h, t.h)));
+    const silent = s.side === 'P' && !onMap(t) && !b.units.some((o) => o.side === 'E' && onMap(o) && (enemySees(o.h, s.h, s) || enemySees(o.h, t.h)));
     if (silent) emit({ type: 'info', text: 'Silent takedown. Nobody noticed.' });
     else alarm('Gunfire! The area is alerted.');
   }
@@ -639,27 +726,53 @@ function resolveShot(s, t) {
 function grenade(u, at) {
   u.ap -= GR_AP; u.consumed = u.util; u.util = null;
   emit({ type: 'grenade', unit: u.id, from: { ...u.h }, to: { ...at }, text: `${u.name} throws a frag grenade.` });
-  for (const v of [...B().units]) {
-    if (!onMap(v) || dist(v.h, at) > 1) continue;
-    const dmg = Math.max(1, range(3, 5) - dr(v));
-    v.hp = Math.max(0, v.hp - dmg);
-    if (v.side === 'P' || isVis(v.h)) emit({ type: 'damage', unit: v.id, to: { ...v.h }, amount: dmg, text: `${v.name} caught in the blast (-${dmg}).` });
-    if (v.hp <= 0) killed(u, v);
-  }
+  blast(u, at);
   alarm('Explosion! The area is alerted.');
 }
+/** Radius-1 explosion. Hits ground units only (drones are airborne); finishes off the downed. */
+function blast(k, at) {
+  for (const v of [...B().units]) {
+    if (!present(v) || isDrone(v) || dist(v.h, at) > 1) continue;
+    const dmg = Math.max(1, range(3, 5) - dr(v));
+    if ((v.side === 'P' || isVis(v.h)) && !v.downed) emit({ type: 'damage', unit: v.id, to: { ...v.h }, amount: dmg, text: `${v.name} caught in the blast (-${dmg}).` });
+    wound(v, dmg, k);
+  }
+}
 function heal(u, t) {
-  const amount = Math.min(MK_HEAL, t.maxHp - t.hp);
+  const amount = Math.min(u.cls === 'MEDIC' ? MEDIC_HEAL : MK_HEAL, t.maxHp - t.hp);
   u.ap -= MK_AP; u.consumed = u.util; u.util = null; t.hp += amount;
   emit({ type: 'heal', unit: t.id, to: { ...t.h }, amount, text: `${u.name} treats ${t === u ? 'own wounds' : t.name} (+${amount}).` });
 }
-function killed(k, v) {
+/** All damage goes through here. Operators at 0 HP go down and bleed; drones and hostiles die. */
+function wound(v, dmg, k) {
+  if (v.downed) { v.downed = false; emit({ type: 'kill', unit: v.id, to: { ...v.h }, text: `${v.name} is KIA.` }); return; }
+  v.hp = Math.max(0, v.hp - dmg);
+  if (v.hp > 0) return;
+  if (v.side === 'P' && !isDrone(v)) {
+    v.downed = true; v.bleed = BLEED_TURNS;
+    emit({ type: 'down', unit: v.id, to: { ...v.h }, text: `${v.name} is DOWN. A medic has ${BLEED_TURNS} turns to reach them.` });
+    dropIntel(v);
+    return;
+  }
+  killed(k, v);
+}
+function dropIntel(v) {
   const b = B();
-  if (k.side !== v.side) k.kills++;
-  if (v.hvt) { b.hvtKilled = true; k.killedHvt = true; }
-  delete b.lastSeen[v.id];
-  if (v.side === 'P' || isVis(v.h)) emit({ type: 'kill', unit: v.id, to: { ...v.h }, text: v.side === 'P' ? `${v.name} is KIA.` : `${v.name} is down.` });
   if (b.carrier === v.id) { b.carrier = null; b.intelHex = K(v.h); emit({ type: 'info', text: `The intel was dropped with ${v.name}.` }); }
+}
+function killed(k, v) {
+  const b = B(), credit = isDrone(k) ? unitById(k.op) : k;
+  if (credit.side !== v.side) credit.kills++;
+  if (v.hvt) { b.hvtKilled = true; credit.killedHvt = true; }
+  delete b.lastSeen[v.id];
+  if (isDrone(v)) {
+    const op = unitById(v.op);
+    op.droneId = null; op.droneLost = true; op.util = null;
+    emit({ type: 'kill', unit: v.id, to: { ...v.h }, text: `${v.name} is shot down.` });
+    return;
+  }
+  if (v.side === 'P' || isVis(v.h)) emit({ type: 'kill', unit: v.id, to: { ...v.h }, text: v.side === 'P' ? `${v.name} is KIA.` : `${v.name} is down.` });
+  dropIntel(v);
 }
 function alarm(reason) {
   if (B().alerted) return;
@@ -667,8 +780,13 @@ function alarm(reason) {
   emit({ type: 'alert', text: reason });
 }
 function checkOver() {
-  if (!squad().some(onMap)) B().over = true;
-  if (B().over && G.phase === 'TACTICAL') { G.mission.extReport = extraction(G.mission); G.phase = 'EXTRACTION'; }
+  const b = B();
+  if (!squad().some(onMap)) b.over = true;
+  if (!b.over || G.phase !== 'TACTICAL') return;
+  for (const u of squad()) if (u.downed) { u.downed = false; emit({ type: 'kill', unit: u.id, to: { ...u.h }, text: `${u.name} could not be recovered and is lost.` }); }
+  for (const d of b.units) if (isDrone(d) && onMap(d)) d.exfil = true; // flies home or is abandoned; debrief settles the item
+  G.mission.extReport = extraction(G.mission);
+  G.phase = 'EXTRACTION';
 }
 function strand() { for (const u of squad()) if (onMap(u)) u.stranded = true; B().over = true; }
 
@@ -679,15 +797,16 @@ function endTurn() {
   enemyTurn();
   if (b.turn === m.rTurn) {
     const edge = [];
-    for (let r = 0; r < ROWS; r++) { const h = fromOff(COLS - 1, r); if (passable(h) && !b.units.some((u) => onMap(u) && eq(u.h, h))) edge.push(h); }
+    for (let r = 0; r < ROWS; r++) { const h = fromOff(COLS - 1, r); if (passable(h) && !b.units.some((u) => present(u) && !isDrone(u) && eq(u.h, h))) edge.push(h); }
     const n = Math.min(m.rCount, edge.length);
     for (let i = 0; i < n; i++) addUnit({ side: 'E', sid: null, maxHp: 7, weapon: 'AK', armor: null, util: null, hvt: false, acc: 0, h: edge.splice(Math.floor(rnd() * edge.length), 1)[0] });
     if (n) emit({ type: 'alert', text: 'Engines to the east: enemy reinforcements have arrived.' });
   }
+  for (const u of squad()) if (u.downed && --u.bleed <= 0) { u.downed = false; emit({ type: 'kill', unit: u.id, to: { ...u.h }, text: `${u.name} bled out.` }); }
   b.turn++;
   if (b.turn > b.limit) { emit({ type: 'alert', text: 'Extraction window closed. Anyone left must get out on foot.' }); strand(); }
   else {
-    for (const u of squad()) u.ap = maxAp(u);
+    for (const u of b.units) if (u.side === 'P' && onMap(u)) u.ap = maxAp(u);
     emit({ type: 'turn', text: `Turn ${b.turn} of ${b.limit}${b.turn === b.limit ? '. FINAL TURN, extract now!' : '.'}` });
   }
   recompute();
@@ -716,15 +835,15 @@ function enemyTurn() {
         const opts = Object.keys(reach.cost).filter((k) => k !== reach.origin && dist(unK(k), e.post) <= 3).sort();
         if (opts.length) moveEnemy(e, pathTo(reach, unK(pick(opts))));
       }
-      const p = squad().find((p) => onMap(p) && enemySees(e.h, p.h));
-      if (p) alarm(`${isVis(e.h) ? e.name : 'A sentry'} spotted ${p.name}! The area is alerted.`);
+      const p = playerTargets().find((p) => enemySees(e.h, p.h, p));
+      if (p) alarm(`${isVis(e.h) ? e.name : 'A sentry'} spotted ${isDrone(p) ? 'the drone' : p.name}! The area is alerted.`);
     } else engage(e);
   }
 }
 function bestTarget(e, from) {
   let best = null, bc = -1;
-  for (const p of squad()) {
-    if (!onMap(p) || dist(from, p.h) > gun(e).range || !enemySees(from, p.h)) continue;
+  for (const p of playerTargets()) { // drones included; their -20 makes operators the usual pick
+    if (dist(from, p.h) > gun(e).range || !enemySees(from, p.h, p)) continue;
     const c = hitChance(e, from, p).chance;
     if (c > bc) { best = p; bc = c; }
   }
@@ -789,7 +908,9 @@ function launch(o) {
     if (!s || !available(s)) fail('That operator is not available.');
     const l = o.loadouts[id];
     if (!l || !l.weapon) fail(`${s.name} needs a weapon.`);
-    if (ITEMS[l.weapon]?.slot !== 'WEAPON' || (l.armor && ITEMS[l.armor]?.slot !== 'ARMOR') || (l.utility && ITEMS[l.utility]?.slot !== 'UTILITY')) fail(`Invalid loadout for ${s.name}.`);
+    const cl = CLASSES[s.cls];
+    for (const [it, list] of [[l.weapon, cl.weapons], [l.armor, cl.armor], [l.utility, cl.utility]])
+      if (it && !list.includes(it)) fail(`A ${cl.label} can't carry ${ITEMS[it]?.label ?? it}.`);
     for (const it of [l.weapon, l.armor, l.utility]) if (it) needed[it] = (needed[it] || 0) + 1;
     team.push(s);
   }
@@ -868,15 +989,16 @@ function debrief(m) {
       s.alive = false;
       for (const it of [u.weapon, u.armor, u.util]) if (it) lost.push(`${ITEMS[it].label} (${u.name})`);
     } else {
-      xp = 10 + (success ? 10 : 0) + u.kills * 8 + (u.killedHvt ? 25 : 0) + (carrier === u && intelOut ? 15 : 0);
+      xp = 10 + (success ? 10 : 0) + u.kills * 8 + (u.killedHvt ? 25 : 0) + (carrier === u && intelOut ? 15 : 0) + u.revives * 10;
       if (u.hp <= u.maxHp / 2) { status = 'Heavy wound: misses next mission'; s.recovery = 2; }
       else status = u.hp < u.maxHp ? 'Light wound' : 'Fit for duty';
       for (const it of [u.weapon, u.armor, u.util]) if (it) G.armory[it] = (G.armory[it] || 0) + 1;
     }
     if (u.consumed) lost.push(`${ITEMS[u.consumed].label} (expended)`);
+    if (u.droneLost) lost.push(`Recon Drone (shot down)`);
     s.xp += xp; s.kills += u.kills; s.missions++;
     const after = rankIdx(s.xp);
-    soldiers.push({ name: u.name, status, hp: u.hp, maxHp: u.maxHp, kills: u.kills, xp, rank: RANKS[after][1], promoted: s.alive && after !== before ? RANKS[after][1] : null });
+    soldiers.push({ name: u.name, cls: s.cls, status, hp: u.hp, maxHp: u.maxHp, kills: u.kills, xp, rank: RANKS[after][1], promoted: s.alive && after !== before ? RANKS[after][1] : null });
   }
   if (anyOut) {
     const dead = b.units.filter((u) => u.side === 'E' && u.hp <= 0).length;
@@ -886,15 +1008,28 @@ function debrief(m) {
   }
   const weapons = () => Object.keys(ITEMS).filter((k) => ITEMS[k].slot === 'WEAPON').reduce((n, k) => n + (G.armory[k] || 0), 0);
   while (weapons() < 4) { G.armory.CARBINE++; gained.push('Carbine (quartermaster replacement)'); }
-  while (G.roster.filter((s) => s.alive).length < 6) notes.push(`New recruit assigned: ${recruit(0).name}.`);
+  G.recruits = Math.max(0, ROSTER_MIN - G.roster.filter((s) => s.alive).length);
+  if (G.recruits) notes.push(`${G.recruits} replacement slot${G.recruits > 1 ? 's' : ''} open. Choose a class for each below.`);
   G.flown++;
   return { success, objectives: [{ label: OBJ[m.primary].label, primary: true, ok: done(m.primary) }, { label: OBJ[m.secondary].label, primary: false, ok: done(m.secondary) }], soldiers, lost, gained, rp, notes };
 }
 function proceed() {
   if (G.phase === 'INSERTION') G.phase = 'TACTICAL';
   else if (G.phase === 'EXTRACTION') { G.debrief = debrief(G.mission); G.phase = 'DEBRIEF'; }
-  else if (G.phase === 'DEBRIEF') beginBriefing();
-  else fail('Nothing to continue.');
+  else if (G.phase === 'DEBRIEF') {
+    if (G.recruits > 0) fail('Choose a class for each replacement recruit first.');
+    beginBriefing();
+  } else fail('Nothing to continue.');
+}
+/** Free replacement slots after a debrief; otherwise buy an extra recruit during the briefing. */
+function enlist(cls) {
+  if (!CLASSES[cls]) fail('Unknown class.');
+  if (G.phase === 'DEBRIEF' && G.recruits > 0) { G.recruits--; return recruit(0, cls); }
+  need('BRIEFING');
+  if (G.roster.filter((s) => s.alive).length >= ROSTER_MAX) fail(`The roster is full (${ROSTER_MAX} operators).`);
+  if (G.rp < RECRUIT_COST) fail(`Recruiting costs ${RECRUIT_COST} RP; you have ${G.rp}.`);
+  G.rp -= RECRUIT_COST;
+  return recruit(0, cls);
 }
 
 // =====================================================================================
@@ -957,7 +1092,7 @@ class HexView {
     for (const r of [...rows.keys()].sort((a, b) => a - b)) {
       for (const t of rows.get(r).sort((a, b) => a.q - b.q)) this.tile(t, sc, now);
       for (const g of sc.ghosts || []) if (g.r === r) this.ghost(g);
-      for (const u of byRow.get(r) || []) this.unit(u, this.center(u.q, u.r), sc, now);
+      for (const u of (byRow.get(r) || []).sort((a, b) => (a.kind === 'drone') - (b.kind === 'drone'))) this.unit(u, this.center(u.q, u.r), sc, now);
     }
     for (const u of anim) this.unit(u, sc.anim.get(u.id), sc, now);
     if (sc.path && sc.path.length > 1) {
@@ -1007,6 +1142,8 @@ class HexView {
     } else if (t.t === 'ROAD') { c.fillStyle = `rgba(230,210,160,${0.25 * f})`; c.fillRect(x - s * 0.25, y - 1, s * 0.5, 2); }
   }
   unit(u, pos, sc, now) {
+    if (u.kind === 'drone') return this.drone(u, pos, sc, now);
+    if (u.downed) return this.downed(u, pos, sc);
     const c = this.x, s = this.s, { x, y } = pos;
     c.beginPath(); c.ellipse(x, y, s * 0.36, s * 0.36 * ISO, 0, 0, Math.PI * 2); c.fillStyle = 'rgba(0,0,0,0.38)'; c.fill();
     if (sc.selectedId === u.id) {
@@ -1026,6 +1163,44 @@ class HexView {
     const bw = s * 0.7, bx = x - bw / 2, by = y - s * 1.18, ratio = Math.max(0, u.hp / u.maxHp);
     c.fillStyle = 'rgba(0,0,0,0.6)'; c.fillRect(bx - 1, by - 1, bw + 2, 5);
     c.fillStyle = ratio > 0.6 ? '#73d08c' : ratio > 0.3 ? '#e3c351' : '#e2645b'; c.fillRect(bx, by, bw * ratio, 3);
+    if (u.letter) {
+      const fs = Math.max(9, Math.round(s * 0.34));
+      c.font = `700 ${fs}px "Barlow Condensed", sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillStyle = 'rgba(5,25,32,0.85)'; c.fillText(u.letter, x, y - s * 0.42);
+      c.textBaseline = 'alphabetic';
+    }
+  }
+  drone(u, pos, sc, now) {
+    const c = this.x, s = this.s, { x } = pos, y = pos.y - s * 0.95 + Math.sin(now / 220 + u.id) * 1.5;
+    c.beginPath(); c.ellipse(pos.x, pos.y, s * 0.22, s * 0.22 * ISO, 0, 0, Math.PI * 2); c.fillStyle = 'rgba(0,0,0,0.28)'; c.fill();
+    if (sc.selectedId === u.id) {
+      c.lineWidth = 2; c.strokeStyle = `rgba(170,232,250,${0.6 + 0.4 * Math.sin(now / 180)})`;
+      c.beginPath(); c.ellipse(pos.x, pos.y, s * 0.4, s * 0.4 * ISO, 0, 0, Math.PI * 2); c.stroke();
+    }
+    const arm = s * 0.26;
+    c.strokeStyle = '#2b3d42'; c.lineWidth = 2;
+    c.beginPath(); c.moveTo(x - arm, y - arm * ISO); c.lineTo(x + arm, y + arm * ISO); c.moveTo(x + arm, y - arm * ISO); c.lineTo(x - arm, y + arm * ISO); c.stroke();
+    c.fillStyle = 'rgba(170,232,250,0.35)';
+    for (const [dx, dy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { c.beginPath(); c.ellipse(x + dx * arm, y + dy * arm * ISO, s * 0.13, s * 0.13 * ISO, 0, 0, Math.PI * 2); c.fill(); }
+    c.fillStyle = u.ap === 0 ? shade(C.player, 0.55) : C.player; c.strokeStyle = 'rgba(0,0,0,0.65)'; c.lineWidth = 1.2;
+    c.beginPath(); c.roundRect(x - s * 0.12, y - s * 0.08, s * 0.24, s * 0.16, s * 0.05); c.fill(); c.stroke();
+    const bw = s * 0.5, ratio = Math.max(0, u.hp / u.maxHp);
+    c.fillStyle = 'rgba(0,0,0,0.6)'; c.fillRect(x - bw / 2 - 1, y - s * 0.38 - 1, bw + 2, 5);
+    c.fillStyle = ratio > 0.6 ? '#73d08c' : ratio > 0.3 ? '#e3c351' : '#e2645b'; c.fillRect(x - bw / 2, y - s * 0.38, bw * ratio, 3);
+  }
+  downed(u, pos, sc) {
+    const c = this.x, s = this.s, { x, y } = pos;
+    if (sc.targets && sc.targets.has(u.id)) {
+      c.lineWidth = 2; c.strokeStyle = 'rgba(120,220,140,0.95)'; c.setLineDash([4, 3]);
+      c.beginPath(); c.ellipse(x, y, s * 0.55, s * 0.55 * ISO, 0, 0, Math.PI * 2); c.stroke(); c.setLineDash([]);
+    }
+    c.fillStyle = shade(C.player, 0.6); c.strokeStyle = 'rgba(0,0,0,0.65)'; c.lineWidth = 1.2;
+    c.beginPath(); c.roundRect(x - s * 0.36, y - s * 0.14, s * 0.56, s * 0.2, s * 0.08); c.fill(); c.stroke();
+    c.beginPath(); c.arc(x + s * 0.3, y - s * 0.05, s * 0.13, 0, Math.PI * 2); c.fill(); c.stroke();
+    c.fillStyle = '#e2645b'; c.fillRect(x - s * 0.1, y - s * 0.55, s * 0.08, s * 0.26); c.fillRect(x - s * 0.19, y - s * 0.46, s * 0.26, s * 0.08);
+    c.font = `700 ${Math.max(11, Math.round(s * 0.4))}px "Barlow Condensed", sans-serif`; c.textAlign = 'center';
+    c.lineWidth = 3; c.strokeStyle = 'rgba(0,0,0,0.85)'; c.strokeText(`DOWN ${u.bleed}`, x, y - s * 0.7);
+    c.fillStyle = '#ffb6ae'; c.fillText(`DOWN ${u.bleed}`, x, y - s * 0.7);
   }
   ghost(g) {
     const c = this.x, s = this.s, { x, y } = this.center(g.q, g.r);
@@ -1075,7 +1250,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let toastTimer;
 function toast(msg) { const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => (t.hidden = true), 3200); }
 
-const SAVE_KEY = 'skirm-save-v1';
+const SAVE_KEY = 'skirm-save-v2'; // v2 = classes; older saves start a new campaign
 function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(G)); } catch (e) { /* storage unavailable: play continues unsaved */ } }
 
 let mounted = null;
@@ -1123,17 +1298,19 @@ function remaining() {
   for (const id of draft.team) for (const it of Object.values(draft.loadouts[id])) if (it) left[it] = (left[it] || 0) - 1;
   return left;
 }
-function defaultLoadout() {
-  const left = remaining(), first = (p) => p.find((x) => (left[x] || 0) > 0) || null;
-  return { weapon: first(['CARBINE', 'SMG', 'DMR', 'LMG', 'AK']), armor: first(['VEST', 'PLATE']), utility: first(['MEDKIT', 'FRAG']) };
+function defaultLoadout(cls) {
+  const left = remaining(), first = (p) => p.find((x) => (left[x] || 0) > 0) || null, cl = CLASSES[cls];
+  return { weapon: first(cl.weapons), armor: first(cl.armor), utility: first(cl.utility) };
 }
+const classOf = (id) => soldier(+id).cls;
+const classChip = (cls) => `<span class="cls cls-${cls.toLowerCase()}">${CLASSES[cls].label}</span>`;
 function syncDraft() {
   if (draft.mission === G.mission.n + ':' + G.flown + ':' + G.mission.codename) return;
   draft.mission = G.mission.n + ':' + G.flown + ':' + G.mission.codename;
   Object.assign(draft, { team: [], loadouts: {}, insertion: 'FOOT', extraction: 'FOOT' });
   for (const s of G.roster) {
     if (!available(s) || draft.team.length >= MAX_TEAM) continue;
-    const l = defaultLoadout();
+    const l = defaultLoadout(s.cls);
     if (!l.weapon) break;
     draft.team.push(s.id);
     draft.loadouts[s.id] = l;
@@ -1149,7 +1326,8 @@ function renderBriefing() {
   }).join('');
   const humint = m.intel.includes('HUMINT') ? `<div class="humint"><div><b>${m.spawns.length}</b> hostiles confirmed. Positions marked on the map.</div><div>${m.rTurn ? `Expect ${m.rCount} reinforcements from the east around turn ${m.rTurn}.` : 'No reinforcements expected.'}</div></div>` : '';
   const select = (sid, slot, cur, none) => {
-    const opts = Object.keys(ITEMS).filter((k) => ITEMS[k].slot === slot).map((k) => {
+    const allowed = CLASSES[classOf(sid)][{ WEAPON: 'weapons', ARMOR: 'armor', UTILITY: 'utility' }[slot]];
+    const opts = allowed.map((k) => {
       const n = (left[k] || 0) + (cur === k ? 1 : 0);
       if (n <= 0 && cur !== k) return '';
       return `<option value="${k}" ${cur === k ? 'selected' : ''}>${ITEMS[k].label} (${n} in stock)</option>`;
@@ -1160,8 +1338,9 @@ function renderBriefing() {
     const on = draft.team.includes(s.id), l = draft.loadouts[s.id], nx = nextXp(s.xp), pct = nx > 0 ? Math.min(100, Math.round((s.xp / nx) * 100)) : 100, ok = available(s);
     return `<div class="op ${on ? 'on' : ''} ${ok ? '' : 'off'}">
       <label class="op-head"><input type="checkbox" id="pick-${s.id}" data-pick="${s.id}" ${on ? 'checked' : ''} ${ok ? '' : 'disabled'}>
-        <span class="rank">${RANKS[rankIdx(s.xp)][0]}</span><span class="name">${esc(s.name)}</span>
-        <span class="meta">${s.missions} ops · ${s.kills} kills</span>${ok ? '' : `<span class="chip warn">Recovering</span>`}</label>
+        <span class="rank">${RANKS[rankIdx(s.xp)][0]}</span><span class="name">${esc(s.name)}</span>${classChip(s.cls)}
+        <span class="meta">${CLASSES[s.cls].hp} HP · ${s.missions} ops · ${s.kills} kills</span>${ok ? '' : `<span class="chip warn">Recovering</span>`}</label>
+      <div class="ability">${CLASSES[s.cls].ability}</div>
       <div class="xp"><i style="width:${pct}%"></i><small>${s.xp}${nx > 0 ? ' / ' + nx : ''} XP</small></div>
       ${on ? `<div class="loadout">${select(s.id, 'WEAPON', l.weapon, false)}${select(s.id, 'ARMOR', l.armor, true)}${select(s.id, 'UTILITY', l.utility, true)}</div>
       <div class="loadout-hint">${[l.weapon, l.armor, l.utility].filter(Boolean).map(itemSummary).join(' · ')}</div>` : ''}</div>`;
@@ -1183,7 +1362,9 @@ function renderBriefing() {
     </div>
     <div class="col">
       <div class="card"><h3>Team <span class="count">${draft.team.length}/${MAX_TEAM}</span></h3><div class="roster">${roster}</div>
-        ${fallen.length ? `<div class="fallen">In memoriam: ${fallen.join(', ')}</div>` : ''}</div>
+        ${fallen.length ? `<div class="fallen">In memoriam: ${fallen.join(', ')}</div>` : ''}
+        ${G.roster.filter((s) => s.alive).length < ROSTER_MAX ? `<div class="recruit"><span>Recruit an operator · ${RECRUIT_COST} RP</span><div class="recruit-btns">${Object.entries(CLASSES).map(([id, c]) =>
+          `<button class="btn" type="button" data-enlist="${id}" ${G.rp < RECRUIT_COST ? 'disabled' : ''}>${c.label}</button>`).join('')}</div></div>` : ''}</div>
       <div class="card"><h3>Insertion</h3><div class="vehicles">${vehicles('insertion')}</div><h3>Extraction</h3><div class="vehicles">${vehicles('extraction')}</div></div>
       <div class="card launch"><div class="budget"><span>Requisition <b>${G.rp}</b></span><span>Transport <b>${cost}</b></span><span class="${okBudget ? '' : 'bad'}">Remaining <b>${G.rp - cost}</b></span></div>
         <button class="btn primary big" type="button" id="launch" ${okBudget && okKit ? '' : 'disabled'}>Launch mission</button></div>
@@ -1191,12 +1372,13 @@ function renderBriefing() {
 
   const v = $('#view');
   v.querySelectorAll('[data-intel]').forEach((b) => b.addEventListener('click', () => run(() => buyIntel(b.dataset.intel))));
+  v.querySelectorAll('[data-enlist]').forEach((b) => b.addEventListener('click', () => run(() => { const s = enlist(b.dataset.enlist); toast(`${s.name} joins as ${CLASSES[s.cls].label}.`); })));
   v.querySelectorAll('[data-pick]').forEach((cb) => cb.addEventListener('change', () => {
     const id = +cb.dataset.pick;
     if (cb.checked) {
       if (draft.team.length >= MAX_TEAM) { toast(`Maximum team size is ${MAX_TEAM}.`); return renderBriefing(); }
-      const l = defaultLoadout();
-      if (!l.weapon) { toast('No weapons left in the armory.'); return renderBriefing(); }
+      const l = defaultLoadout(classOf(id));
+      if (!l.weapon) { toast(`No weapon a ${CLASSES[classOf(id)].label} can carry is left in the armory.`); return renderBriefing(); }
       draft.team.push(id); draft.loadouts[id] = l;
     } else { draft.team = draft.team.filter((x) => x !== id); delete draft.loadouts[id]; }
     renderBriefing();
@@ -1258,18 +1440,34 @@ function mountTactical(v) {
   };
   tac.raf = requestAnimationFrame(loop);
 }
-const mine = () => squad().filter(onMap);
-const visibleUnit = (u) => onMap(u) && (u.side === 'P' || isVis(u.h));
-const unitAt = (h) => h && B().units.find((u) => visibleUnit(u) && eq(u.h, h));
+// Selectable units: operators on their feet, plus drones whose operator can fly them.
+const mine = () => B().units.filter((u) => u.side === 'P' && (isDrone(u) ? droneUsable(u) : onMap(u)));
+const visibleUnit = (u) => present(u) && (u.side === 'P' || isVis(u.h));
+// A drone can share a hex with a ground unit: clicking the selected one cycles to the other.
+function unitAt(h) {
+  if (!h) return null;
+  const here = B().units.filter((u) => visibleUnit(u) && eq(u.h, h));
+  if (here.length < 2) return here[0] || null;
+  const i = here.findIndex((u) => u.id === tac.selected);
+  return i >= 0 ? here[(i + 1) % here.length] : here.find((u) => !isDrone(u)) || here[0];
+}
 const sel = () => mine().find((u) => u.id === tac.selected) || null;
 
-function orders(u) { // what the selected operator can do right now, computed from the rules
+function orders(u) { // what the selected unit can do right now, computed from the rules
   const reach = reachOf(u, u.ap), moves = new Map();
   for (const [k, c] of Object.entries(reach.cost)) if (k !== reach.origin) moves.set(k, { c, prev: reach.prev[k] });
   const targets = new Map();
   for (const t of B().units) if (t.side === 'E' && canShoot(u, t)) targets.set(t.id, hitChance(u, u.h, t));
-  const heal = mine().filter((t) => canHeal(u, t)).map((t) => t.id);
-  return { reach, moves, targets, heal, grenade: u.util === 'FRAG' && u.ap >= GR_AP, intel: canIntel(u), exfil: canExfil(u) };
+  return {
+    reach, moves, targets,
+    heal: mine().filter((t) => canHeal(u, t)).map((t) => t.id),
+    revive: squad().filter((t) => canRevive(u, t)).map((t) => t.id),
+    breach: isDrone(u) ? [] : nbs(u.h).filter((h) => canBreach(u, h)).map(K),
+    grenade: u.util === 'FRAG' && u.ap >= GR_AP,
+    launch: canLaunch(u),
+    strike: isDrone(u) && u.strike > 0 && u.ap >= STRIKE_AP,
+    intel: canIntel(u), exfil: canExfil(u),
+  };
 }
 function ensureSelection() {
   const list = mine();
@@ -1284,7 +1482,8 @@ function scene() {
   const sc = {
     tiles: M().hexes.map((h) => { const k = K(h); return { q: h.q, r: h.r, t: b.explored[k] ? M().t[k] : null, v: !!b.visible[k] }; }),
     zones: { ins: new Set(M().ins), ext: new Set(b.ext), obj: b.intelHex },
-    units: b.units.filter(visibleUnit).map((x) => ({ id: x.id, side: x.side, q: x.h.q, r: x.h.r, hp: x.hp, maxHp: x.maxHp, ap: x.ap, hvt: x.hvt, carrier: b.carrier === x.id })),
+    units: b.units.filter(visibleUnit).map((x) => ({ id: x.id, side: x.side, kind: x.kind, q: x.h.q, r: x.h.r, hp: x.hp, maxHp: x.maxHp, ap: x.ap, hvt: x.hvt,
+      carrier: b.carrier === x.id, downed: x.downed, bleed: x.bleed, letter: x.cls ? CLASSES[x.cls].letter : null })),
     ghosts: Object.entries(b.lastSeen).filter(([id]) => { const e = unitById(+id); return e && onMap(e) && !isVis(e.h); }).map(([, k]) => unK(k)),
     selectedId: tac.selected, hover: tac.hover, anim: tac.anim, fx: tac.fx,
   };
@@ -1305,22 +1504,38 @@ function scene() {
   } else if (tac.mode === 'grenade') {
     sc.grange = new Set(M().hexes.filter((h) => dist(h, u.h) <= GR_RANGE).map(K));
     if (tac.hover && dist(tac.hover, u.h) <= GR_RANGE) sc.blast = new Set(M().hexes.filter((h) => dist(h, tac.hover) <= 1).map(K));
-  } else if (tac.mode === 'medkit') sc.targets = new Map(o.heal.map((id) => [id, 0]));
+  } else if (tac.mode === 'strike') {
+    sc.grange = new Set(M().hexes.filter((h) => dist(h, u.h) <= STRIKE_RANGE).map(K));
+    if (tac.hover && dist(tac.hover, u.h) <= STRIKE_RANGE) sc.blast = new Set(M().hexes.filter((h) => dist(h, tac.hover) <= 1).map(K));
+  } else if (tac.mode === 'breach') sc.blast = new Set(o.breach);
+  else if (tac.mode === 'medkit') sc.targets = new Map(o.heal.map((id) => [id, 0]));
+  else if (tac.mode === 'revive') sc.targets = new Map(o.revive.map((id) => [id, 0]));
   return sc;
 }
 
 function boardClick() {
   if (tac.busy || !tac.hover) return;
   const h = tac.hover, u = sel(), o = tac.cache, there = unitAt(h);
-  if (tac.mode === 'medkit' && u) {
+  if (u && tac.mode === 'medkit') {
     if (there && o.heal.includes(there.id)) return act(u.id, 'MEDKIT', null, there.id);
     return toast('Pick yourself or an adjacent wounded operator.');
   }
-  if (tac.mode === 'grenade' && u) return act(u.id, 'GRENADE', h, null);
-  if (there && there.side === 'P') { tac.selected = there.id; tac.mode = 'move'; return updateTactical(); }
+  if (u && tac.mode === 'revive') {
+    const t = squad().find((x) => x.downed && eq(x.h, h));
+    if (t && o.revive.includes(t.id)) return act(u.id, 'REVIVE', null, t.id);
+    return toast('Pick a downed operator next to the medic.');
+  }
+  if (u && tac.mode === 'breach') {
+    if (o.breach.includes(K(h))) return act(u.id, 'BREACH', h, null);
+    return toast('Pick a highlighted wall or cover hex next to the heavy.');
+  }
+  if (u && tac.mode === 'strike') return act(u.id, 'STRIKE', h, null);
+  if (u && tac.mode === 'grenade') return act(u.id, 'GRENADE', h, null);
+  if (there && there.side === 'P' && mine().includes(there)) { tac.selected = there.id; tac.mode = 'move'; return updateTactical(); }
   if (!u) return;
   if (there && there.side === 'E') {
     if (o.targets.has(there.id)) return act(u.id, 'SHOOT', null, there.id);
+    if (isDrone(u)) return toast('The drone carries no gun. Use Strike, or select an operator to fire.');
     return toast(u.ap < gun(u).ap ? `Not enough AP: ${gun(u).ap} needed to fire.` : 'No clear shot: out of range or no line of sight.');
   }
   if (o.moves.has(K(h))) return act(u.id, 'MOVE', h, null);
@@ -1334,15 +1549,18 @@ function updateTactical() {
   const marks = { done: '✓', progress: '◐', pending: '○', failed: '✗' };
   const carrier = b.carrier != null ? unitById(b.carrier) : null;
   $('#hud').innerHTML = `<span class="turn">Turn <b>${b.turn}</b> / ${b.limit}</span><span class="chip ${b.alerted ? 'bad' : 'ok'}">${b.alerted ? 'Alerted' : 'Undetected'}</span>${carrier ? `<span class="chip gold">Intel: ${esc(carrier.name)}</span>` : ''}`;
-  const kia = squad().some((x) => x.hp <= 0);
+  const kia = squad().some((x) => x.hp <= 0 && !x.downed);
   const obj = (t, primary) => {
     const st = { RETRIEVE_INTEL: [carrier ? 'progress' : 'pending', carrier ? 'Carrier must extract' : 'Find and secure the cache'], ELIMINATE_HVT: [b.hvtKilled ? 'done' : 'pending', b.hvtKilled ? 'Target down' : 'Target in the compound'], NO_CASUALTIES: [kia ? 'failed' : 'progress', kia ? 'Operator lost' : 'All operators alive'], UNDETECTED: [b.alerted ? 'failed' : 'progress', b.alerted ? 'Alarm raised' : 'Undetected'] }[t];
     return `<div class="obj ${st[0]}"><span class="mark">${marks[st[0]]}</span><div><b>${primary ? 'Primary' : 'Secondary'}: ${OBJ[t].label}</b><small>${st[1]}</small></div></div>`;
   };
   $('#objectives').innerHTML = `<h3>Objectives</h3>${obj(G.mission.primary, true)}${obj(G.mission.secondary, false)}`;
-  $('#squad').innerHTML = `<h3>Squad</h3>` + (mine().length ? mine().map((x) => `<button class="sq ${x.id === tac.selected ? 'on' : ''}" type="button" data-unit="${x.id}">
-    <span class="name">${esc(x.name)}${b.carrier === x.id ? ' <i class="gold">◆</i>' : ''}</span><span class="bar"><i style="width:${(x.hp / x.maxHp) * 100}%"></i></span>
-    <span class="pips" aria-label="${x.ap} AP">${'●'.repeat(x.ap)}${'○'.repeat(Math.max(0, maxAp(x) - x.ap))}</span></button>`).join('') : '<p class="muted">No operators on the map.</p>');
+  const tagOf = (x) => (isDrone(x) ? '<span class="cls cls-drone">UAV</span>' : `<span class="cls cls-${x.cls.toLowerCase()}">${CLASSES[x.cls].letter}</span>`);
+  const rows = mine().map((x) => `<button class="sq ${x.id === tac.selected ? 'on' : ''} ${isDrone(x) ? 'uav' : ''}" type="button" data-unit="${x.id}">
+    <span class="name">${tagOf(x)} ${esc(x.name)}${b.carrier === x.id ? ' <i class="gold">◆</i>' : ''}</span><span class="bar"><i style="width:${(x.hp / x.maxHp) * 100}%"></i></span>
+    <span class="pips" aria-label="${x.ap} AP">${'●'.repeat(x.ap)}${'○'.repeat(Math.max(0, maxAp(x) - x.ap))}</span></button>`);
+  const down = squad().filter((x) => x.downed).map((x) => `<div class="sq downed"><span class="name">${tagOf(x)} ${esc(x.name)}</span><span></span><span class="chip bad">Down · ${x.bleed}</span></div>`);
+  $('#squad').innerHTML = `<h3>Squad</h3>` + (rows.length || down.length ? rows.join('') + down.join('') : '<p class="muted">No operators on the map.</p>');
   $('#squad').querySelectorAll('[data-unit]').forEach((el) => el.addEventListener('click', () => { tac.selected = +el.dataset.unit; tac.mode = 'move'; updateTactical(); }));
   renderActions();
   $('#log').innerHTML = b.log.map((e) => `<li class="ev-${e.type}">${esc(e.text)}</li>`).join('');
@@ -1352,16 +1570,28 @@ function updateTactical() {
 function renderActions() {
   const u = sel(), o = tac.cache, box = $('#actions');
   if (!u || !o) { box.innerHTML = '<h3>Orders</h3><p class="muted">Awaiting extraction.</p>'; return; }
-  const g = gun(u);
-  box.innerHTML = `<h3>${esc(u.name)}</h3>
-    <div class="unit-stats"><span>HP <b>${u.hp}/${u.maxHp}</b></span><span>AP <b>${u.ap}/${maxAp(u)}</b></span>
+  const btn = (order, label, enabled, mode) => `<button class="btn ${mode && tac.mode === mode ? 'armed' : ''}" type="button" data-order="${order}" ${enabled ? '' : 'disabled'}>${label}</button>`;
+  let stats, buttons;
+  if (isDrone(u)) {
+    stats = `<span>HP <b>${u.hp}/${u.maxHp}</b></span><span>AP <b>${u.ap}/${maxAp(u)}</b></span><span>Strike <b>${u.strike}</b></span>
+      <small>Flies over anything within ${DRONE_TETHER} hexes of ${esc(unitById(u.op).name)}. Sees ${DRONE_VISION} hexes.</small>`;
+    buttons = btn('strike', `Strike (${u.strike} left)`, o.strike, 'strike');
+  } else {
+    const g = gun(u), cl = CLASSES[u.cls];
+    stats = `<span>${classChip(u.cls)}</span><span>HP <b>${u.hp}/${u.maxHp}</b></span><span>AP <b>${u.ap}/${maxAp(u)}</b></span>
       <span>${ITEMS[u.weapon].label} <small>${g.ap} AP · range ${g.range}</small></span>${u.armor ? `<span>${ITEMS[u.armor].label}</span>` : ''}
-      <span>${u.util ? ITEMS[u.util].label : '<small>No utility</small>'}</span></div>
-    <div class="orders">
-      <button class="btn ${tac.mode === 'grenade' ? 'armed' : ''}" type="button" data-order="grenade" ${o.grenade ? '' : 'disabled'}>Grenade</button>
-      <button class="btn ${tac.mode === 'medkit' ? 'armed' : ''}" type="button" data-order="medkit" ${o.heal.length ? '' : 'disabled'}>Medkit</button>
-      <button class="btn" type="button" data-order="intel" ${o.intel ? '' : 'disabled'}>Secure intel</button>
-      <button class="btn" type="button" data-order="exfil" ${o.exfil ? '' : 'disabled'}>Exfiltrate</button></div>
+      <span>${u.util ? ITEMS[u.util].label : '<small>No utility</small>'}</span>`;
+    const special = {
+      HEAVY: btn('breach', 'Breach', o.breach.length, 'breach'),
+      MEDIC: btn('revive', 'Revive', o.revive.length, 'revive'),
+      DRONE: btn('launch', u.droneLost ? 'Drone lost' : u.droneId != null ? 'Drone airborne' : 'Launch drone', o.launch),
+      SCOUT: '',
+    }[u.cls];
+    buttons = btn('grenade', 'Grenade', o.grenade, 'grenade') + btn('medkit', 'Medkit', o.heal.length, 'medkit') + special
+      + btn('intel', 'Secure intel', o.intel) + btn('exfil', 'Exfiltrate', o.exfil);
+    stats += cl.letter === 'S' ? '<small>Stealth: detected at half range, sees +2 hexes.</small>' : '';
+  }
+  box.innerHTML = `<h3>${esc(u.name)}</h3><div class="unit-stats">${stats}</div><div class="orders">${buttons}</div>
     <div class="orders end"><button class="btn danger" type="button" data-order="abort">${tac.abortArmed ? 'Confirm abort' : 'Abort'}</button>
       <button class="btn primary" type="button" data-order="end">End turn</button></div>`;
   box.querySelectorAll('[data-order]').forEach((b) => b.addEventListener('click', () => order(b.dataset.order)));
@@ -1372,6 +1602,10 @@ function order(o) {
   if (o !== 'abort') tac.abortArmed = false;
   if (o === 'grenade' && c?.grenade) setMode('grenade');
   else if (o === 'medkit' && c?.heal.length) setMode('medkit');
+  else if (o === 'revive' && c?.revive.length) setMode('revive');
+  else if (o === 'breach' && c?.breach.length) setMode('breach');
+  else if (o === 'strike' && c?.strike) setMode('strike');
+  else if (o === 'launch' && c?.launch) act(u.id, 'LAUNCH');
   else if (o === 'intel' && c?.intel) act(u.id, 'INTEL');
   else if (o === 'exfil' && c?.exfil) act(u.id, 'EXFIL');
   else if (o === 'end') { tac.mode = 'move'; run(endTurn); }
@@ -1384,11 +1618,20 @@ function updateHint() {
   const el = $('#hint');
   if (!el || G.phase !== 'TACTICAL') return;
   const u = sel(), o = tac.cache, touch = tac.pointer !== 'mouse';
-  let text = u ? `${u.name}: ${touch ? 'tap' : 'click'} a highlighted hex to move or a ringed hostile to fire.` : 'All operators have left the map.';
-  if (u && o && tac.hover) {
+  const verb = touch ? 'tap' : 'click';
+  let text = !u ? 'All operators have left the map.'
+    : isDrone(u) ? `${u.name}: ${verb} a highlighted hex to fly. Hostiles it sees are easier to hit.`
+    : `${u.name}: ${verb} a highlighted hex to move or a ringed hostile to fire.`;
+  const modeHint = {
+    breach: `Breach: ${verb} a highlighted wall or cover hex. Loud.`,
+    revive: `Revive: ${verb} a downed operator next to the medic.`,
+    strike: `Drone strike: radius 1, 3-5 damage, within ${STRIKE_RANGE} hexes of the drone.`,
+  }[tac.mode];
+  if (modeHint) text = modeHint;
+  if (u && o && tac.hover && !modeHint) {
     const there = unitAt(tac.hover), hc = there && o.targets.get(there.id), mv = o.moves.get(K(tac.hover)), again = touch ? ' Tap again to confirm.' : '';
     if (tac.mode === 'grenade') text = `Grenade: radius 1, 3-5 damage, ignores cover. It hurts your own team too.${again}`;
-    else if (tac.mode === 'medkit') text = `Medkit: ${touch ? 'tap' : 'click'} yourself or an adjacent wounded operator.`;
+    else if (tac.mode === 'medkit') text = `Medkit: ${verb} yourself or an adjacent wounded operator.`;
     else if (hc) text = `Fire at ${there.name} (${there.hp}/${there.maxHp} HP): ${hc.chance}%${hc.mods.length ? ' [' + hc.mods.join(', ') + ']' : ''}.${again}`;
     else if (there && there.side === 'E') text = `${there.name}: ${ITEMS[there.weapon].label}, ${there.hp}/${there.maxHp} HP. No shot from here.`;
     else if (mv) text = `Move: ${mv.c} AP.${again}`;
@@ -1408,7 +1651,11 @@ async function playEvents(events) {
       await sleep(340);
     } else if (e.type === 'grenade') { fx({ kind: 'tracer', from: e.from, to: e.to, hit: false, dur: 260 }); await sleep(240); fx({ kind: 'boom', at: e.to, dur: 600 }); await sleep(200); }
     else if (e.type === 'damage') { fx({ kind: 'text', at: e.to, text: `-${e.amount}`, color: '#ff8a80', dur: 1000 }); await sleep(90); }
-    else if (e.type === 'kill') { fx({ kind: 'text', at: e.to, text: 'DOWN', color: '#ff6b6b', dur: 1200 }); await sleep(220); }
+    else if (e.type === 'kill') {
+      const k = unitById(e.unit), label = !k || k.side === 'E' ? 'DOWN' : isDrone(k) ? 'LOST' : 'KIA';
+      fx({ kind: 'text', at: e.to, text: label, color: '#ff6b6b', dur: 1200 }); await sleep(220);
+    } else if (e.type === 'down') { fx({ kind: 'text', at: e.to, text: 'DOWNED', color: '#ffb6ae', dur: 1400 }); banner(e.text); await sleep(300); }
+    else if (e.type === 'breach') { fx({ kind: 'boom', at: e.to, dur: 600 }); await sleep(300); }
     else if (e.type === 'heal') { fx({ kind: 'text', at: e.to, text: `+${e.amount}`, color: '#7ee07e', dur: 1000 }); await sleep(200); }
     else if (e.type === 'intel') fx({ kind: 'text', at: e.to, text: 'INTEL', color: C.intel, dur: 1200 });
     else if (e.type === 'exfil') fx({ kind: 'text', at: e.to, text: 'EXFIL', color: '#8be09b', dur: 1200 });
@@ -1447,10 +1694,13 @@ function renderDebrief() {
       <ul class="obj-results">${d.objectives.map((o) => `<li class="${o.ok ? 'ok' : 'bad'}"><span>${o.ok ? '✓' : '✗'}</span>${o.primary ? 'Primary' : 'Secondary'}: <b>${o.label}</b></li>`).join('')}</ul>
       <p>Requisition awarded: <b>+${d.rp} RP</b></p></div>
     <div class="card"><h3>Personnel</h3><div class="table-wrap"><table class="personnel"><thead><tr><th>Operator</th><th>Status</th><th>HP</th><th>Kills</th><th>XP</th><th>Rank</th></tr></thead><tbody>
-      ${d.soldiers.map((s) => `<tr class="${/KIA|MIA/.test(s.status) ? 'lost' : ''}"><td>${esc(s.name)}</td><td>${s.status}</td><td>${s.hp}/${s.maxHp}</td><td>${s.kills}</td><td>${s.xp ? '+' + s.xp : '-'}</td><td>${s.promoted ? `<span class="chip gold">Promoted: ${s.promoted}</span>` : s.rank}</td></tr>`).join('')}
+      ${d.soldiers.map((s) => `<tr class="${/KIA|MIA/.test(s.status) ? 'lost' : ''}"><td>${esc(s.name)} ${classChip(s.cls)}</td><td>${s.status}</td><td>${s.hp}/${s.maxHp}</td><td>${s.kills}</td><td>${s.xp ? '+' + s.xp : '-'}</td><td>${s.promoted ? `<span class="chip gold">Promoted: ${s.promoted}</span>` : s.rank}</td></tr>`).join('')}
     </tbody></table></div></div>
     <div class="card split"><div><h3>Gear lost</h3>${list(d.lost, 'Nothing lost.')}</div><div><h3>Gear gained</h3>${list(d.gained, 'Nothing recovered.')}</div>${d.notes.length ? `<div><h3>Notes</h3>${list(d.notes, '')}</div>` : ''}</div>
-    <button class="btn primary big" type="button" id="next">Next mission</button></section>`;
+    ${G.recruits > 0 ? `<div class="card"><h3>Replacements · ${G.recruits} to assign</h3><p class="muted">Pick the class of each new recruit.</p>
+      <div class="class-pick">${Object.entries(CLASSES).map(([id, c]) => `<button class="btn class-card" type="button" data-enlist="${id}">${classChip(id)}<small>${c.hp} HP · ${c.ability}</small></button>`).join('')}</div></div>` : ''}
+    <button class="btn primary big" type="button" id="next" ${G.recruits > 0 ? 'disabled' : ''}>Next mission</button></section>`;
+  $('#view').querySelectorAll('[data-enlist]').forEach((b) => b.addEventListener('click', () => run(() => { const s = enlist(b.dataset.enlist); toast(`${s.name} joins as ${CLASSES[s.cls].label}.`); })));
   $('#next').addEventListener('click', () => run(proceed));
 }
 
@@ -1491,7 +1741,7 @@ function start(data) {
   let save = data && data.save;
   if (!save) { try { save = localStorage.getItem(SAVE_KEY); } catch (e) { save = null; } }
   try { G = save ? JSON.parse(save) : null; } catch (e) { G = null; }
-  if (!G || G.v !== 1) newCampaign((Math.random() * 2 ** 31) | 0);
+  if (!G || G.v !== 2) newCampaign((Math.random() * 2 ** 31) | 0);
   window.claude?.hot?.snapshot?.(() => ({ save: JSON.stringify(G) }));
   refresh();
 }
