@@ -486,10 +486,11 @@ main { flex: 1; min-height: 0; padding-block: 20px; padding-left: max(20px, env(
 :root {
   --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .045 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
   --grit: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='70'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -3 2.6'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --grain-photo: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.95' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='linear' slope='0' intercept='1'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23p)'/%3E%3C/svg%3E");
 }
 body { background-image: var(--grain); }
 /* portraits: the mosaic is the style, so keep its blocks crisp and the colour muted like a file photo */
-.face { image-rendering: pixelated; filter: grayscale(0.35) sepia(0.12) contrast(1.06); }
+.face { image-rendering: pixelated; filter: grayscale(0.65) sepia(0.08) contrast(1.08); }
 .rank { display: inline-flex; align-items: center; gap: 4px; }
 .ins { width: 12px; height: 14px; flex: none; }
 .cls { display: inline-flex; align-items: center; gap: 4px; }
@@ -506,8 +507,11 @@ body { background-image: var(--grain); }
 .brief-head { position: relative; }
 /* art slots: hatched placeholders until the file exists */
 .art { position: relative; margin: 0; overflow: hidden; display: grid; place-items: center; background: repeating-linear-gradient(135deg, #1a2026 0 10px, #1e252c 10px 20px); border: 1px dashed #3a4450; }
-.art:has(img) { border-color: transparent; }
-.art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; }
+.art:has(img, canvas.pix) { border-color: transparent; }
+.art :is(img, canvas.pix) { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; filter: grayscale(var(--gray, 0.7)) brightness(var(--bri, 1)) saturate(var(--sat, 1)) contrast(var(--con, 1.08)); }
+.art img { opacity: 0; } .art img.raw { opacity: 1; } /* shown once pixelated into a canvas; raw only if that cannot happen */
+.art canvas.pix { image-rendering: pixelated; }
+.art::after { content: ""; position: absolute; inset: 0; z-index: 2; pointer-events: none; background-image: var(--grain-photo); background-size: 150px; mix-blend-mode: overlay; opacity: 0.6; }
 .art figcaption { font: 600 11px/1.35 var(--mono); color: var(--dim); text-align: center; padding: 4px; letter-spacing: 0.04em; }
 .art figcaption small { display: block; font-size: 10px; }
 .art-portrait { aspect-ratio: 1; }
@@ -519,7 +523,13 @@ body { background-image: var(--grain); }
 .banner::after { content: ""; position: absolute; inset: 0; z-index: 2; pointer-events: none; background: linear-gradient(180deg, transparent 55%, rgba(15, 18, 22, 0.55)); }
 .banner.tod-DUSK::after { background: linear-gradient(180deg, rgba(255, 140, 60, 0.16), rgba(70, 25, 10, 0.35) 70%, rgba(15, 18, 22, 0.6)); }
 .banner.tod-NIGHT::after { background: linear-gradient(180deg, rgba(10, 30, 50, 0.55), rgba(5, 15, 25, 0.7)); }
-.banner canvas, .tmap canvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 3; pointer-events: none; }
+/* rain, storms and smoke darken the scene under them: the art loses light and colour, the map dims */
+.banner.wx-rain, .banner.wx-smoke { --bri: 0.62; --sat: 0.75; }
+.banner.wx-storm { --bri: 0.48; --sat: 0.65; --con: 1.12; }
+.tmap:is(.wx-rain, .wx-smoke) :is(.grid, .minor, .major, .sea, .shore, .river, .field, .tree, .block) { opacity: 0.65; } /* terrain only: the route stays bright */
+.tmap.wx-storm :is(.grid, .minor, .major, .sea, .shore, .river, .field, .tree, .block) { opacity: 0.5; }
+.tmap:is(.wx-rain, .wx-storm, .wx-smoke) { --bg-map: #0f1110; } .tmap.tod-NIGHT:is(.wx-rain, .wx-storm, .wx-smoke) { --bg-map: #050c08; }
+.banner canvas.wx, .tmap canvas.wx { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 3; pointer-events: none; }
 .card > .banner.bleed { margin: -18px -20px 14px; border-radius: var(--r-lg) var(--r-lg) 0 0; }
 .brief-head > .banner.bleed { flex: none; width: calc(100% + 40px); margin-bottom: 0; }
 .offer > .banner.bleed { margin: -16px -16px 4px; border-radius: var(--r) var(--r) 0 0; aspect-ratio: 4 / 1; }
@@ -2970,12 +2980,32 @@ const skillLine = (f) => Object.keys(SKILLS).map((k) => `<span>${SKILLS[k].short
 const ART_SIZE = { banner: [1600, 500], key: [1920, 1080], portrait: [400, 400], dept: [1200, 300] };
 const artMissing = new Set();
 addEventListener('error', (e) => { const img = e.target; if (img?.matches?.('.art img')) { artMissing.add(img.dataset.id); img.remove(); } }, true);
+/* Every picture gets the file-photo look: drawn small into a canvas and scaled up crisp, so it shows as blocks of
+   about PIXEL screen pixels; CSS greys and grains it. Small copies are cached, so a re-render only copies them. */
+const PIXEL = 4, pixCache = new Map();
+document.addEventListener('load', (e) => { // on document: load events never reach window
+  const img = e.target;
+  if (!img?.matches?.('.art img')) return;
+  const box = img.parentElement.clientWidth;
+  if (!box || !img.naturalWidth) { img.classList.add('raw'); return; } // not laid out: show it as it is
+  const w = Math.max(40, Math.round(box / PIXEL)), h = Math.max(1, Math.round(w * img.naturalHeight / img.naturalWidth)), key = `${img.dataset.id}:${w}`;
+  let small = pixCache.get(key);
+  if (!small) {
+    small = document.createElement('canvas'); small.width = w; small.height = h;
+    const g = small.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(img, 0, 0, w, h);
+    pixCache.set(key, small);
+  }
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h; c.className = 'pix';
+  c.getContext('2d').drawImage(small, 0, 0);
+  img.replaceWith(c);
+}, true);
 function artSlot(id, kind, cls = '') {
   const [w, h] = ART_SIZE[kind];
   return `<figure class="art art-${kind} ${cls}" aria-hidden="true">${artMissing.has(id) ? '' : `<img src="img/art/${id}.jpg" data-id="${id}" alt="">`}<figcaption>${id}<small>${w}×${h}</small></figcaption></figure>`;
 }
 /** A location banner: the place, tinted for the time of day, with the weather drawn over it. */
-const bannerHtml = (m, wx, cls = '') => `<div class="banner tod-${m.env.time} ${cls}">${artSlot(`LOC-${m.loc}`, 'banner')}${WX_KIND[wx] ? `<canvas class="wx" data-wx="${wx}"></canvas>` : ''}</div>`;
+const bannerHtml = (m, wx, cls = '') => `<div class="banner tod-${m.env.time} wx-${WX_KIND[wx] || 'clear'} ${cls}">${artSlot(`LOC-${m.loc}`, 'banner')}${WX_KIND[wx] ? `<canvas class="wx" data-wx="${wx}"></canvas>` : ''}</div>`;
 
 /** Rank insignia: chevrons for the enlisted ranks (a rocker under PFC and SSG), a bar for the lieutenant. */
 function insignia(i) {
@@ -3081,7 +3111,7 @@ function mapHtml(m, stages, curIdx, wx, wide = 1000, H = 250) {
     const [x, y] = p[i], state = st.skipped ? 'skipped' : i < curIdx ? 'done' : i === curIdx ? 'cur' : '';
     return `<g class="wp ${state}" transform="translate(${x} ${y})">${state === 'cur' ? '<circle class="ping" r="13"/>' : ''}<circle r="13"/><text dy="4.5">${st.skipped ? "×" : i + 1}</text>${phone ? "" : `<text class="lbl" dy="31">${KIND[st.kind].toUpperCase()}</text>`}</g>`;
   }).join('');
-  return `<div class="tmap tod-${m.env.time}">
+  return `<div class="tmap tod-${m.env.time} wx-${WX_KIND[wx] || "clear"}">
     <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Tactical map: ${n} stages${curIdx >= 0 ? `, now at stage ${curIdx + 1}` : ''}, ${LOCATIONS[m.loc].label.toLowerCase()}, ${{ DAY: 'day', DUSK: 'dusk', NIGHT: 'night' }[m.env.time]}">
       <g class="grid">${grid}</g>${t.feat}<path class="minor" d="${t.minor}"/><path class="major" d="${t.major}"/>
       ${p.slice(0, -1).map((_, i) => `<path class="leg ${i < curIdx ? 'done' : ''}" d="${leg(i)}"/>`).join('')}${nodes}
@@ -3100,8 +3130,8 @@ function wxSpawn(kind, w, h, any) {
   if (kind === 'fog' || kind === 'smoke') return { x: R() * w * 1.4 - w * 0.2, y: R() * h, r: h * (0.35 + R() * 0.5), vx: 0.08 + R() * 0.25, vy: kind === 'smoke' ? -0.06 - R() * 0.08 : 0 };
   if (kind === 'dust') return { x: any ? R() * w : -10, y: R() * h, s: 0.6 + R() * 1.6, vx: 2 + R() * 3, ph: R() * 6 };
   if (kind === 'heat') return { x: R() * w, y: any ? R() * h : h + 10, s: 0.5 + R(), vy: -0.2 - R() * 0.4, ph: R() * 6 };
-  const fast = kind === 'storm' ? 1.5 : 1;
-  return { x: R() * (w + 60), y: any ? R() * h : -20, len: (kind === 'drizzle' ? 5 : 10 + R() * 9) * fast, v: (kind === 'drizzle' ? 5 : 9 + R() * 5) * fast };
+  const fast = kind === "storm" ? 1.3 : 1; // a steady fall, slow enough to read as rain rather than streaks
+  return { x: R() * (w + 60), y: any ? R() * h : -20, len: (kind === 'drizzle' ? 5 : 10 + R() * 9) * fast, v: (kind === "drizzle" ? 2.5 : 4 + R() * 2.5) * fast };
 }
 function wxInit(c) {
   const box = c.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1), w = box.width, h = box.height;
