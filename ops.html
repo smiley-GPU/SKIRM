@@ -219,14 +219,18 @@ main { flex: 1; min-height: 0; padding-block: 16px; padding-left: max(16px, env(
 .unit.down { border-color: #4b2825; }
 .unit.gone { opacity: 0.5; }
 .unit .head { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-.unit .hp { margin-left: auto; font: 12px var(--mono); color: var(--muted); }
+.injuries { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; font-size: 13px; }
+.injuries li { display: flex; gap: 8px; flex-wrap: wrap; align-items: baseline; }
+.injuries b { color: #ffb6ae; font-weight: 600; }
+.injuries span { color: var(--muted); font: 12px var(--mono); }
+.injuries li.crit b, .injuries li.crit span { color: var(--bad); }
+.unhurt { font-size: 13px; color: var(--ok); }
+.inj-short { font-size: 12px; color: #ffb6ae; }
+.healing { margin: 2px 0 0 28px; font-size: 12px; color: var(--warn); }
 .unit .skills { font: 12px var(--mono); color: var(--muted); display: flex; gap: 8px; flex-wrap: wrap; }
 .unit .skills b { color: var(--fg); font-weight: 600; }
 .unit .care { display: flex; gap: 6px; flex-wrap: wrap; }
 .unit .care .btn { padding: 4px 8px; font-size: 13px; }
-.bar { height: 5px; background: #0a0d0e; border-radius: 3px; overflow: hidden; }
-.bar i { display: block; height: 100%; background: var(--ok); }
-.bar i.low { background: var(--bad); }
 .log ol { list-style: none; margin: 0; padding: 0; font-size: 13.5px; max-height: 340px; overflow-y: auto; }
 .log li { padding: 3px 0; border-bottom: 1px solid #1c2425; color: #b6c1be; }
 .log .ev-turn { color: var(--accent); font-weight: 600; padding-top: 8px; }
@@ -306,7 +310,7 @@ const ITEMS = {
   LMG: { slot: 'WEAPON', label: 'LMG', dice: { ASSAULT: 1, STEALTH: -1 } },
   AK: { slot: 'WEAPON', label: 'AK Rifle', dice: { ASSAULT: 1 } },
   VEST: { slot: 'ARMOR', label: 'Soft Vest', dr: 1 },
-  PLATE: { slot: 'ARMOR', label: 'Plate Carrier', dr: 2, dice: { STEALTH: -1 } },
+  PLATE: { slot: 'ARMOR', label: 'Plate Carrier', dr: 2, dice: { STEALTH: -1 } }, // dr: lowers the severity roll of every hit
   MEDKIT: { slot: 'UTILITY', label: 'Medkit' },
   FRAG: { slot: 'UTILITY', label: 'Frag Grenade' },
   BREACH: { slot: 'UTILITY', label: 'Breaching Charge' },
@@ -386,20 +390,46 @@ const KIND = { APPROACH: 'Approach', PERIMETER: 'Perimeter', OBJECTIVE: 'Objecti
 const COSTS = {
   ALERT: { label: '+1 alert', desc: 'Someone heard something.' },
   TIME: { label: '-1 time', desc: 'It took longer than planned.' },
-  WOUND: { label: 'Take a hit', desc: 'One committed operator is hurt.' },
+  WOUND: { label: 'Take a hit', desc: 'The lead gets knocked about.' },
 };
+// Injuries. The player only ever sees the name and its effect; tier is the hidden severity:
+// 1 = minor (a few allowed), 2 = serious (one allowed), 3 = critical (one allowed; can't lead and
+// passes out unless treated). A hit that lands on a full tier escalates to the next one, and past
+// critical the operator is knocked unconscious. Dice effects apply when the operator leads a test.
+// fx = untreated, fxT = after treatment (a treated minor injury is gone). noise = Stealth difficulty when committed.
+const INJURIES = {
+  CUT_HAND: { tier: 1, label: 'Cut hand', fx: { TECH: -1 } },
+  GRAZE: { tier: 1, label: 'Bullet graze', fx: { ASSAULT: -1 } },
+  BRUISED_KNEE: { tier: 1, label: 'Bruised knee', fx: { STEALTH: -1 } },
+  RINGING_EARS: { tier: 1, label: 'Ringing ears', fx: { RECON: -1 } },
+  SPLIT_BROW: { tier: 1, label: 'Split eyebrow', fx: { RECON: -1 } },
+  TWISTED_WRIST: { tier: 1, label: 'Twisted wrist', fx: { ASSAULT: -1 } },
+  BROKEN_FINGER: { tier: 2, label: 'Broken finger', fx: { ASSAULT: -1, TECH: -1 }, fxT: { TECH: -1 }, treated: 'taped' },
+  SPRAINED_ANKLE: { tier: 2, label: 'Sprained ankle', fx: { STEALTH: -2 }, fxT: { STEALTH: -1 }, treated: 'strapped' },
+  CRACKED_RIBS: { tier: 2, label: 'Cracked ribs', fx: { ASSAULT: -1, STEALTH: -1 }, fxT: { ASSAULT: -1 }, treated: 'strapped' },
+  TORN_SHOULDER: { tier: 2, label: 'Torn shoulder', fx: { ASSAULT: -2 }, fxT: { ASSAULT: -1 }, treated: 'in a sling' },
+  BROKEN_NOSE: { tier: 2, label: 'Broken nose', fx: { RECON: -1, STEALTH: -1 }, fxT: { RECON: -1 }, treated: 'packed' },
+  BROKEN_ARM: { tier: 3, label: 'Broken arm', fxT: { ASSAULT: -2, TECH: -2 }, treated: 'splinted' },
+  BROKEN_LEG: { tier: 3, label: 'Broken leg', fxT: { STEALTH: -2 }, noise: 1, treated: 'splinted' },
+  CONCUSSION: { tier: 3, label: 'Concussion', fxT: { RECON: -2, TECH: -1 }, treated: 'monitored' },
+  BLEEDING: { tier: 3, label: 'Heavy bleeding', fxT: { ASSAULT: -1, STEALTH: -1, RECON: -1, TECH: -1 }, treated: 'bleeding stopped' },
+};
+const SERIOUS_AT = 7, CRITICAL_AT = 10, LETHAL_AT = 11; // severity = 2d6 + modifiers - armour: below 7 minor, 7-9 serious, 10 critical, 11+ knocked out
+const CRIT_STAGES = 2; // stages an untreated critical injury lasts before the operator passes out
+// Missions out after the debrief, by the worst injury: minor ones heal on the flight home.
+const RECOVERY = { 0: 0, 1: 0, 2: 1, 3: 2, 4: 3 }; // 4 = was knocked unconscious
 const RANKS = [['PVT', 'Private', 0], ['PFC', 'Private First Class', 20], ['CPL', 'Corporal', 50], ['SGT', 'Sergeant', 90], ['SSG', 'Staff Sergeant', 140], ['LT', 'Lieutenant', 200]];
 const MAX_TEAM = 4, MAX_SUPPORT = 2, BASE_TIME = 8, ALERT_TIER = 3, ALERT_MAX = 6, STEALTH_LIMIT = 2, BLEED_STAGES = 2;
-const MK_HEAL = 5, MEDIC_HEAL = 8, REVIVE_HP = 3, RECRUIT_COST = 3, ROSTER_MIN = 6, ROSTER_MAX = 8;
-// Class = permanent role fixed at recruitment: dice per skill, HP, and what gear it may carry (default-pick order).
+const RECRUIT_COST = 3, ROSTER_MIN = 6, ROSTER_MAX = 8;
+// Class = permanent role fixed at recruitment: dice per skill, minor injuries shrugged off (grit), and what gear it may carry (default-pick order).
 const CLASSES = {
-  HEAVY: { label: 'Heavy', hp: 12, dice: { ASSAULT: 3, STEALTH: 1, RECON: 1, TECH: 2 }, weapons: ['LMG', 'CARBINE', 'AK'], armor: ['PLATE', 'VEST'], utility: ['BREACH', 'FRAG'],
-    ability: 'Breacher: a Breaching Charge adds +2 dice to a Tech or Assault test (loud: +1 alert). Toughest class.' },
-  SCOUT: { label: 'Scout', hp: 9, dice: { ASSAULT: 2, STEALTH: 3, RECON: 3, TECH: 1 }, weapons: ['DMR', 'SMG', 'CARBINE', 'AK'], armor: ['VEST'], utility: ['FRAG', 'MEDKIT'],
+  HEAVY: { label: 'Heavy', grit: 4, dice: { ASSAULT: 3, STEALTH: 1, RECON: 1, TECH: 2 }, weapons: ['LMG', 'CARBINE', 'AK'], armor: ['PLATE', 'VEST'], utility: ['BREACH', 'FRAG'],
+    ability: 'Breacher: a Breaching Charge adds +2 dice to a Tech or Assault test (loud: +1 alert). Tough: takes one more knock before a hit turns serious.' },
+  SCOUT: { label: 'Scout', grit: 3, dice: { ASSAULT: 2, STEALTH: 3, RECON: 3, TECH: 1 }, weapons: ['DMR', 'SMG', 'CARBINE', 'AK'], armor: ['VEST'], utility: ['FRAG', 'MEDKIT'],
     ability: 'Ghost: never counts toward the Stealth noise limit.' },
-  MEDIC: { label: 'Medic', hp: 10, dice: { ASSAULT: 2, STEALTH: 2, RECON: 1, TECH: 1 }, weapons: ['CARBINE', 'SMG', 'AK'], armor: ['VEST'], utility: ['MEDKIT'],
-    ability: `Revive: once per stage, gets a downed operator back up with ${REVIVE_HP} HP. Medkits heal +${MEDIC_HEAL}.` },
-  DRONE: { label: 'Drone Operator', hp: 10, dice: { ASSAULT: 1, STEALTH: 2, RECON: 3, TECH: 3 }, weapons: ['SMG', 'CARBINE', 'AK'], armor: ['VEST'], utility: ['DRONE', 'FRAG'],
+  MEDIC: { label: 'Medic', grit: 3, dice: { ASSAULT: 2, STEALTH: 2, RECON: 1, TECH: 1 }, weapons: ['CARBINE', 'SMG', 'AK'], armor: ['VEST'], utility: ['MEDKIT'],
+    ability: 'Field care: once per stage, without a kit, wakes an unconscious operator or treats a critical injury. With a medkit, also cleans up every cut and bruise.' },
+  DRONE: { label: 'Drone Operator', grit: 3, dice: { ASSAULT: 1, STEALTH: 2, RECON: 3, TECH: 3 }, weapons: ['SMG', 'CARBINE', 'AK'], armor: ['VEST'], utility: ['DRONE', 'FRAG'],
     ability: 'Recon drone: reveals the next two stages, +1 die on Recon tests while up, one strike (+2 Assault dice). Can be shot down.' },
 };
 const ADJ = ['Silent', 'Iron', 'Broken', 'Pale', 'Crimson', 'Hollow', 'Distant', 'Bitter', 'Northern', 'Sudden'];
@@ -430,9 +460,9 @@ function envSummary(e) {
 const signed = (v) => (v > 0 ? '+' : '') + v;
 function itemSummary(id) {
   const it = ITEMS[id];
-  if (it.slot !== 'UTILITY') return [it.dr ? `-${it.dr} damage taken` : '', ...Object.entries(it.dice || {}).map(([k, v]) => `${signed(v)} ${SKILLS[k].label}`)].filter(Boolean).join(', ');
+  if (it.slot !== 'UTILITY') return [it.dr ? `${it.dr > 1 ? 'much ' : ''}less chance a hit is serious` : '', ...Object.entries(it.dice || {}).map(([k, v]) => `${signed(v)} ${SKILLS[k].label}`)].filter(Boolean).join(', ');
   return {
-    MEDKIT: `Field care: heal +${MK_HEAL} (medic +${MEDIC_HEAL}) or get a downed operator up`,
+    MEDKIT: 'Treats the worst injury: wakes the unconscious, splints a critical, straps a serious one, or cleans up cuts and bruises',
     FRAG: `+${GEAR_USE.FRAG.dice} dice on one Assault test`,
     BREACH: `+${GEAR_USE.BREACH.dice} dice on one Tech or Assault test, loud (+1 alert)`,
     DRONE: 'Launch: reveals 2 stages ahead, +1 Recon die, 1 strike',
@@ -484,7 +514,7 @@ const fail = (m) => { throw new Rule(m); };
 // CAMPAIGN + MISSION GENERATION
 // =====================================================================================
 function newCampaign(seed) {
-  G = { v: 1, mode: 'ops', rs: seed | 0, phase: 'BRIEFING', rp: 12, flown: 0, nextSid: 1, roster: [], used: {}, recruits: 0,
+  G = { v: 2, mode: 'ops', rs: seed | 0, phase: 'BRIEFING', rp: 12, flown: 0, nextSid: 1, roster: [], used: {}, recruits: 0,
     armory: { CARBINE: 4, SMG: 2, DMR: 1, LMG: 2, AK: 0, VEST: 4, PLATE: 2, MEDKIT: 3, FRAG: 4, BREACH: 3, DRONE: 2 },
     mission: null, battle: null, debrief: null };
   [[60, 'HEAVY'], [25, 'MEDIC'], [25, 'SCOUT'], [0, 'DRONE'], [0, 'HEAVY'], [0, 'SCOUT']].forEach(([xp, cls]) => recruit(xp, cls));
@@ -494,7 +524,7 @@ function recruit(xp, cls) {
   let name;
   do name = pick(FIRST) + ' ' + pick(LAST); while (G.used[name]);
   G.used[name] = 1;
-  const s = { id: G.nextSid++, name, cls, xp, kills: 0, missions: 0, recovery: 0, alive: true };
+  const s = { id: G.nextSid++, name, cls, xp, kills: 0, missions: 0, recovery: 0, healing: [], alive: true };
   G.roster.push(s);
   return s;
 }
@@ -502,7 +532,7 @@ const soldier = (id) => G.roster.find((s) => s.id === id);
 const available = (s) => s.alive && s.recovery === 0;
 
 function beginBriefing() {
-  for (const s of G.roster) if (s.recovery > 0) s.recovery--;
+  for (const s of G.roster) if (s.recovery > 0 && --s.recovery === 0) s.healing = [];
   G.mission = genMission(G.flown + 1);
   G.battle = null;
   G.debrief = null;
@@ -539,10 +569,14 @@ function threat(m) {
 // =====================================================================================
 const B = () => G.battle;
 const team = () => B().units;
-const active = (u) => u.hp > 0 && !u.downed && !u.exfil && !u.stranded && !u.missing;
+const active = (u) => !u.dead && !u.downed && !u.exfil && !u.stranded && !u.missing;
 const unitById = (id) => team().find((u) => u.id === id);
 const dr = (u) => (u.armor ? ITEMS[u.armor].dr : 0);
-const opDice = (u, skill) => diceFor(u.cls, soldier(u.sid).xp, u.weapon, u.armor, skill);
+/** Dice changes from injuries on one skill, one line per injury that matters. */
+const injuryMods = (u, skill) => u.inj.map((w) => ({ label: INJURIES[w.id].label, v: injFx(w)[skill] || 0 })).filter((x) => x.v);
+const opDice = (u, skill) => Math.max(0, diceFor(u.cls, soldier(u.sid).xp, u.weapon, u.armor, skill) + injuryMods(u, skill).reduce((s, x) => s + x.v, 0));
+/** An untreated critical injury keeps an operator from leading. */
+const canLead = (u) => active(u) && !u.inj.some((w) => INJURIES[w.id].tier === 3 && !w.t);
 const cur = () => B().stages[B().stage];
 const sitOf = (st) => (st.kind === 'APPROACH' || st.pick == null ? null : SIT[st.choices[st.pick]]);
 const alerted = () => B().alert >= ALERT_TIER;
@@ -560,7 +594,8 @@ function makeOp(m, members) {
   const b = G.battle;
   for (const s of members) {
     const l = m.loadouts[s.id];
-    b.units.push({ id: b.nextId++, sid: s.id, name: s.name, cls: s.cls, maxHp: CLASSES[s.cls].hp, hp: CLASSES[s.cls].hp,
+    // inj: [{ id, t: treated, clock: stages left on an untreated critical }]. downed = unconscious, bleed = stages to live.
+    b.units.push({ id: b.nextId++, sid: s.id, name: s.name, cls: s.cls, inj: [], dead: false, wasOut: false,
       weapon: l.weapon, armor: l.armor, util: l.utility, consumed: null, kills: 0, killedHvt: false, revives: 0, tests: 0,
       downed: false, bleed: 0, exfil: false, stranded: false, missing: false, droneLost: false });
   }
@@ -586,6 +621,7 @@ function difficulty(st, sit, opt, ids) {
     const bodies = ids.map(unitById).filter((u) => u && u.cls !== 'SCOUT').length;
     add(`Noise: ${bodies} non-Scouts`, Math.max(0, bodies - STEALTH_LIMIT));
     add('Carrying wounded', team().filter((u) => u.downed).length);
+    for (const u of ids.map(unitById)) for (const w of u?.inj || []) add(`${u.name.split(' ')[0]}: ${INJURIES[w.id].label.toLowerCase()}`, INJURIES[w.id].noise || 0);
   }
   if (opt.skill === 'ASSAULT') { add('Enemy dug in (alerted)', alerted() ? 1 : 0); add('Enemy reinforced', b.reinf ? 1 : 0); }
   if (st.kind === 'OBJECTIVE' && m.intel.includes('HUMINT')) add('Deep intel on the layout', -1);
@@ -594,7 +630,14 @@ function difficulty(st, sit, opt, ids) {
 }
 /** Dice pool with breakdown: the lead rolls their full skill, each supporter adds one die. */
 function poolOf(opt, ids, gearIds, strike, leadId) {
-  const parts = ids.map((id) => { const u = unitById(id); return id === leadId ? { label: `${u.name} (lead)`, v: opDice(u, opt.skill) } : { label: `${u.name} (support)`, v: 1 }; });
+  const parts = [];
+  for (const id of ids) {
+    const u = unitById(id);
+    if (id !== leadId) { parts.push({ label: `${u.name} (support)`, v: 1 }); continue; }
+    let n = diceFor(u.cls, soldier(u.sid).xp, u.weapon, u.armor, opt.skill);
+    parts.push({ label: `${u.name} (lead)`, v: n });
+    for (const x of injuryMods(u, opt.skill)) { const v = Math.max(x.v, -n); if (v) { parts.push({ label: x.label, v }); n += v; } }
+  }
   for (const id of gearIds) { const u = unitById(id); parts.push({ label: ITEMS[u.util].label, v: GEAR_USE[u.util].dice }); }
   if (B().drone.up && opt.skill === 'RECON') parts.push({ label: 'Drone overwatch', v: 1 });
   if (strike) parts.push({ label: 'Drone strike', v: 2 });
@@ -603,7 +646,7 @@ function poolOf(opt, ids, gearIds, strike, leadId) {
 const gearUsable = (u, opt) => !!u && active(u) && !!GEAR_USE[u.util] && GEAR_USE[u.util].skills.includes(opt.skill);
 /** The strongest legal fireteam for an approach: its best lead plus the next best in support. */
 const fireteam = (opt, ids) => [...ids].sort((a, c) => opDice(unitById(c), opt.skill) - opDice(unitById(a), opt.skill)).slice(0, 1 + MAX_SUPPORT);
-const bestLead = (opt, ids) => [...ids].sort((a, c) => opDice(unitById(c), opt.skill) - opDice(unitById(a), opt.skill))[0] ?? null;
+const bestLead = (opt, ids) => [...ids].filter((id) => canLead(unitById(id))).sort((a, c) => opDice(unitById(c), opt.skill) - opDice(unitById(a), opt.skill))[0] ?? null;
 const canStrike = (opt) => opt.skill === 'ASSAULT' && B().drone.up && B().drone.strike > 0;
 
 function need(p) { if (G.phase !== p) fail(`Not possible during ${p.toLowerCase()}.`); }
@@ -620,17 +663,71 @@ function raise(n, text) {
   if (text) log(`${text} Alert ${b.alert}/${ALERT_MAX}.`, 'alert');
   if (b.alert >= ALERT_TIER && !b.alerted) { b.alerted = true; log('The enemy is alerted. Stealth gets harder and they shoot back harder.', 'alert'); }
 }
-function hurt(u, base) {
-  const d = Math.max(1, (base ?? range(3, 5)) - dr(u));
-  if (u.downed) return killUnit(u, `${u.name} is hit again while down and is KIA.`);
-  u.hp -= d;
-  if (u.hp > 0) return log(`${u.name} is hit (-${d} HP).`, 'down');
-  u.hp = 0; u.downed = true; u.bleed = BLEED_STAGES;
-  log(`${u.name} is DOWN (-${d}). Get them up within ${BLEED_STAGES} stages or they die.`, 'down');
+// ---------------------------------------------------------------- injuries
+const injFx = (w) => (w.t ? INJURIES[w.id].fxT : INJURIES[w.id].fx) || {};
+const tierCount = (u, tier) => u.inj.filter((w) => INJURIES[w.id].tier === tier).length;
+const tierSlots = (u, tier) => (tier === 1 ? CLASSES[u.cls].grit : 1);
+const injName = (w) => INJURIES[w.id].label + (w.t ? ` (${INJURIES[w.id].treated})` : '');
+/** What an injury does, in player terms. */
+function injEffect(w) {
+  const d = INJURIES[w.id];
+  if (d.tier === 3 && !w.t) return w.clock > 0 ? `Can't lead · passes out in ${w.clock} stage${w.clock === 1 ? '' : 's'} unless treated` : "Can't lead · needs treatment";
+  const fx = Object.entries(injFx(w)).map(([k, v]) => `${SKILLS[k].label} ${signed(v)}`);
+  if (d.noise) fx.push(`Stealth noise +${d.noise}`);
+  return fx.join(', ');
+}
+/** Hidden severity of a fresh hit: 2d6 + modifiers - armour. */
+function severity(u, mod) {
+  const s = d6() + d6() + mod - dr(u);
+  return s >= LETHAL_AT ? 4 : s >= CRITICAL_AT ? 3 : s >= SERIOUS_AT ? 2 : 1;
+}
+/** Where a hit of this severity really lands: a full tier pushes it up. 4 = unconscious, 5 = killed. */
+function landsAt(u, tier) {
+  if (u.downed) return 5;
+  while (tier <= 3 && tierCount(u, tier) >= tierSlots(u, tier)) tier++;
+  return tier;
+}
+/** All harm goes through here. tier forces the severity (e.g. a chosen cost); otherwise it is rolled. */
+function hurt(u, mod = 0, tier = severity(u, mod), cause = 'is hit') {
+  const at = landsAt(u, tier);
+  if (at === 5) return killUnit(u, `${u.name} is hit again while unconscious and is KIA.`);
+  if (at === 4) return knockOut(u, `${u.name} ${cause} and goes down, unconscious.`);
+  const id = pick(Object.keys(INJURIES).filter((k) => INJURIES[k].tier === at && !u.inj.some((w) => w.id === k)));
+  const w = { id, t: false, clock: at === 3 ? CRIT_STAGES : 0 };
+  u.inj.push(w);
+  log(`${u.name} ${cause}: ${INJURIES[id].label.toLowerCase()}${at > tier ? ', on top of the rest' : ''}. ${injEffect(w)}.`, 'down');
+}
+function knockOut(u, text) {
+  u.downed = true; u.wasOut = true; u.bleed = BLEED_STAGES;
+  log(`${text} Treat them within ${BLEED_STAGES} stages or they die.`, 'down');
+}
+/** What a forced minor hit would turn into, for the cost preview. */
+function hitPreview(u) {
+  if (!u) return 'A committed operator gets knocked about.';
+  const first = u.name.split(' ')[0];
+  return { 1: `${first} picks up a cut or bruise.`, 2: `${first} is already battered: this one will be a serious injury.`,
+    3: `${first} is already badly hurt: this one will be critical.`, 4: `${first} is in no state for more: they will be knocked unconscious.` }[landsAt(u, 1)];
+}
+/** The most urgent thing to fix on an operator, or null. */
+function worstNeed(u) {
+  if (u.downed) return 'WAKE';
+  for (const [tier, need] of [[3, 'CRITICAL'], [2, 'SERIOUS']]) if (u.inj.some((w) => INJURIES[w.id].tier === tier && !w.t)) return need;
+  return tierCount(u, 1) ? 'MINOR' : null;
+}
+/** Fix the worst problem; a medic with a kit also cleans up every minor injury. Returns what was done. */
+function applyCare(u, minorToo) {
+  const need = worstNeed(u), done = [];
+  if (need === 'WAKE') { u.downed = false; u.bleed = 0; done.push('brings them round'); }
+  if (need === 'WAKE' || need === 'CRITICAL' || need === 'SERIOUS') {
+    const tier = need === 'SERIOUS' ? 2 : 3;
+    for (const w of u.inj) if (INJURIES[w.id].tier === tier && !w.t) { w.t = true; done.push(`${INJURIES[w.id].label.toLowerCase()} ${INJURIES[w.id].treated}`); }
+  }
+  if (need === 'MINOR' || (minorToo && tierCount(u, 1))) { u.inj = u.inj.filter((w) => INJURIES[w.id].tier !== 1); done.push('cuts and bruises cleaned up'); }
+  return done.join(', ');
 }
 function killUnit(u, text) {
   const b = B();
-  u.downed = false; u.hp = 0;
+  u.downed = false; u.dead = true;
   log(text, 'kill');
   if (b.carrier === u.id) {
     const other = team().find(active);
@@ -655,7 +752,7 @@ function returnFire(foes, thresh, ids, leadId) {
     const exposed = ids.map(unitById).filter(active), lead = unitById(leadId);
     const t = i === 0 && lead && active(lead) ? lead : exposed.length ? pick(exposed) : pick(team().filter(active));
     if (!t) return;
-    hurt(t);
+    hurt(t, alerted() ? 1 : 0);
   }
 }
 
@@ -696,7 +793,9 @@ function execute(o) {
   const gearIds = [...new Set(o.gear || [])];
   for (const id of gearIds) if (!ids.includes(id) || !gearUsable(unitById(id), opt)) fail('That gear cannot be used on this test.');
   const lead = o.lead ?? bestLead(opt, ids);
+  if (lead == null) fail('Nobody committed is fit to lead: an untreated critical injury comes first.');
   if (!ids.includes(lead)) fail('The lead must be one of the committed operators.');
+  if (!canLead(unitById(lead))) fail(`${unitById(lead).name} can't lead until their injury is treated.`);
   if (ids.length > 1 + MAX_SUPPORT) fail(`A fireteam is a lead and at most ${MAX_SUPPORT} in support.`);
   const strike = !!o.strike;
   if (strike && !canStrike(opt)) fail('No drone strike available.');
@@ -746,7 +845,7 @@ function resolve(cost) {
     log(`${opt.label} fails.`, 'alert');
     if (opt.skill === 'ASSAULT') { raise(2, 'A firefight breaks out.'); returnFire(foes, 4, ids, leadId); }
     else if (foes) { raise(2, 'Spotted!'); returnFire(foes, 4, ids, leadId); }
-    else if (sit.hazard) { const t = active(lead) ? lead : pick(members.filter(active)); if (t) { log('A tripwire goes off.', 'alert'); hurt(t, range(3, 5)); } }
+    else if (sit.hazard) { const t = active(lead) ? lead : pick(members.filter(active)); if (t) { log('A tripwire goes off.', 'alert'); hurt(t, 2, undefined, 'is caught by the blast'); } }
     else raise(1, 'Too much noise.');
     return settle(false);
   }
@@ -754,12 +853,12 @@ function resolve(cost) {
     log(`${opt.label}: success, at a cost (${COSTS[cost].label}).`, 'alert');
     if (cost === 'ALERT') raise(1, 'Someone heard something.');
     else if (cost === 'TIME') b.time = Math.max(0, b.time - 1);
-    else { const t = active(lead) ? lead : pick(members.filter(active)); if (t) hurt(t); }
+    else { const t = active(lead) ? lead : members.find(active); if (t) hurt(t, 0, 1, 'takes a knock'); } // same victim the cost preview named
   } else log(`${opt.label}: clean success.`, 'good');
   for (const u of members) u.tests++;
   raise(opt.alert || 0, 'That was loud.');
   if (opt.kills && foes) {
-    const alive = members.filter((u) => u.hp > 0), shooters = (alive.length ? alive : members).sort((a, c) => (c === lead) - (a === lead));
+    const alive = members.filter((u) => !u.dead), shooters = (alive.length ? alive : members).sort((a, c) => (c === lead) - (a === lead));
     for (let k = 0; k < foes; k++) shooters[k % shooters.length].kills++;
     b.kills += foes;
     log(`${foes} hostile${foes > 1 ? 's' : ''} down.`, 'kill');
@@ -771,7 +870,7 @@ function resolve(cost) {
   if (st.kind === 'EXFIL') {
     for (const u of team()) {
       if (active(u)) u.exfil = true;
-      else if (u.downed) { u.downed = false; u.hp = 1; u.exfil = true; log(`${u.name} is carried out.`, 'good'); }
+      else if (u.downed) { u.downed = false; u.bleed = 0; u.exfil = true; log(`${u.name} is carried out.`, 'good'); }
     }
     b.done = true;
     log('The team reaches the extraction point.', 'good');
@@ -804,7 +903,12 @@ function settle(cleared) {
 }
 function advance() {
   const b = B();
-  for (const u of team()) if (u.downed && --u.bleed <= 0) killUnit(u, `${u.name} bled out.`);
+  for (const u of team()) {
+    if (u.downed) { if (--u.bleed <= 0) killUnit(u, `${u.name} never wakes up. KIA.`); continue; }
+    if (!active(u)) continue;
+    const w = u.inj.find((x) => INJURIES[x.id].tier === 3 && !x.t);
+    if (w && --w.clock <= 0) knockOut(u, `${u.name} passes out from the ${INJURIES[w.id].label.toLowerCase()}.`);
+  }
   b.revived = [];
   b.stage++;
   const st = cur();
@@ -836,26 +940,26 @@ function finish() {
 }
 
 // ---------------------------------------------------------------- field care (between tests, free)
-function revive(medicId, targetId) {
+/** Medic without a kit, once per stage: wake the unconscious or treat a critical injury. */
+const fieldCareNeed = (t) => ['WAKE', 'CRITICAL'].includes(worstNeed(t));
+function fieldCare(medicId, targetId) {
   needPlan();
   const b = B(), md = unitById(medicId), t = unitById(targetId);
-  if (!md || md.cls !== 'MEDIC' || !active(md)) fail('Only a medic who is standing can revive.');
-  if (b.revived.includes(md.id)) fail(`${md.name} has already revived someone at this stage.`);
-  if (!t || !t.downed) fail('Nobody to revive.');
-  t.downed = false; t.hp = REVIVE_HP; md.revives++;
+  if (!md || md.cls !== 'MEDIC' || !active(md)) fail('Only a medic who is standing can give field care.');
+  if (b.revived.includes(md.id)) fail(`${md.name} has already given field care at this stage.`);
+  if (!t || !(active(t) || t.downed) || !fieldCareNeed(t)) fail('Field care is for the unconscious and critical injuries. Use a medkit for the rest.');
+  md.revives++;
   b.revived.push(md.id);
-  log(`${md.name} gets ${t.name} back on their feet (${REVIVE_HP} HP).`, 'good');
+  log(`${md.name} works on ${t === md ? 'themself' : t.name}: ${applyCare(t, false)}.`, 'good');
 }
+/** Any medkit: fix the worst problem. In a medic's hands it also cleans up every minor injury. */
 function treat(holderId, targetId) {
   needPlan();
   const h = unitById(holderId), t = unitById(targetId);
   if (!h || !active(h) || h.util !== 'MEDKIT') fail('No medkit there.');
-  if (!t || !(active(t) || t.downed) || t.hp >= t.maxHp) fail('They do not need treatment.');
-  const amount = Math.min(h.cls === 'MEDIC' ? MEDIC_HEAL : MK_HEAL, t.maxHp - t.hp);
+  if (!t || !(active(t) || t.downed) || !worstNeed(t)) fail('They do not need treatment.');
   h.consumed = 'MEDKIT'; h.util = null;
-  if (t.downed) t.downed = false;
-  t.hp += amount;
-  log(`${h.name} treats ${t === h ? 'their own wounds' : t.name} (+${amount}).`, 'good');
+  log(`${h.name} uses a medkit on ${t === h ? 'themself' : t.name}: ${applyCare(t, h.cls === 'MEDIC')}.`, 'good');
 }
 function launchDrone(uid) {
   needPlan();
@@ -912,14 +1016,14 @@ function insertion(m) {
   const b = B(), rep = [{ HELO: 'The helicopter runs in low over the ridgeline toward the drop point.', GROUND: 'The convoy rolls in along the south road, lights off.', FOOT: 'The team moves in on foot through the treeline on the western approach.' }[m.ins]];
   if (!chance(Math.round(VEH[m.ins].risk * compFactor(m.env)))) { rep.push('Insertion clean. The team is on the ground, undetected.'); return rep; }
   const victim = pick(team()), first = chance(50);
-  const injure = (n) => { victim.hp = Math.max(1, victim.hp - n); };
+  const injure = (tier, cause) => { hurt(victim, 0, tier, cause); rep.push(b.log[b.log.length - 1].text); };
   const delay = () => { b.time = Math.max(3, b.time - 2); };
   const alarm = () => raise(Math.max(0, ALERT_TIER - b.alert));
   if (m.ins === 'HELO') {
     if (first) { rep.push('HOT LZ: small-arms fire on approach. The enemy knows you are here.'); alarm(); }
-    else { rep.push(`Hard landing. ${victim.name} is hurt in the drop (-2 HP).`); injure(2); }
+    else { rep.push('Hard landing.'); injure(1, 'is thrown about in the drop'); }
   } else if (m.ins === 'GROUND') {
-    if (first) { rep.push(`IED strike on the lead vehicle! ${victim.name} is wounded (-3 HP).`); injure(3); }
+    if (first) { rep.push('IED strike on the lead vehicle!'); injure(2, 'is caught in the blast'); }
     else { rep.push('Roadblock. Forced detour: 2 time lost.'); delay(); }
   } else if (first) { rep.push('A goatherd spots the team and runs for the compound. Expect them to be ready.'); alarm(); }
   else { rep.push('Flooded gully. The approach takes longer than planned: 2 time lost.'); delay(); }
@@ -927,7 +1031,12 @@ function insertion(m) {
 }
 function extraction(m) {
   const b = B(), rep = [];
-  const out = team().filter((u) => u.exfil && u.hp > 0), left = team().filter((u) => u.stranded && u.hp > 0);
+  const out = team().filter((u) => u.exfil && !u.dead), left = team().filter((u) => u.stranded && !u.dead);
+  const injure = (u, mod, tier, cause) => {
+    hurt(u, mod, tier, cause);
+    rep.push(b.log[b.log.length - 1].text.replace(/ Treat them within.*/, ''));
+    if (u.downed) { u.downed = false; u.bleed = 0; rep.push(`${u.name} is dragged aboard unconscious.`); }
+  };
   const hot = alerted();
   if (out.length) {
     rep.push({ HELO: 'Rotor wash flattens the clearing as the helicopter flares in.', GROUND: 'The trucks swing round on the road, tailgates down.', FOOT: 'The team slips back out through the western treeline.' }[m.ext]);
@@ -935,26 +1044,23 @@ function extraction(m) {
       rep.push(`The area is alerted (${b.alert}/${ALERT_MAX}). Taking fire at the extraction point!`);
       const c = { HELO: 30, GROUND: 25, FOOT: 40 }[m.ext] + (b.alert - ALERT_TIER) * 5;
       for (const u of out) {
-        if (!chance(c)) continue;
-        const d = range(1, 3);
-        u.hp = Math.max(0, u.hp - d);
-        rep.push(u.hp > 0 ? `${u.name} is hit during extraction (-${d} HP).` : `${u.name} is killed during extraction.`);
+        if (chance(c)) injure(u, 0, undefined, 'is hit at the extraction point');
       }
     } else rep.push('Extraction clean. No contact.');
   }
   for (const u of left) {
     rep.push(`${u.name} missed the extraction and attempts to escape on foot...`);
     if (chance(hot ? 45 : 20)) { u.missing = true; rep.push(`Contact lost. ${u.name} is missing in action.`); }
-    else { const d = range(1, 4); u.hp = Math.max(1, u.hp - d); u.exfil = true; rep.push(`${u.name} reaches friendly lines two days later, battered (-${d} HP).`); }
+    else { u.exfil = true; rep.push(`${u.name} reaches friendly lines two days later, battered.`); injure(u, 0, 1, 'is worn down by the walk'); }
   }
   if (!out.length && !left.length) rep.push('No operators made it to extraction.');
   return rep;
 }
 function debrief(m) {
   const b = B(), sq = team();
-  const anyOut = sq.some((u) => u.exfil && u.hp > 0), casualties = sq.some((u) => u.hp <= 0 || u.missing);
+  const anyOut = sq.some((u) => u.exfil && !u.dead), casualties = sq.some((u) => u.dead || u.missing);
   const carrier = b.carrier != null ? unitById(b.carrier) : null;
-  const intelOut = !!carrier && carrier.exfil && carrier.hp > 0;
+  const intelOut = !!carrier && carrier.exfil && !carrier.dead;
   const done = (t) => ({ RETRIEVE_INTEL: intelOut, ELIMINATE_HVT: b.hvtKilled, NO_CASUALTIES: anyOut && !casualties, UNDETECTED: anyOut && !b.alerted })[t];
   const success = anyOut && done(m.primary);
   const rp = 2 + (success ? 8 : 0) + (done(m.secondary) ? 4 : 0);
@@ -962,22 +1068,25 @@ function debrief(m) {
   const soldiers = [], lost = [], gained = [], notes = [];
   for (const u of sq) {
     const s = soldier(u.sid), before = rankIdx(s.xp);
-    let xp = 0, status;
-    if (u.hp <= 0 || u.missing) {
+    let xp = 0, status, out = 0;
+    const injuries = u.inj.map((w) => INJURIES[w.id].label);
+    if (u.wasOut) injuries.unshift('Knocked unconscious');
+    if (u.dead || u.missing) {
       status = u.missing ? 'MIA' : 'KIA';
       s.alive = false;
       for (const it of [u.weapon, u.armor, u.util]) if (it) lost.push(`${ITEMS[it].label} (${u.name})`);
     } else {
       xp = 10 + (success ? 10 : 0) + u.kills * 8 + (u.killedHvt ? 25 : 0) + (carrier === u && intelOut ? 15 : 0) + u.revives * 10 + u.tests * 4;
-      if (u.hp <= u.maxHp / 2) { status = 'Heavy wound: misses next mission'; s.recovery = 2; }
-      else status = u.hp < u.maxHp ? 'Light wound' : 'Fit for duty';
+      out = RECOVERY[u.wasOut ? 4 : Math.max(0, ...u.inj.map((w) => INJURIES[w.id].tier))];
+      if (out) { s.recovery = out + 1; s.healing = injuries; }
+      status = out ? `Out for ${out} mission${out > 1 ? 's' : ''}` : 'Fit for duty';
       for (const it of [u.weapon, u.armor, u.util]) if (it) G.armory[it] = (G.armory[it] || 0) + 1;
     }
     if (u.consumed) lost.push(`${ITEMS[u.consumed].label} (expended)`);
     if (u.droneLost) lost.push('Recon Drone (shot down)');
     s.xp += xp; s.kills += u.kills; s.missions++;
     const after = rankIdx(s.xp);
-    soldiers.push({ name: u.name, cls: s.cls, status, hp: u.hp, maxHp: u.maxHp, kills: u.kills, xp, rank: RANKS[after][1], promoted: s.alive && after !== before ? RANKS[after][1] : null });
+    soldiers.push({ name: u.name, cls: s.cls, status, injuries, kills: u.kills, xp, rank: RANKS[after][1], promoted: s.alive && after !== before ? RANKS[after][1] : null });
   }
   if (anyOut) {
     for (let i = 0; i < b.kills; i++) if (chance(30)) { G.armory.AK = (G.armory.AK || 0) + 1; gained.push('AK Rifle (captured)'); }
@@ -1022,7 +1131,7 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 let toastTimer;
 function toast(msg) { const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => (t.hidden = true), 3200); }
 
-const SAVE_KEY = 'skirm-ops-v1'; // separate from the hex game's save
+const SAVE_KEY = 'skirm-ops-v2'; // separate from the hex game's save; v2 = injuries instead of HP
 function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(G)); } catch (e) { /* storage unavailable: play continues unsaved */ } }
 
 let mounted = null;
@@ -1129,7 +1238,8 @@ function renderBriefing() {
     return `<div class="op ${on ? 'on' : ''} ${ok ? '' : 'off'}">
       <label class="op-head"><input type="checkbox" id="pick-${s.id}" data-pick="${s.id}" ${on ? 'checked' : ''} ${ok ? '' : 'disabled'}>
         <span class="rank">${RANKS[rankIdx(s.xp)][0]}</span><span class="name">${esc(s.name)}</span>${classChip(s.cls)}
-        <span class="meta">${CLASSES[s.cls].hp} HP · ${s.missions} ops · ${s.kills} kills</span>${ok ? '' : `<span class="chip warn">Recovering</span>`}</label>
+        <span class="meta">${s.missions} ops · ${s.kills} kills</span>${ok ? '' : `<span class="chip warn">Recovering · ${s.recovery} mission${s.recovery > 1 ? 's' : ''}</span>`}</label>
+      ${!ok && s.healing?.length ? `<div class="healing">${s.healing.map(esc).join(', ')}</div>` : ''}
       <div class="skillline">${skillLine((k) => diceFor(s.cls, s.xp, on ? l.weapon : null, on ? l.armor : null, k))}<span class="muted">dice</span></div>
       <div class="ability">${CLASSES[s.cls].ability}</div>
       <div class="xp"><i style="width:${pct}%"></i><small>${s.xp}${nx > 0 ? ' / ' + nx : ''} XP</small></div>
@@ -1153,7 +1263,8 @@ function renderBriefing() {
         <li><b>Pick an approach.</b> Each one tests a skill: Assault, Stealth, Recon or Tech.</li>
         <li><b>Commit operators.</b> The lead rolls their dice for that skill and takes the first hit. Each supporter adds 1 die. More bodies make Stealth noisier (Scouts excepted), and only committed operators get shot.</li>
         <li><b>Spend gear</b> for extra dice, then roll. Every 5 or 6 is a success. Meet the difficulty to succeed. One short is a success at a cost you choose.</li>
-        <li><b>Push</b> to re-roll the misses, at +1 alert. Every action spends time. At ${ALERT_TIER} alert the enemy is awake; at ${ALERT_MAX} a QRF forces you out.</li></ol></div>
+        <li><b>Push</b> to re-roll the misses, at +1 alert. Every action spends time. At ${ALERT_TIER} alert the enemy is awake; at ${ALERT_MAX} a QRF forces you out.</li>
+        <li><b>Injuries</b> cost dice when the injured operator leads. Cuts and bruises pile up until a hit turns serious. A critical injury stops them leading and knocks them out in ${CRIT_STAGES} stages unless treated; the unconscious die in ${BLEED_STAGES} more.</li></ol></div>
     </div>
     <div class="col">
       <div class="card"><h3>Team <span class="count">${draft.team.length}/${MAX_TEAM}</span></h3><div class="roster">${roster}</div>
@@ -1278,10 +1389,11 @@ function planHtml(st, sit) {
       <span class="row">${skillChip(o.skill)}<span class="diff">Diff ${q.diff.value} · ${Math.round(q.odds.s * 100)}%</span></span>
       <b>${o.label}</b><small>${o.desc}</small><span class="tags">${tagsOf(o, q.foes)}</span></button>`; }).join('');
   const ops = team().map((u) => { const ok = active(u), on = plan.ids.includes(u.id), isLead = u.id === p.lead, n = on && !isLead ? 1 : opDice(u, opt.skill);
+    const role = !ok ? '' : isLead ? 'Lead' : on ? 'Support' : canLead(u) ? `${n} as lead` : "Can't lead";
     return `<button class="opbtn ${on ? 'on' : ''}" type="button" data-act="op" data-id="${u.id}" ${ok ? '' : 'disabled'} aria-pressed="${on}">
-      <span class="name">${esc(u.name)}</span><span>${classChip(u.cls)} <span class="muted">${u.hp}/${u.maxHp} HP</span></span>
-      <span class="dots">${ok ? '●'.repeat(n) || '–' : u.downed ? 'DOWN' : 'Out'} <span class="muted">${!ok ? '' : isLead ? 'Lead' : on ? 'Support' : `${n} as lead`}</span></span></button>`; }).join('');
-  const leads = plan.ids.length > 1 ? `<div class="leadrow"><span class="muted">Lead:</span>${plan.ids.map(unitById).map((u) => `<button class="btn ${u.id === p.lead ? 'on' : ''}" type="button" data-act="lead" data-id="${u.id}" aria-pressed="${u.id === p.lead}">${esc(u.name.split(' ')[0])} · ${opDice(u, opt.skill)}</button>`).join('')}</div>` : '';
+      <span class="name">${esc(u.name)}</span><span>${classChip(u.cls)}</span><span class="inj-short">${esc(conditionOf(u))}</span>
+      <span class="dots">${ok ? '●'.repeat(n) || '–' : u.downed ? 'DOWN' : 'Out'} <span class="muted">${role}</span></span></button>`; }).join('');
+  const leads = plan.ids.length > 1 ? `<div class="leadrow"><span class="muted">Lead:</span>${plan.ids.map(unitById).map((u) => `<button class="btn ${u.id === p.lead ? 'on' : ''}" type="button" data-act="lead" data-id="${u.id}" aria-pressed="${u.id === p.lead}" ${canLead(u) ? '' : 'disabled title="Untreated critical injury"'}>${esc(u.name.split(' ')[0])} · ${canLead(u) ? opDice(u, opt.skill) : "can't lead"}</button>`).join('')}</div>` : '';
   const gearBtns = plan.ids.map(unitById).filter((u) => gearUsable(u, opt)).map((u) => `<button class="btn ${plan.gear.includes(u.id) ? 'on' : ''}" type="button" data-act="gear" data-id="${u.id}" aria-pressed="${plan.gear.includes(u.id)}">${ITEMS[u.util].label} · ${esc(u.name.split(' ')[0])} (+${GEAR_USE[u.util].dice}${GEAR_USE[u.util].alert ? ', loud' : ''})</button>`);
   if (canStrike(opt)) gearBtns.push(`<button class="btn ${plan.strike ? 'on' : ''}" type="button" data-act="strike" aria-pressed="${plan.strike}">Drone strike (+2)</button>`);
   const cost = 1 + (opt.time || 0), pct = (x) => Math.round(x * 100);
@@ -1299,15 +1411,17 @@ function planHtml(st, sit) {
     <div class="actions-row">
       <button class="btn danger ${plan.abortArmed ? 'armed' : ''}" type="button" data-act="abort">${plan.abortArmed ? 'Tap again to abort' : 'Abort mission'}</button>
       ${st.kind === 'OPTIONAL' ? '<button class="btn" type="button" data-act="skip">Skip this target</button>' : ''}<span class="grow"></span>
-      <button class="btn primary big" type="button" data-act="exec" ${p.pool.value && cost <= b.time ? '' : 'disabled'}>Execute · ${cost} time</button></div>`;
+      <button class="btn primary big" type="button" data-act="exec" ${p.pool.value && p.lead != null && cost <= b.time ? '' : 'disabled'}>Execute · ${cost} time</button></div>`;
 }
 function rollHtml(st, sit) {
   const b = B(), r = b.roll, opt = sit.opts[r.opt], out = outcomeOf(r), s = successes(r);
   const word = { SUCCESS: 'Success', PARTIAL: 'Success at a cost', FAIL: 'Failure' }[out];
+  const lead = unitById(r.lead), victim = active(lead) ? lead : r.ids.map(unitById).find(active);
+  const costDesc = (k, c) => (k === 'WOUND' ? hitPreview(victim) : c.desc);
   return `<div class="eyebrow">Stage ${b.stage + 1} · ${KIND[st.kind]} · ${esc(sit.label)}</div><h2>${esc(opt.label)}</h2>
     <div class="dice">${r.dice.map((d, i) => `<span class="die ${d >= HIT ? 'hit' : ''} ${r.rerolled.includes(i) ? 're' : ''}" style="animation-delay:${i * 60}ms">${d}</span>`).join('')}</div>
     <div class="outcome ${out}">${word}</div><p>${s} success${s === 1 ? '' : 'es'} against difficulty ${r.diff}.${r.pushed ? ' Pushed.' : ''}</p>
-    ${out === 'PARTIAL' ? `<div class="section-label">Choose the cost</div><div class="costs">${Object.entries(COSTS).map(([k, c]) => `<button class="btn" type="button" data-act="cost" data-c="${k}"><b>${c.label}</b><small>${c.desc}</small></button>`).join('')}</div>` : ''}
+    ${out === 'PARTIAL' ? `<div class="section-label">Choose the cost</div><div class="costs">${Object.entries(COSTS).map(([k, c]) => `<button class="btn" type="button" data-act="cost" data-c="${k}"><b>${c.label}</b><small>${esc(costDesc(k, c))}</small></button>`).join('')}</div>` : ''}
     <div class="actions-row">${out !== 'SUCCESS' && !r.pushed ? `<button class="btn" type="button" data-act="push">Push: re-roll ${r.dice.length - s} misses (+1 alert)</button>` : ''}<span class="grow"></span>
       ${out === 'PARTIAL' ? '' : `<button class="btn primary big" type="button" data-act="accept">${out === 'SUCCESS' ? 'Continue' : 'Accept failure'}</button>`}</div>`;
 }
@@ -1315,22 +1429,27 @@ function squadHtml() {
   const b = B(), medics = team().filter((u) => u.cls === 'MEDIC' && active(u) && !b.revived.includes(u.id)), kits = team().filter((u) => active(u) && u.util === 'MEDKIT');
   const free = b.state === 'PLAN' && !b.over;
   const rows = team().map((u) => {
-    const gone = u.hp <= 0 && !u.downed, pct = Math.round((u.hp / u.maxHp) * 100);
-    const status = gone ? '<span class="chip bad">KIA</span>' : u.downed ? `<span class="chip bad">Down · ${u.bleed} stage${u.bleed > 1 ? 's' : ''}</span>` : '';
-    const care = [];
-    if (free && u.downed) for (const md of medics) care.push(`<button class="btn" type="button" data-act="revive" data-m="${md.id}" data-t="${u.id}">Revive (${esc(md.name.split(' ')[0])})</button>`);
-    if (free && (u.downed || (active(u) && u.hp < u.maxHp))) for (const k of kits) care.push(`<button class="btn" type="button" data-act="treat" data-h="${k.id}" data-t="${u.id}">Medkit (${esc(k.name.split(' ')[0])})</button>`);
+    const gone = u.dead;
+    const status = gone ? '<span class="chip bad">KIA</span>' : '';
+    const care = [], first = (x) => esc(x.name.split(' ')[0]);
+    if (free && (active(u) || u.downed) && fieldCareNeed(u)) for (const md of medics) care.push(`<button class="btn" type="button" data-act="care" data-m="${md.id}" data-t="${u.id}">Field care (${first(md)})</button>`);
+    if (free && (active(u) || u.downed) && worstNeed(u)) for (const k of kits) care.push(`<button class="btn" type="button" data-act="treat" data-h="${k.id}" data-t="${u.id}">Medkit (${first(k)})</button>`);
     if (free && active(u) && u.util === 'DRONE' && !b.drone.used) care.push(`<button class="btn" type="button" data-act="drone" data-id="${u.id}">Launch drone</button>`);
-    return `<div class="unit ${u.downed ? 'down' : ''} ${gone ? 'gone' : ''}"><div class="head"><span class="name">${esc(u.name)}</span>${classChip(u.cls)}${status}${b.carrier === u.id ? '<span class="chip gold">Intel</span>' : ''}<span class="hp">${u.hp}/${u.maxHp}</span></div>
-      <div class="bar"><i class="${pct <= 50 ? 'low' : ''}" style="width:${pct}%"></i></div>
+    const inj = [];
+    if (u.downed) inj.push(`<li class="crit"><b>Unconscious</b><span>Out of action · dies in ${u.bleed} stage${u.bleed > 1 ? 's' : ''} unless treated</span></li>`);
+    if (!gone) for (const w of u.inj) inj.push(`<li class="${INJURIES[w.id].tier === 3 && !w.t ? 'crit' : ''}"><b>${esc(injName(w))}</b><span>${esc(injEffect(w))}</span></li>`);
+    return `<div class="unit ${u.downed ? 'down' : ''} ${gone ? 'gone' : ''}"><div class="head"><span class="name">${esc(u.name)}</span>${classChip(u.cls)}${status}${b.carrier === u.id ? '<span class="chip gold">Intel</span>' : ''}</div>
+      ${gone ? '' : inj.length ? `<ul class="injuries">${inj.join('')}</ul>` : '<div class="unhurt">Unhurt</div>'}
       <div class="skills">${skillLine((k) => opDice(u, k))}${u.util ? `<span>· ${ITEMS[u.util].label}</span>` : ''}</div>
       ${care.length ? `<div class="care">${care.join('')}</div>` : ''}</div>`;
   }).join('');
   return `<div class="card"><h3>Team</h3>${rows}</div>`;
 }
+/** One line on how an operator is doing, by injury names only. */
+const conditionOf = (u) => (u.dead ? 'KIA' : u.downed ? 'Unconscious' : u.inj.length ? u.inj.map((w) => INJURIES[w.id].label).join(', ') : 'Unhurt');
 function objectivesHtml() {
   const b = B(), m = G.mission, carrier = b.carrier != null ? unitById(b.carrier) : null;
-  const st = (t) => ({ RETRIEVE_INTEL: carrier ? 'Carrier must get out' : 'Not secured', ELIMINATE_HVT: b.hvtKilled ? 'Confirmed dead' : 'Alive', NO_CASUALTIES: team().some((u) => u.hp <= 0 && !u.downed) ? 'Failed' : 'So far, so good', UNDETECTED: b.alerted ? 'Failed' : 'Undetected' })[t];
+  const st = (t) => ({ RETRIEVE_INTEL: carrier ? 'Carrier must get out' : 'Not secured', ELIMINATE_HVT: b.hvtKilled ? 'Confirmed dead' : 'Alive', NO_CASUALTIES: team().some((u) => u.dead) ? 'Failed' : 'So far, so good', UNDETECTED: b.alerted ? 'Failed' : 'Undetected' })[t];
   return `<div class="card"><h3>Objectives</h3><div class="muted" style="font-size:14px"><div><b style="color:var(--gold)">Primary</b> ${OBJ[m.primary].label}: ${st(m.primary)}</div><div><b>Secondary</b> ${OBJ[m.secondary].label}: ${st(m.secondary)}</div></div></div>`;
 }
 function renderOps() {
@@ -1367,7 +1486,7 @@ $('#view').addEventListener('click', (e) => {
   if (a === 'accept') return run(() => resolve());
   if (a === 'cost') return run(() => resolve(el.dataset.c));
   if (a === 'skip') return run(skip);
-  if (a === 'revive') return run(() => revive(n('m'), n('t')));
+  if (a === 'care') return run(() => fieldCare(n('m'), n('t')));
   if (a === 'treat') return run(() => treat(n('h'), n('t')));
   if (a === 'drone') return run(() => launchDrone(n('id')));
 });
@@ -1381,12 +1500,12 @@ function renderDebrief() {
       <div class="verdict ${d.success ? 'ok' : 'bad'}">${d.success ? 'Mission success' : 'Mission failed'}</div>
       <ul class="obj-results">${d.objectives.map((o) => `<li class="${o.ok ? 'ok' : 'bad'}"><span>${o.ok ? '✓' : '✗'}</span>${o.primary ? 'Primary' : 'Secondary'}: <b>${o.label}</b></li>`).join('')}</ul>
       <p>Requisition awarded: <b>+${d.rp} RP</b></p></div>
-    <div class="card"><h3>Personnel</h3><div class="table-wrap"><table class="personnel"><thead><tr><th>Operator</th><th>Status</th><th>HP</th><th>Kills</th><th>XP</th><th>Rank</th></tr></thead><tbody>
-      ${d.soldiers.map((s) => `<tr class="${/KIA|MIA/.test(s.status) ? 'lost' : ''}"><td>${esc(s.name)} ${classChip(s.cls)}</td><td>${s.status}</td><td>${s.hp}/${s.maxHp}</td><td>${s.kills}</td><td>${s.xp ? '+' + s.xp : '-'}</td><td>${s.promoted ? `<span class="chip gold">Promoted: ${s.promoted}</span>` : s.rank}</td></tr>`).join('')}
+    <div class="card"><h3>Personnel</h3><div class="table-wrap"><table class="personnel"><thead><tr><th>Operator</th><th>Status</th><th>Injuries</th><th>Kills</th><th>XP</th><th>Rank</th></tr></thead><tbody>
+      ${d.soldiers.map((s) => `<tr class="${/KIA|MIA/.test(s.status) ? 'lost' : ''}"><td>${esc(s.name)} ${classChip(s.cls)}</td><td>${s.status}</td><td>${s.injuries.length ? s.injuries.map(esc).join(', ') : '<span class="muted">None</span>'}</td><td>${s.kills}</td><td>${s.xp ? '+' + s.xp : '-'}</td><td>${s.promoted ? `<span class="chip gold">Promoted: ${s.promoted}</span>` : s.rank}</td></tr>`).join('')}
     </tbody></table></div></div>
     <div class="card split"><div><h3>Gear lost</h3>${list(d.lost, 'Nothing lost.')}</div><div><h3>Gear gained</h3>${list(d.gained, 'Nothing recovered.')}</div>${d.notes.length ? `<div><h3>Notes</h3>${list(d.notes, '')}</div>` : ''}</div>
     ${G.recruits > 0 ? `<div class="card"><h3>Replacements · ${G.recruits} to assign</h3><p class="muted">Pick the class of each new recruit.</p>
-      <div class="class-pick">${Object.entries(CLASSES).map(([id, c]) => `<button class="btn class-card" type="button" data-enlist="${id}">${classChip(id)}<small>${c.hp} HP · ${c.ability}</small></button>`).join('')}</div></div>` : ''}
+      <div class="class-pick">${Object.entries(CLASSES).map(([id, c]) => `<button class="btn class-card" type="button" data-enlist="${id}">${classChip(id)}<small>${c.ability}</small></button>`).join('')}</div></div>` : ''}
     <button class="btn primary big" type="button" id="next" ${G.recruits > 0 ? 'disabled' : ''}>Next mission</button></section>`;
   $('#view').querySelectorAll('[data-enlist]').forEach((b) => b.addEventListener('click', () => run(() => { const s = enlist(b.dataset.enlist); toast(`${s.name} joins as ${CLASSES[s.cls].label}.`); })));
   $('#next').addEventListener('click', () => run(proceed));
@@ -1410,14 +1529,14 @@ function start(data) {
   let save = data && data.save;
   if (!save) { try { save = localStorage.getItem(SAVE_KEY); } catch (e) { save = null; } }
   try { G = save ? JSON.parse(save) : null; } catch (e) { G = null; }
-  if (!G || G.v !== 1 || G.mode !== 'ops') newCampaign((Math.random() * 2 ** 31) | 0);
+  if (!G || G.v !== 2 || G.mode !== 'ops') newCampaign((Math.random() * 2 ** 31) | 0);
   window.claude?.hot?.snapshot?.(() => ({ save: JSON.stringify(G) }));
   refresh();
 }
 // Test hook: ops.html?test exposes the rules API to automated play-throughs.
 if (/[?&]test\b/.test(location.search)) {
   window.SKIRM = { get G() { return G; }, newCampaign, buyIntel, launch, proceed, enlist, chooseRoute, chooseFork, execute, push, resolve, skip, abort,
-    revive, treat, launchDrone, bestLead, odds, difficulty, poolOf, previewOf, cur, sitOf, active, team, outcomeOf, foesOf, Rule, CLASSES, ITEMS, SIT, available, refresh };
+    fieldCare, treat, launchDrone, canLead, opDice, worstNeed, fieldCareNeed, INJURIES, bestLead, odds, difficulty, poolOf, previewOf, cur, sitOf, active, team, outcomeOf, foesOf, Rule, CLASSES, ITEMS, SIT, available, refresh };
 }
 window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
 })();
