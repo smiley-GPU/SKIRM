@@ -472,6 +472,7 @@ const ITEMS = {
   DMR: { slot: 'WEAPON', label: 'Marksman Rifle', dice: { RECON: 1 } },
   LMG: { slot: 'WEAPON', label: 'LMG', dice: { ASSAULT: 1, STEALTH: -1 } },
   AK: { slot: 'WEAPON', label: 'AK Rifle', dice: { ASSAULT: 1 } },
+  HANDGUN: { slot: 'SIDEARM', label: 'Handgun' }, // every operator carries one, always: never in the armory, never lost
   VEST: { slot: 'ARMOR', label: 'Soft Vest', dr: 1 },
   PLATE: { slot: 'ARMOR', label: 'Plate Carrier', dr: 2, dice: { STEALTH: -1 } }, // dr: lowers the severity roll of every hit
   SUPPRESSOR: { slot: 'KIT', label: 'Suppressor', dice: { STEALTH: 1 } },
@@ -484,6 +485,9 @@ const ITEMS = {
   BREACH: { slot: 'UTILITY', label: 'Breaching Charge' },
   DRONE: { slot: 'UTILITY', label: 'Recon Drone' },
 };
+// With only the handgun, a lead fighting at range rolls fewer dice. Close quarters (inside the objective, or an opt marked
+// close) and CQB specialists ignore it.
+const HANDGUN_PENALTY = 1;
 const KITS = ['SUPPRESSOR', 'OPTIC', 'TOOLKIT', 'GHILLIE', 'THERMAL'];
 const GEAR_USE = { // consumables spent inside a test
   FRAG: { skills: ['ASSAULT'], dice: 2 },
@@ -566,7 +570,7 @@ const SIT = {
     { skill: 'TECH', diff: 1, label: 'Det cord', desc: 'Clear the lane in one bang, on your schedule.', alert: 1, need: 'DEMOLITIONS' }] },
   DOGS: { kind: 'PERIMETER', label: 'Guard dogs', text: 'A handler walks two dogs along the outer wall.', foes: 1, opts: [
     { skill: 'STEALTH', diff: 4, label: 'Stay downwind', desc: 'Keep the wind in your face and move slow.' },
-    { skill: 'ASSAULT', diff: 2, label: 'Silence them', desc: 'Quick and ugly. Someone might hear.', kills: true, loud: true, alert: 1 },
+    { skill: 'ASSAULT', diff: 2, label: 'Silence them', desc: 'Quick and ugly. Someone might hear.', kills: true, loud: true, alert: 1, close: true },
     { skill: 'TECH', diff: 3, label: 'Drug the bait', desc: 'Leave something tasty and wait.', time: 1 },
     { skill: 'STEALTH', diff: 2, label: 'Mask the scent', desc: 'An old infiltration trick with ash and pine.', need: 'INFILTRATOR' }] },
   CLIFF: { kind: 'PERIMETER', label: 'Rock face', text: 'A sheer rock face guards the back of the compound.', foes: 0, hazard: true, opts: [
@@ -580,7 +584,7 @@ const SIT = {
   DOCKS: { kind: 'PERIMETER', label: 'Floodlit pier', text: 'Armed men unload crates on a floodlit pier.', foes: 2, opts: [
     { skill: 'STEALTH', diff: 4, label: 'Move between the containers', desc: 'Steel boxes, deep shadows, one bad angle.' },
     { skill: 'RECON', diff: 3, label: 'Wait for the shift change', desc: 'Every crew takes a smoke break.', time: 1 },
-    { skill: 'ASSAULT', diff: 3, label: 'Clear the pier', desc: 'Fast, close and loud.', kills: true, loud: true, alert: 1 },
+    { skill: 'ASSAULT', diff: 3, label: 'Clear the pier', desc: 'Fast, close and loud.', kills: true, loud: true, alert: 1, close: true },
     { skill: 'STEALTH', diff: 2, label: 'Come up under the pier', desc: 'From the water, between the pilings.', need: 'DIVER' }] },
   CHECKPOINT: { kind: 'PERIMETER', label: 'Street checkpoint', text: 'A checkpoint with a technical blocks the main street.', foes: 3, opts: [
     { skill: 'STEALTH', diff: 4, label: 'Back alleys', desc: 'Through courtyards and over walls.' },
@@ -590,7 +594,7 @@ const SIT = {
   ROOFTOP: { kind: 'PERIMETER', label: 'Rooftop spotter', text: 'A spotter with a rifle watches the square from a rooftop.', foes: 1, opts: [
     { skill: 'RECON', diff: 3, label: 'Counter-snipe', desc: 'Find the glint before it finds you.', kills: true },
     { skill: 'STEALTH', diff: 3, label: 'Stay under the awnings', desc: 'Never cross the open square.' },
-    { skill: 'ASSAULT', diff: 4, label: 'Storm the stairwell', desc: 'Up four floors, fast.', kills: true, loud: true },
+    { skill: 'ASSAULT', diff: 4, label: 'Storm the stairwell', desc: 'Up four floors, fast.', kills: true, loud: true, close: true },
     { skill: 'RECON', diff: 1, label: 'One shot', desc: 'You have done this a hundred times.', kills: true, need: 'MARKSMAN' }] },
   OPENGROUND: { kind: 'PERIMETER', label: 'Open ground', text: 'Heat shimmer over open sand, and a lookout on the ridge.', foes: 2, opts: [
     { skill: 'STEALTH', diff: 4, label: 'Crawl the dunes', desc: 'Slow, low and very hot.' },
@@ -660,13 +664,21 @@ const FACTIONS = {
   PMC: { label: 'Private military contractors', desc: 'Professionals: their return fire hits more often, and their kit is worth taking.', fire: -1, loot: ['DMR', 'PLATE', 'SUPPRESSOR', 'OPTIC', 'THERMAL'] },
 };
 // Officers: one named, tougher enemy who holds a stage, with better gear to take from them.
+// fate: how the trait shifts what happens when their position falls; hire: [class, specialty] if a prisoner switches sides.
 const OFFICER_TRAITS = {
-  SHARPSHOOTER: { label: 'Sharpshooter', desc: 'Return fire at their position hits more often.' },
-  TACTICIAN: { label: 'Tactician', desc: 'Every approach at their position is 1 harder.' },
-  BRUTE: { label: 'Brute', desc: 'Hits taken at their position are more serious.' },
-  COMMANDER: { label: 'Commander', desc: 'A failure at their position raises the alarm faster.' },
+  SHARPSHOOTER: { label: 'Sharpshooter', desc: 'Return fire at their position hits more often.', fate: { ESCAPED: 5 }, hire: ['SCOUT', 'MARKSMAN'] },
+  TACTICIAN: { label: 'Tactician', desc: 'Every approach at their position is 1 harder.', fate: { ESCAPED: 10, WRECK: -5 }, hire: ['DRONE', 'SIGNALS'] },
+  BRUTE: { label: 'Brute', desc: 'Hits taken at their position are more serious.', fate: { WRECK: 10, CAPTIVE: -10 }, hire: ['HEAVY', 'CQB'] },
+  COMMANDER: { label: 'Commander', desc: 'A failure at their position raises the alarm faster.', fate: { CAPTIVE: 10 }, hire: ['MEDIC', 'LINGUIST'] },
 };
-const OFFICER_RANKS = ['Lieutenant', 'Captain', 'Major'];
+// When an approach that kills takes an officer's position: they die, die taking some of your kit with them, get away
+// (to a later stage, or out of the mission to return in a later one), or surrender and come home as a prisoner.
+const OFFICER_FATES = { DEAD: 50, WRECK: 15, ESCAPED: 20, CAPTIVE: 15 };
+const OFFICER_ESCAPES = 2;    // after two escapes their luck has run out
+const CAPTIVE_WAIT = 2;       // missions of interrogation before a prisoner will talk about switching sides
+const CAPTIVE_XP = 50;        // a turned officer joins as a corporal
+const CAPTIVE_TRADE = { rp: 4, bp: 1 }; // handing a prisoner over to the intelligence services
+const OFFICER_RANKS = ['Lieutenant', 'Captain', 'Major', 'Colonel'];
 const OFFICER_NAMES = ['Rask', 'Volkan', 'Drago', 'Kessel', 'Marek', 'Haldor', 'Sorin', 'Vance', 'Ostrav', 'Bakri', 'Teodor', 'Grell'];
 const OFFICER_LOOT = ['DMR', 'PLATE', 'THERMAL', 'SUPPRESSOR', 'OPTIC', 'LMG'];
 // Who the HVT really is. Only a warlord is a real fighter, and the true enemy of the piece.
@@ -784,6 +796,7 @@ function envSummary(e) {
 const vehWeather = (veh, w) => WEATHER[w].veh[veh] ?? null;
 const vehUsable = (veh, w) => typeof vehWeather(veh, w) !== 'string';
 const signed = (v) => (v > 0 ? '+' : '') + v;
+const handgunNote = (s) => (s.spec === 'CQB' ? 'Handgun only: a CQB specialist fights fine with it' : `Handgun only: Assault -${HANDGUN_PENALTY} when leading, except in close quarters`);
 function itemSummary(id) {
   const it = ITEMS[id];
   if (it.slot !== 'UTILITY') return [it.dr ? `${it.dr > 1 ? 'much ' : ''}less chance a hit is serious` : '', ...Object.entries(it.dice || {}).map(([k, v]) => `${signed(v)} ${SKILLS[k].label}`),
@@ -848,7 +861,7 @@ const TRAITS = {
   SHADOW: { label: 'Shadow', desc: 'failing a Stealth test they lead never gets the team spotted: just +1 alert' },
 };
 const TRAIT_CAP = 3, BOND_CAP = 2, NEMESIS_XP = 15, GRUDGE_XP = 20, REFLECT_XP = 10;
-const WEAPON_NAME = { CARBINE: 'carbine', SMG: 'SMG', DMR: 'marksman rifle', LMG: 'LMG', AK: 'AK' };
+const WEAPON_NAME = { CARBINE: 'carbine', SMG: 'SMG', DMR: 'marksman rifle', LMG: 'LMG', AK: 'AK', HANDGUN: 'handgun' };
 const THREAT_NAME = { SENTRY: 'the sentries', PATROL: 'that patrol', TOWER: 'the watchtower', MINES: 'the tripwires', DOGS: 'the dogs', INTEL: 'the guards on the cache', HVT: 'the HVT', CACHE: 'the cache guard',
   CLIFF: 'that rock face', RIVERX: 'the guards at the ford', DOCKS: 'the pier crew', CHECKPOINT: 'the checkpoint', ROOFTOP: 'the rooftop spotter', OPENGROUND: 'that open ground', FIRELINE: 'the fire' };
 const SCENES = {
@@ -1326,6 +1339,7 @@ function newCampaign(seed) {
   G = { v: 4, mode: 'ops', rs: seed | 0, phase: 'BASE', rp: 12, bp: 3, flown: 0, nextSid: 1, roster: [], used: {}, recruits: 0,
     armory: { CARBINE: 4, SMG: 2, DMR: 1, LMG: 2, AK: 0, VEST: 4, PLATE: 2, SUPPRESSOR: 1, OPTIC: 1, TOOLKIT: 1, GHILLIE: 0, THERMAL: 0, MEDKIT: 3, FRAG: 4, BREACH: 3, DRONE: 2 },
     base: { lv: { CMD: 1, INTEL: 1, MED: 1, ENG: 1, LOG: 1, BARRACKS: 1 }, beds: [], damaged: {}, offers: [] },
+    nemeses: [], captives: [], // officers who got away, and officers held at base
     mission: null, battle: null, debrief: null };
   [[60, 'HEAVY'], [25, 'MEDIC'], [25, 'SCOUT'], [0, 'DRONE'], [0, 'HEAVY'], [0, 'SCOUT']].forEach(([xp, cls]) => recruit(xp, cls));
   beginBase(false);
@@ -1364,11 +1378,14 @@ function beginBase(tick = true) {
     if (bed) s.fatigue = 0;
   }
   bs.beds = [];
-  const used = new Set(), n = G.flown + 1;
-  bs.offers = Array.from({ length: bs.lv.CMD >= 2 ? 3 : 2 }, () => {
+  if (tick) for (const c of G.captives) if (c.wait > 0) c.wait--;
+  const used = new Set(), n = G.flown + 1, count = bs.lv.CMD >= 2 ? 3 : 2;
+  // An officer who escaped you resurfaces on one of the offers more often than not.
+  const back = G.nemeses.length && chance(70) ? { at: range(0, count - 1), o: pick(G.nemeses) } : null;
+  bs.offers = Array.from({ length: count }, (_, i) => {
     const loc = pick(Object.keys(LOCATIONS).filter((k) => !used.has(k)));
     used.add(loc);
-    return genMission(n, loc);
+    return genMission(n, loc, back?.at === i ? back.o : null);
   });
   G.mission = null;
   G.battle = null;
@@ -1378,7 +1395,7 @@ function beginBase(tick = true) {
 const weighted = (w) => { let r = rnd() * Object.values(w).reduce((a, c) => a + c, 0); for (const [k, v] of Object.entries(w)) { if ((r -= v) < 0) return k; } return Object.keys(w)[0]; };
 
 /** A mission is a route: approach → perimeter (1-2) → objective → optional target → exfil. Forks offer two choices. */
-function genMission(n, loc) {
+function genMission(n, loc, back = null) {
   const L = LOCATIONS[loc];
   const codename = 'Operation ' + pick(ADJ) + ' ' + pick(NOUN);
   const area = pick(L.areas);
@@ -1398,9 +1415,16 @@ function genMission(n, loc) {
   const faction = weighted(n < 3 ? { MILITIA: 3, REGULARS: 2 } : n < 6 ? { MILITIA: 2, REGULARS: 3, PMC: 1 } : { MILITIA: 1, REGULARS: 3, PMC: 3 });
   const target = hasObj({ primary, secondary }, 'ELIMINATE_HVT') ? weighted(n < 3 ? { FINANCIER: 3, BOMBMAKER: 2 } : { FINANCIER: 2, BOMBMAKER: 3, WARLORD: Math.min(4, n - 2) }) : null;
   let officer = null;
-  if (chance(Math.min(80, 30 + n * 8))) {
+  if (back || chance(Math.min(80, 30 + n * 8))) {
     const at = range(1, route.length - 2); // a perimeter, objective or optional stage
-    officer = { name: `${pick(OFFICER_RANKS)} ${pick(OFFICER_NAMES)}`, trait: pick(Object.keys(OFFICER_TRAITS)), stage: at, loot: pick(OFFICER_LOOT), dead: false };
+    if (back) { // an officer who got away resurfaces, promoted for surviving you
+      const rank = Math.min(OFFICER_RANKS.length - 1, back.rank + 1);
+      officer = { ...back, rank, name: `${OFFICER_RANKS[rank]} ${back.surname}`, stage: at, dead: false, fate: null, returning: back.from };
+    } else {
+      const taken = new Set([...(G.nemeses || []), ...(G.captives || [])].map((o) => o.surname)), rank = range(0, 2);
+      const surname = pick(OFFICER_NAMES.filter((x) => !taken.has(x)));
+      officer = { name: `${OFFICER_RANKS[rank]} ${surname}`, rank, surname, trait: pick(Object.keys(OFFICER_TRAITS)), stage: at, loot: pick(OFFICER_LOOT), dead: false, fate: null, escapes: 0 };
+    }
   }
   const reward = { rp: 10 + (target === 'WARLORD' ? 3 : 0), bp: 3 + (target === 'WARLORD' ? 2 : 0) };
   return { n, loc, codename, area, env, primary, secondary, route, rAt, rCount, faction, target, officer, reward,
@@ -1414,7 +1438,7 @@ function threat(m) {
 /** What the player knows about the enemy force, the officer and the target, given the intel bought. */
 function enemyKnown(m) {
   const i = m.intel;
-  return { faction: i.includes('INFORMANT') || G.base.lv.CMD >= 3, officer: i.includes('SIGINT') || i.includes('UAV'), target: i.includes('INFORMANT') };
+  return { faction: i.includes('INFORMANT') || G.base.lv.CMD >= 3 || G.captives.length > 0, officer: i.includes('SIGINT') || i.includes('UAV'), target: i.includes('INFORMANT') };
 }
 
 // ---------------------------------------------------------------- base actions (all validated before they change anything)
@@ -1429,6 +1453,32 @@ function backToBase() {
   need('BRIEFING');
   G.mission = null;
   G.phase = 'BASE';
+}
+function captive(i) {
+  need('BASE');
+  const c = G.captives[i];
+  if (!c) fail('No such prisoner.');
+  return c;
+}
+/** A prisoner who has talked long enough may switch sides and join the roster. */
+function hireCaptive(i) {
+  const c = captive(i);
+  if (c.wait > 0) fail(`${c.name} is not ready to talk yet (${c.wait} more mission${c.wait > 1 ? 's' : ''}).`);
+  if (G.roster.filter((s) => s.alive).length >= rosterMax()) fail(`The roster is full (${rosterMax()} operators). Upgrade the barracks for more.`);
+  const [cls, spec] = OFFICER_TRAITS[c.trait].hire;
+  const s = recruit(CAPTIVE_XP, cls);
+  s.name = `${s.name.split(' ')[0]} ${c.surname}`;
+  s.spec = spec;
+  s.turned = c.from;
+  G.captives.splice(i, 1);
+  return s;
+}
+/** Or hand them over to the intelligence services for a finder's fee. */
+function tradeCaptive(i) {
+  captive(i);
+  G.captives.splice(i, 1);
+  G.rp += CAPTIVE_TRADE.rp;
+  G.bp += CAPTIVE_TRADE.bp;
 }
 function upgradeDept(d) {
   need('BASE');
@@ -1580,6 +1630,7 @@ function difficulty(st, sit, opt, ids) {
     const bodies = ids.map(unitById).filter((u) => u && u.cls !== 'SCOUT' && !hasSpec(u.sid, 'INFILTRATOR')).length;
     add(`Noise: ${bodies} not trained to move quietly`, Math.max(0, bodies - STEALTH_LIMIT));
     add('Carrying wounded', team().filter((u) => u.downed).length);
+    add('Escorting a prisoner', b.prisoner ? 1 : 0);
     for (const u of ids.map(unitById)) for (const w of u?.inj || []) add(`${u.name.split(' ')[0]}: ${INJURIES[w.id].label.toLowerCase()}`, INJURIES[w.id].noise || 0);
   }
   if (opt.skill === 'ASSAULT') { add('Enemy dug in (alerted)', alerted() ? 1 : 0); add('Enemy reinforced', b.reinf ? 1 : 0); }
@@ -1588,6 +1639,7 @@ function difficulty(st, sit, opt, ids) {
   if (m.inside != null && stageIdx(st) === m.inside) add('Inside man', -1);
   const off = officerAt(st);
   if (off?.trait === 'TACTICIAN') add(`${off.name}, tactician`, 1);
+  if (off?.grudge) add(`${off.name}, back with a grudge`, 1);
   if (st.kind === 'EXFIL') { const v = extVeh(m), x = VEH[v].exfil; add(`${VEH[v].label}${v !== m.ext ? ' (no pickup in this weather)' : ''}`, (x.all || 0) + (x[opt.skill] || 0)); }
   const om = b.omen, who = om ? omenName(om) : '';
   if (om?.topic === 'THREAT' && !om.officer && om.sit !== 'HVT' && !om.beaten && st.pick != null && st.choices[st.pick] === om.sit) add(`${SIT[om.sit].label}, as ${who} feared`, 1);
@@ -1603,6 +1655,7 @@ function poolOf(opt, ids, gearIds, strike, leadId) {
     if (id !== leadId) { parts.push({ label: `${u.name} (support)`, v: 1 }); continue; }
     let n = diceFor(u.cls, soldier(u.sid).xp, [u.weapon, u.armor, u.kit], opt.skill);
     parts.push({ label: `${u.name} (lead)`, v: n });
+    if (handgunPenalty(u, opt) && n > 0) { parts.push({ label: 'Handgun only, at range', v: -Math.min(n, HANDGUN_PENALTY) }); n -= Math.min(n, HANDGUN_PENALTY); }
     for (const x of [...injuryMods(u, opt.skill), ...fatigueMods(u)]) { const v = Math.max(x.v, -n); if (v) { parts.push({ label: x.label, v }); n += v; } }
     for (const x of leadBonuses(u, opt.skill)) parts.push(x);
   }
@@ -1616,6 +1669,9 @@ function poolOf(opt, ids, gearIds, strike, leadId) {
   if (strike) parts.push({ label: 'Drone strike', v: 2 });
   return { value: parts.reduce((s, x) => s + x.v, 0), parts };
 }
+// Close quarters: an Assault inside the objective or optional site, or one marked close. There a handgun is enough.
+const closeQuarters = (st, opt) => opt.skill === 'ASSAULT' && (st.kind === 'OBJECTIVE' || st.kind === 'OPTIONAL' || !!opt.close);
+const handgunPenalty = (u, opt) => !u.weapon && opt.skill === 'ASSAULT' && !closeQuarters(cur(), opt) && !hasSpec(u.sid, 'CQB');
 const gearUsable = (u, opt) => !!u && active(u) && !!GEAR_USE[u.util] && GEAR_USE[u.util].skills.includes(opt.skill);
 /** The strongest legal fireteam for an approach: its best lead plus the next best in support. */
 const fireteam = (opt, ids) => [...ids].sort((a, c) => opDice(unitById(c), opt.skill) - opDice(unitById(a), opt.skill)).slice(0, 1 + MAX_SUPPORT);
@@ -1884,10 +1940,8 @@ function applyRoll(cost) {
     log(`${who} goes down... then gets back up and runs for cover. Not dead yet${feared ? `, just as ${omenName(om)} feared` : ''}. Finish it.`, 'alert');
     return settle(false);
   }
-  if (off && opt.kills) {
-    off.dead = true; lead.kills++; b.kills++; b.officerKilled = true;
-    log(`${off.name} is down. Their ${ITEMS[off.loot].label.toLowerCase()} comes home with you.`, 'kill');
-  } else if (off && st.kind !== 'EXFIL') log(`You slip past ${off.name}. They live to fight another day.`, 'info');
+  if (off && opt.kills) officerFalls(off, members, lead, feared && om.officer);
+  else if (off && st.kind !== 'EXFIL') log(`You slip past ${off.name}. They live to fight another day.`, 'info');
   if (feared && (!om.officer || off?.dead)) {
     om.beaten = true; om.by = ids.filter((id) => !unitById(id).dead);
     log(`${om.officer ? off.name : SIT[om.sit].label}: beaten, the threat ${omenName(om)} feared. There will be extra XP and spoils for this.`, 'good');
@@ -1904,6 +1958,46 @@ function applyRoll(cost) {
     log('The team reaches the extraction point.', 'good');
   }
   settle(true);
+}
+/** An officer's position falls to an approach that kills. `dead` means out of this fight; `fate` says how. */
+function officerFalls(off, members, lead, feared) {
+  const b = B(), w = { ...OFFICER_FATES };
+  for (const [k, v] of Object.entries(OFFICER_TRAITS[off.trait].fate)) w[k] = Math.max(0, w[k] + v);
+  if (feared || (off.escapes || 0) >= OFFICER_ESCAPES) w.ESCAPED = 0; // the feared one already had their second chance
+  if (feared) w.CAPTIVE = 0;
+  const loot = ITEMS[off.loot].label.toLowerCase(), exfilAt = b.stages.findIndex((s) => s.kind === 'EXFIL');
+  off.fate = weighted(w);
+  if (off.fate === 'ESCAPED') {
+    off.escapes = (off.escapes || 0) + 1;
+    const later = b.stages.map((_, i) => i).filter((i) => i > b.stage && i < exfilAt && !b.stages[i].skipped);
+    if (later.length) {
+      off.stage = pick(later); off.grudge = true;
+      log(`${off.name} goes over the back wall in the smoke. They are not finished: expect them further in.`, 'alert');
+    } else {
+      off.stage = -1; off.fled = true;
+      log(`${off.name} vanishes into the dark with what is left of their men. You will see them again.`, 'alert');
+    }
+    return;
+  }
+  off.dead = true; b.officerKilled = true;
+  if (off.fate === 'CAPTIVE') {
+    b.prisoner = true;
+    log(`${off.name} throws down their rifle and puts their hands on their head. Their ${loot} comes with you, and so do they. Escorting a prisoner makes moving quietly harder.`, 'good');
+    return;
+  }
+  lead.kills++; b.kills++;
+  if (off.fate === 'WRECK') {
+    const kit = members.filter((u) => !u.dead).flatMap((u) => ['kit', 'armor', 'util'].filter((k) => u[k] && u[k] !== 'DRONE').map((k) => ({ u, k })));
+    log(`${off.name} goes down with a grenade already in hand. It goes off under them, and takes their ${loot} with it.`, 'kill');
+    if (kit.length) {
+      const { u, k } = pick(kit), it = u[k];
+      u[k] = null;
+      (u.wrecked ||= []).push(it);
+      log(`${u.name}'s ${ITEMS[it].label.toLowerCase()} is wrecked in the blast.`, 'alert');
+    }
+    return;
+  }
+  log(`${off.name} is down. Their ${loot} comes home with you.`, 'kill');
 }
 /** After every command: reinforcements, QRF, the clock, and moving on. */
 function settle(cleared) {
@@ -1939,9 +2033,10 @@ function advance() {
   }
   b.revived = [];
   b.stage++;
-  const st = cur(), e = G.mission.env;
+  const st = cur(), e = G.mission.env, off = officerAt(st);
   st.seen = true;
   log(`Stage ${b.stage + 1}: ${KIND[st.kind]}${st.pick != null ? ' · ' + SIT[st.choices[st.pick]].label : ''}.`, 'turn');
+  if (off?.grudge) log(`${off.name} is waiting here, regrouped and furious. Every approach is 1 harder.`, 'alert');
   if (e.turnAt === b.stage && e.turnTo) { // the weather can change fast
     e.weather = e.turnTo; e.turnTo = null;
     log(`The weather turns: ${WEATHER[e.weather].label.toLowerCase()}. ${envSummary(e)}`, 'alert');
@@ -2034,10 +2129,10 @@ function topicsFor(u, phase, speakers) {
   const m = G.mission, b = B(), s = soldier(u.sid), out = [];
   const add = (topic, p = {}) => out.push({ topic, ...p });
   if (phase === 'IN') {
-    add('GEAR', { weapon: WEAPON_NAME[u.weapon] });
+    if (u.weapon) add('GEAR', { weapon: WEAPON_NAME[u.weapon] });
     const threats = [...new Set(b.stages.filter((st) => st.kind !== 'APPROACH' && st.kind !== 'EXFIL').flatMap((st) => st.choices).filter((k) => THREAT_NAME[k]))];
     const off = m.officer; // a named officer is the threat people worry about most
-    if (off && chance(60)) add('THREAT', { officer: true, threat: off.name });
+    if (off && chance(off.returning ? 90 : 60)) add('THREAT', { officer: true, threat: off.name });
     else if (threats.length) { const k = pick(threats); add('THREAT', { sit: k, threat: THREAT_NAME[k] }); }
     if (m.intel.length) add('INTEL', { intel: m.intel.length > 1 ? 'the intel' : m.intel[0] === 'SATELLITE' ? 'the satellite pictures' : 'the intel package' });
     else add('BLIND');
@@ -2171,7 +2266,7 @@ function launch(o) {
     const s = soldier(id);
     if (!s || !available(s)) fail('That operator is not available.');
     const l = o.loadouts[id];
-    if (!l || !l.weapon) fail(`${s.name} needs a weapon.`);
+    if (!l) fail(`${s.name} needs a loadout.`);
     const cl = CLASSES[s.cls];
     for (const [it, list] of [[l.weapon, cl.weapons], [l.armor, cl.armor], [l.utility, cl.utility], [l.kit, KITS]])
       if (it && !list.includes(it)) fail(`A ${cl.label} can't carry ${ITEMS[it]?.label ?? it}.`);
@@ -2192,6 +2287,7 @@ function launch(o) {
   m.loadouts = JSON.parse(JSON.stringify(o.loadouts));
   m.ins = o.insertion;
   m.ext = o.extraction;
+  if (m.officer?.returning) G.nemeses = G.nemeses.filter((x) => x.surname !== m.officer.surname);
   rollWeather(m);
   makeOp(m, members);
   m.interIn = genInterlude('IN');
@@ -2274,7 +2370,8 @@ function debrief(m) {
   const done = (t) => ({ RETRIEVE_INTEL: intelOut, ELIMINATE_HVT: b.hvtKilled, NO_CASUALTIES: anyOut && !casualties, UNDETECTED: anyOut && !b.alerted })[t];
   const success = anyOut && done(m.primary);
   const rp = 2 + (success ? m.reward.rp - 2 : 0) + (done(m.secondary) ? 4 : 0) + (G.base.lv.CMD >= 3 ? 3 : 0);
-  const bp = (success ? m.reward.bp : 1) + (done(m.secondary) ? 2 : 0) + (b.officerKilled ? 1 : 0) + (b.omen?.beaten ? 1 : 0);
+  const off = m.officer, settled = b.officerKilled && !!off?.returning; // finally dealing with an officer who got away pays extra
+  const bp = (success ? m.reward.bp : 1) + (done(m.secondary) ? 2 : 0) + (b.officerKilled ? 1 : 0) + (settled ? 1 : 0) + (b.omen?.beaten ? 1 : 0);
   G.rp += rp;
   G.bp += bp;
   const rest = G.base.lv.BARRACKS >= 2 ? 1 : 0;
@@ -2299,6 +2396,7 @@ function debrief(m) {
       for (const it of [u.weapon, u.armor, u.kit, u.util]) if (it) G.armory[it] = (G.armory[it] || 0) + 1;
     }
     if (u.consumed) lost.push(`${ITEMS[u.consumed].label} (expended)`);
+    for (const it of u.wrecked || []) lost.push(`${ITEMS[it].label} (wrecked by ${off.name}'s grenade)`);
     if (u.droneLost) lost.push('Recon Drone (shot down)');
     s.xp += xp; s.kills += u.kills; s.missions++;
     const after = rankIdx(s.xp);
@@ -2306,7 +2404,16 @@ function debrief(m) {
   }
   if (anyOut) {
     for (let i = 0; i < b.kills; i++) if (chance(25)) { const it = pick(FACTIONS[m.faction].loot); G.armory[it] = (G.armory[it] || 0) + 1; gained.push(`${ITEMS[it].label} (captured from ${FACTIONS[m.faction].label.toLowerCase()})`); }
-    if (m.officer?.dead) { G.armory[m.officer.loot] = (G.armory[m.officer.loot] || 0) + 1; gained.push(`${ITEMS[m.officer.loot].label} (taken from ${m.officer.name})`); }
+    if (off?.dead && off.fate !== 'WRECK') { G.armory[off.loot] = (G.armory[off.loot] || 0) + 1; gained.push(`${ITEMS[off.loot].label} (taken from ${off.name})`); }
+    if (settled) {
+      const it = pick(OFFICER_LOOT.filter((k) => k !== off.loot)); G.armory[it] = (G.armory[it] || 0) + 1;
+      gained.push(`${ITEMS[it].label} (${off.name}'s stash)`);
+      notes.push(`${off.name} got away from you on ${off.returning}. Not this time: +1 BP.`);
+    }
+    if (off?.fate === 'CAPTIVE') {
+      G.captives.push({ name: off.name, surname: off.surname, trait: off.trait, from: m.codename, wait: CAPTIVE_WAIT });
+      notes.push(`${off.name} is held at base for interrogation. While you hold a prisoner, you know who you are up against on every operation. In ${CAPTIVE_WAIT} missions they may be ready to talk about working for you.`);
+    }
     if (b.hvtKilled && chance(m.target === 'WARLORD' ? 100 : 50)) { const it = m.target === 'WARLORD' ? pick(['THERMAL', 'PLATE', 'DMR']) : 'SMG'; G.armory[it] = (G.armory[it] || 0) + 1; gained.push(`${ITEMS[it].label} (the target's own)`); }
     if (intelOut) { const it = chance(50) ? 'MEDKIT' : 'FRAG'; G.armory[it] += 2; gained.push(`2x ${ITEMS[it].label} (cache location from recovered intel)`); }
     if (b.cache) {
@@ -2318,6 +2425,12 @@ function debrief(m) {
       gained.push(`2x ${ITEMS[it].label} (taken from ${b.omen.threat}, as ${omenName(b.omen)} feared)`);
       notes.push(`Beating ${b.omen.threat}: +${NEMESIS_XP} XP for everyone who was there.`);
     }
+  }
+  if (off?.fate === 'CAPTIVE' && !anyOut) notes.push(`${off.name} was lost in the chaos with the team. The prisoner is gone.`);
+  if (off && !off.dead && (off.fate === 'ESCAPED' || off.returning)) { // the one who got away, or who you left alone again
+    if (off.surname == null) { const [r, ...rest] = off.name.split(' '); off.surname = rest.join(' '); off.rank = Math.max(0, OFFICER_RANKS.indexOf(r)); }
+    G.nemeses.push({ name: off.name, surname: off.surname, rank: off.rank, trait: off.trait, loot: off.loot, escapes: off.escapes, from: m.codename });
+    notes.push(`${off.name} got away. Expect to hear from them again.`);
   }
   // A bond with someone who died turns into grit.
   for (const dead of G.roster.filter((x) => !x.alive)) for (const s of G.roster.filter((x) => x.alive && x.bonds?.includes(dead.id))) {
@@ -2513,6 +2626,7 @@ const soldierFat = (s) => { const [t, x] = s.spec === 'ENDURANCE' ? [TIRED_AT + 
 const fatChip = (state) => (state ? `<span class="chip ${state > 1 ? 'bad' : 'warn'}">${FAT_LABEL[state]}</span>` : '');
 const traitChips = (s) => [...s.traits.map((t) => `<span class="trait" title="${esc(TRAITS[t].desc)}">${TRAITS[t].label}</span>`),
   ...(s.signature ? [`<span class="trait" title="+1 die when leading with it">Signature ${ITEMS[s.signature].label}</span>`] : []),
+  ...(s.turned ? [`<span class="trait" title="Captured on ${esc(s.turned)} and switched sides">Former officer</span>`] : []),
   ...s.bonds.map((id) => `<span class="trait bond" title="+1 die when both are in the fireteam">Bond: ${esc(soldier(id).name.split(' ')[0])}</span>`)].join('');
 function forecastText(m) {
   const e = m.env, sure = m.intel.includes('METEO');
@@ -2522,7 +2636,9 @@ function forecastText(m) {
 function enemyFacts(m) {
   const k = enemyKnown(m), out = [];
   out.push(['Enemy', k.faction ? `${FACTIONS[m.faction].label}. ${FACTIONS[m.faction].desc}` : 'Force unconfirmed. An informant network would tell you who.']);
-  if (k.officer) out.push(['Officer', m.officer ? `${m.officer.name} (${OFFICER_TRAITS[m.officer.trait].label}), holding stage ${m.officer.stage + 1}. ${OFFICER_TRAITS[m.officer.trait].desc}` : 'No officer on the radio net.']);
+  const back = m.officer?.returning ? ` They got away from you on ${m.officer.returning}.` : '';
+  if (k.officer) out.push(['Officer', m.officer ? `${m.officer.name} (${OFFICER_TRAITS[m.officer.trait].label}), holding stage ${m.officer.stage + 1}. ${OFFICER_TRAITS[m.officer.trait].desc}${back}` : 'No officer on the radio net.']);
+  else if (back) out.push(['Officer', `Chatter says ${m.officer.name} has resurfaced here.${back} Signals intercept would tell you where they stand.`]);
   if (m.target) out.push(['Target', k.target ? `${TARGETS[m.target].label}. ${TARGETS[m.target].desc}` : 'Identity unconfirmed.']);
   return out;
 }
@@ -2535,7 +2651,7 @@ function offerHtml(m, i) {
       <span class="chip ${WEATHER[m.env.forecast].tire || Object.values(WEATHER[m.env.forecast].veh).some((v) => typeof v === 'string') ? 'warn' : ''}">${WEATHER[m.env.forecast].label} · ${m.env.rel}%</span></div>
     <h2>${esc(m.codename)}</h2><p class="area">${esc(m.area)}</p>
     <ul class="objectives"><li><span class="tag primary">Primary</span><b>${OBJ[m.primary].label}</b></li><li><span class="tag">Secondary</span><b>${OBJ[m.secondary].label}</b></li></ul>
-    <dl class="facts"><dt>Threat</dt><dd>${threat(m)}</dd>${k.faction ? `<dt>Enemy</dt><dd>${FACTIONS[m.faction].label}</dd>` : ''}<dt>Reward</dt><dd>${m.reward.rp} RP · ${m.reward.bp} BP on success</dd></dl>
+    <dl class="facts"><dt>Threat</dt><dd>${threat(m)}</dd>${k.faction ? `<dt>Enemy</dt><dd>${FACTIONS[m.faction].label}</dd>` : ''}${m.officer?.returning ? `<dt>Officer</dt><dd><span class="chip bad">${esc(m.officer.name)} has resurfaced</span></dd>` : ''}<dt>Reward</dt><dd>${m.reward.rp} RP · ${m.reward.bp} BP on success</dd></dl>
     <button class="btn primary" type="button" data-mission="${i}">Plan this mission</button></div>`;
 }
 function deptHtml(d) {
@@ -2551,6 +2667,11 @@ function deptHtml(d) {
         <span class="muted">${PERSONAS[s.persona].label}</span>${traitChips(s)}<span class="grow"></span>${fatChip(soldierFat(s))}${s.recovery ? `<span class="chip warn">Recovering · ${s.recovery}</span>` : ''}</div>`).join('')}</div>
       ${alive.length < rosterMax() ? `<div class="recruit"><span>Recruit an operator · ${recruitCost()} RP · roster ${alive.length}/${rosterMax()}</span><div class="recruit-btns">${Object.entries(CLASSES).map(([id, c]) =>
         `<button class="btn" type="button" data-enlist="${id}" ${G.rp < recruitCost() ? 'disabled' : ''}>${c.label}</button>`).join('')}</div></div>` : `<p class="muted">Roster full (${rosterMax()}).</p>`}
+      ${G.captives.length ? `<h3>Prisoners</h3><div class="roster-list">${G.captives.map((c, i) => `<div class="rrow"><b>${esc(c.name)}</b><span class="chip">${OFFICER_TRAITS[c.trait].label}</span>
+        <span class="muted">Taken on ${esc(c.from)}. ${c.wait ? `Under interrogation · ${c.wait} more mission${c.wait > 1 ? 's' : ''}` : `Ready to talk: would join as ${CLASSES[OFFICER_TRAITS[c.trait].hire[0]].label} (${SPECS[OFFICER_TRAITS[c.trait].hire[1]].label})`}.</span><span class="grow"></span>
+        ${c.wait ? '' : `<button class="btn" type="button" data-hire="${i}" ${alive.length >= rosterMax() ? 'disabled' : ''}>Recruit</button>`}
+        <button class="btn" type="button" data-trade="${i}">Hand over · +${CAPTIVE_TRADE.rp} RP +${CAPTIVE_TRADE.bp} BP</button></div>`).join('')}</div>
+        <p class="muted">While you hold a prisoner, you know which force you face on every operation.</p>` : ''}
       ${G.roster.some((s) => !s.alive) ? `<div class="fallen">In memoriam: ${G.roster.filter((s) => !s.alive).map((s) => `${RANKS[rankIdx(s.xp)][0]} ${esc(s.name)}`).join(', ')}</div>` : ''}`;
   } else if (d === 'MED') {
     const needy = G.roster.filter((s) => s.alive && (s.recovery || s.fatigue));
@@ -2590,6 +2711,8 @@ function renderBase() {
   v.querySelectorAll('[data-bed]').forEach((b) => b.addEventListener('click', () => { sfx('click'); run(() => toggleBed(+b.dataset.bed)); }));
   v.querySelectorAll('[data-fab]').forEach((b) => b.addEventListener('click', () => { sfx('select'); run(() => fabricate(b.dataset.fab)); }));
   v.querySelectorAll('[data-repair]').forEach((b) => b.addEventListener('click', () => { sfx('select'); run(() => repair(b.dataset.repair)); }));
+  v.querySelectorAll('[data-hire]').forEach((b) => b.addEventListener('click', () => run(() => { const s = hireCaptive(+b.dataset.hire); sfx('success'); toast(`${s.name} switches sides and joins as ${CLASSES[s.cls].label}, ${SPECS[s.spec].label.toLowerCase()}.`); })));
+  v.querySelectorAll('[data-trade]').forEach((b) => b.addEventListener('click', () => { sfx('select'); run(() => tradeCaptive(+b.dataset.trade)); }));
   v.querySelectorAll('[data-enlist]').forEach((b) => b.addEventListener('click', () => run(() => { const s = enlist(b.dataset.enlist); toast(`${s.name} joins as ${CLASSES[s.cls].label}, ${SPECS[s.spec].label.toLowerCase()}.`); })));
 }
 
@@ -2613,7 +2736,6 @@ function syncDraft() {
   for (const s of fresh) {
     if (draft.team.length >= MAX_TEAM) break;
     const l = defaultLoadout(s.cls);
-    if (!l.weapon) break;
     draft.team.push(s.id);
     draft.loadouts[s.id] = l;
   }
@@ -2623,7 +2745,7 @@ function renderBriefing() {
   const m = G.mission, left = remaining();
   for (const f of ['insertion', 'extraction']) if (vehBlock(m, draft[f], f === 'insertion' ? 'ins' : 'ext')) draft[f] = 'FOOT';
   const cost = VEH[draft.insertion].cost + VEH[draft.extraction].cost;
-  const okBudget = cost <= G.rp, okKit = draft.team.length > 0 && draft.team.every((id) => draft.loadouts[id].weapon) && Object.values(left).every((n) => n >= 0);
+  const okBudget = cost <= G.rp, okKit = draft.team.length > 0 && Object.values(left).every((n) => n >= 0);
   const intelRows = Object.entries(INTEL).map(([id, i]) => {
     const own = m.intel.includes(id), lock = G.base.lv.INTEL < i.lv, c = intelCost(id, draft.team);
     return `<div class="intel-row ${lock ? 'locked' : ''}"><div><b>${i.label}</b><small>${i.desc}</small></div>${own ? '<span class="chip ok">Acquired</span>' : lock ? `<span class="chip">Intelligence L${i.lv}</span>`
@@ -2637,7 +2759,7 @@ function renderBriefing() {
       if (n <= 0 && cur !== k) return '';
       return `<option value="${k}" ${cur === k ? 'selected' : ''}>${ITEMS[k].label} (${n})</option>`;
     }).join('');
-    return `<select id="lo-${sid}-${slot}" data-sid="${sid}" data-slot="${slot}" aria-label="${slot.toLowerCase()}">${none ? `<option value="">No ${slot.toLowerCase()}</option>` : ''}${opts}</select>`;
+    return `<select id="lo-${sid}-${slot}" data-sid="${sid}" data-slot="${slot}" aria-label="${slot.toLowerCase()}">${none ? `<option value="">${slot === 'WEAPON' ? 'Handgun only' : `No ${slot.toLowerCase()}`}</option>` : ''}${opts}</select>`;
   };
   const roster = G.roster.filter((s) => s.alive).map((s) => {
     const on = draft.team.includes(s.id), l = draft.loadouts[s.id], nx = nextXp(s.xp), pct = nx > 0 ? Math.min(100, Math.round((s.xp / nx) * 100)) : 100, ok = available(s);
@@ -2650,8 +2772,8 @@ function renderBriefing() {
       <div class="skillline">${skillLine((k) => diceFor(s.cls, s.xp, on ? [l.weapon, l.armor, l.kit] : [], k))}<span class="muted">dice</span></div>
       <div class="ability">${CLASSES[s.cls].ability} <span class="spec-desc">${SPECS[s.spec].desc}</span></div>
       <div class="xp"><i style="width:${pct}%"></i><small>${s.xp}${nx > 0 ? ' / ' + nx : ''} XP</small></div>
-      ${on ? `<div class="loadout four">${select(s.id, 'WEAPON', l.weapon, false)}${select(s.id, 'ARMOR', l.armor, true)}${select(s.id, 'KIT', l.kit, true)}${select(s.id, 'UTILITY', l.utility, true)}</div>
-      <div class="loadout-hint">${[l.weapon, l.armor, l.kit, l.utility].filter(Boolean).map((x) => `${ITEMS[x].label}: ${itemSummary(x)}`).join(' · ')}</div>` : ''}</div>`;
+      ${on ? `<div class="loadout four">${select(s.id, 'WEAPON', l.weapon, true)}${select(s.id, 'ARMOR', l.armor, true)}${select(s.id, 'KIT', l.kit, true)}${select(s.id, 'UTILITY', l.utility, true)}</div>
+      <div class="loadout-hint">${[l.weapon, l.armor, l.kit, l.utility].filter(Boolean).map((x) => `${ITEMS[x].label}: ${itemSummary(x)}`).concat(l.weapon ? [] : [handgunNote(s)]).join(' · ')}</div>` : ''}</div>`;
   }).join('');
   const vehicles = (f) => Object.entries(VEH).map(([id, v]) => { const why = vehBlock(m, id, f === 'insertion' ? 'ins' : 'ext');
     if (why && G.base.lv.LOG < v.lv) return ''; // not unlocked yet: shown in Logistics at base
@@ -2673,6 +2795,7 @@ function renderBriefing() {
       <div class="card howto"><h3>How a stage works</h3><ol>
         <li><b>Pick an approach.</b> Each one tests a skill: Assault, Stealth, Recon or Tech. Some need a specialist to lead them.</li>
         <li><b>Commit operators.</b> The lead rolls their dice for that skill and takes the first hit. Each supporter adds 1 die. More bodies make Stealth noisier (Scouts and infiltrators excepted), and only committed operators get shot.</li>
+        <li><b>Everyone carries a handgun.</b> A primary weapon is optional. A lead with only the handgun rolls ${HANDGUN_PENALTY} Assault die fewer, except in close quarters (inside the objective, a stairwell, a pier) or as a CQB specialist.</li>
         <li><b>Spend gear</b> for extra dice, then roll. Every 5 or 6 is a success. Meet the difficulty to succeed. One short is a success at a cost you choose.</li>
         <li><b>Push</b> to re-roll the misses, at +1 alert. Every action spends time. At ${ALERT_TIER} alert the enemy is awake; at ${ALERT_MAX} a QRF forces you out.</li>
         <li><b>Fatigue</b> builds with every test, failure, long route, heat and smoke. Tired leads roll 1 die fewer, exhausted ones 2. Resting costs time.</li>
@@ -2693,7 +2816,6 @@ function renderBriefing() {
     if (cb.checked) {
       if (draft.team.length >= MAX_TEAM) { toast(`Maximum team size is ${MAX_TEAM}.`); return renderBriefing(); }
       const l = defaultLoadout(classOf(id));
-      if (!l.weapon) { toast(`No weapon a ${CLASSES[classOf(id)].label} can carry is left in the armory.`); return renderBriefing(); }
       draft.team.push(id); draft.loadouts[id] = l;
     } else { draft.team = draft.team.filter((x) => x !== id); delete draft.loadouts[id]; }
     sfx('click');
@@ -2804,6 +2926,7 @@ function tagsOf(opt, foes) {
   if (opt.time) t.push(`<span>+${opt.time} time</span>`);
   if (opt.alert) t.push(`<span class="loud">+${opt.alert} alert</span>`);
   if (opt.loud && foes) t.push('<span class="loud">Return fire</span>');
+  if (team().some((u) => active(u) && !u.weapon) && closeQuarters(cur(), opt)) t.push('<span>Close quarters: handguns are fine</span>');
   if (opt.kills && foes) t.push(`<span class="good">Kills ${foes}</span>`);
   if (opt.hvt) t.push('<span class="good">Kills the HVT</span>');
   if (opt.intel) t.push('<span class="good">Gets the intel</span>');
@@ -2843,7 +2966,7 @@ function forkHtml(st) {
       return `<button class="tile" type="button" data-act="fork" data-i="${i}"><span class="row"><b>${s.label}</b>${hostiles(f)}</span><small>${s.text}</small>
         ${s.hazard ? '<span class="tags"><span class="loud">Hazard</span></span>' : ''}<ul>${s.opts.map((o) => `<li>${SKILLS[o.skill].label} ${o.diff}: ${o.label}${o.need ? ` (${SPECS[o.need].label.toLowerCase()})` : ''}</li>`).join('')}</ul></button>`; }).join('')}</div>`;
 }
-const officerHtml = (o) => `<span class="chip bad">${ico('star')}${esc(o.name)} · ${OFFICER_TRAITS[o.trait].label}</span> ${OFFICER_TRAITS[o.trait].desc} Kill them for their ${ITEMS[o.loot].label.toLowerCase()}.`;
+const officerHtml = (o) => `<span class="chip bad">${ico('star')}${esc(o.name)} · ${OFFICER_TRAITS[o.trait].label}</span> ${OFFICER_TRAITS[o.trait].desc}${o.grudge ? ' Back with a grudge: 1 harder.' : o.returning ? ` Got away from you on ${esc(o.returning)}.` : ''} Take the position with an approach that kills for their ${ITEMS[o.loot].label.toLowerCase()}, though they may run, surrender or go out fighting.`;
 /** Who on the team could lead an option that needs a specialist. */
 const specialists = (k) => team().filter((u) => active(u) && hasSpec(u.sid, k));
 function planSceneHtml(st, sit) {
@@ -2896,6 +3019,7 @@ function opCardHtml(u, p, opt) {
   if (opt && ok) dice = `<span class="opdice">${on ? (lead ? `<b>${opDice(u, opt.skill)}</b>dice` : '<b>+1</b>die') : canLead(u) ? `<b class="dim">${opDice(u, opt.skill)}</b>as lead` : "can't lead until treated"}</span>`;
   else if (ok) dice = `<span class="opskills">${skillLine((k) => opDice(u, k))}</span>`;
   const care = [], medics = team().filter((x) => x.cls === 'MEDIC' && active(x) && !b.revived.includes(x.id)), kits = team().filter((x) => active(x) && x.util === 'MEDKIT');
+  if (free && opt && on && !lead && ok && canLead(u) && (!opt.need || hasSpec(u.sid, opt.need))) care.push(`<button class="btn" type="button" data-act="lead" data-id="${u.id}">${ico('star')}Make lead</button>`);
   if (free && (ok || u.downed) && fieldCareNeed(u)) for (const md of medics) care.push(`<button class="btn" type="button" data-act="care" data-m="${md.id}" data-t="${u.id}">${ico('medic')}Field care · ${esc(firstName(md))}</button>`);
   if (free && (ok || u.downed) && worstNeed(u)) for (const k of kits) care.push(`<button class="btn" type="button" data-act="treat" data-h="${k.id}" data-t="${u.id}">${ico('medic')}Medkit · ${esc(firstName(k))}</button>`);
   if (free && ok && u.util === 'DRONE' && !b.drone.used) care.push(`<button class="btn" type="button" data-act="drone" data-id="${u.id}">Launch drone</button>`);
@@ -2903,7 +3027,7 @@ function opCardHtml(u, p, opt) {
     <button class="optoggle" type="button" data-act="op" data-id="${u.id}" ${ok && opt && free ? '' : 'disabled'} aria-pressed="${on}">
       <span class="oprow"><b>${esc(u.name)}</b>${role}</span>
       <span class="oprow">${classChip(u.cls)}<span class="trait spec">${SPECS[soldier(u.sid).spec].label}</span>${b.carrier === u.id ? '<span class="chip gold">Intel</span>' : ''}</span>
-      ${u.util || u.kit ? `<span class="muted util">${[u.kit, u.util].filter(Boolean).map((x) => ITEMS[x].label).join(' · ')}</span>` : ''}
+      ${`<span class="muted util">${[u.weapon || 'HANDGUN', u.kit, u.util].filter(Boolean).map((x) => ITEMS[x].label + (x === 'HANDGUN' ? ' only' : '')).join(' · ')}</span>`}
       ${dice}${u.dead ? '' : `<span class="fat fat-${fatState(u)}" title="Fatigue ${u.fat}/${FAT_MAX}"><span class="fat-pips">${Array.from({ length: FAT_MAX }, (_, i) => `<i class="${i < u.fat ? 'on' : ''}"></i>`).join('')}</span>${FAT_LABEL[fatState(u)]}</span>`}${injHtml(u)}
     </button>${care.length ? `<div class="care">${care.join('')}</div>` : ''}</div>`;
 }
@@ -2915,7 +3039,7 @@ function trayHtml(st, sit) {
   if (canStrike(opt)) gear.push(`<button class="btn ${plan.strike ? 'on' : ''}" type="button" data-act="strike" aria-pressed="${plan.strike}">Drone strike (+2)</button>`);
   const cost = 1 + (opt.time || 0);
   return `<div class="card tray">
-    <div class="tray-head"><h3>Team for ${esc(opt.label.toLowerCase())}</h3><small>Tap to add · tap again to lead · tap the lead to stand down</small></div>
+    <div class="tray-head"><h3>Team for ${esc(opt.label.toLowerCase())}</h3><small>Tap an operator to add or stand them down · Make lead picks who rolls</small></div>
     <div class="opcards">${cards}</div>
     ${gear.length ? `<div class="gearrow"><h3 style="margin:0 6px 0 0">Gear</h3>${gear.join('')}</div>` : ''}
     ${ui.details ? `<div class="details">
@@ -2999,16 +3123,16 @@ $('#view').addEventListener('click', (e) => {
     return refresh();
   }
   if (a === 'rest') { sfx('select'); return run(rest); }
-  if (a === 'op') { // off → in (support, or lead if first) → lead → off
-    const id = n('id'), u = unitById(id), on = plan.ids.includes(id), isLead = previewOf(plan.opt).lead === id;
-    if (!on) {
+  if (a === 'op') { // a tap toggles in and out of the fireteam; "Make lead" picks who rolls
+    const id = n('id');
+    if (!plan.ids.includes(id)) {
       if (plan.ids.length > MAX_SUPPORT) return toast(`A fireteam is a lead and ${MAX_SUPPORT} in support. Stand someone down first.`);
       plan.ids = [...plan.ids, id];
-    } else if (!isLead && canLead(u)) plan.lead = id;
-    else { plan.ids = plan.ids.filter((x) => x !== id); if (plan.lead === id) plan.lead = null; }
+    } else { plan.ids = plan.ids.filter((x) => x !== id); if (plan.lead === id) plan.lead = null; }
     sfx('click');
     return refresh();
   }
+  if (a === 'lead') { plan.lead = n('id'); sfx('click'); return refresh(); }
   if (a === 'gear') { const id = n('id'); plan.gear = plan.gear.includes(id) ? plan.gear.filter((x) => x !== id) : [...plan.gear, id]; sfx('click'); return refresh(); }
   if (a === 'strike') { plan.strike = !plan.strike; sfx('click'); return refresh(); }
   if (a === 'abort') { if (!plan.abortArmed) { plan.abortArmed = true; return refresh(); } return run(abort); }
@@ -3093,13 +3217,14 @@ function start(data) {
   if (G?.v === 2 && G.mode === 'ops') migrateV2();
   if (G?.v === 3 && G.mode === 'ops') migrateV3();
   if (!G || G.v !== 4 || G.mode !== 'ops') newCampaign((Math.random() * 2 ** 31) | 0);
+  G.nemeses ??= []; G.captives ??= []; // saves from before officer fates
   window.claude?.hot?.snapshot?.(() => ({ save: JSON.stringify(G) }));
   refresh();
 }
 // Test hook: index.html?test exposes the rules API to automated play-throughs.
 if (/[?&]test\b/.test(location.search)) {
   window.SKIRM = { get G() { return G; }, newCampaign, chooseMission, backToBase, upgradeDept, toggleBed, fabricate, repair, rest, vehBlock, intelCost, fatState,
-    DEPTS, FAB, VEH, LOCATIONS, WEATHER, SPECS, KITS, INTEL, buyIntel, launch, proceed, enlist, chooseRoute, chooseFork, execute, push, resolve, skip, abort,
+    DEPTS, FAB, VEH, LOCATIONS, WEATHER, SPECS, KITS, INTEL, hireCaptive, tradeCaptive, OFFICER_TRAITS, buyIntel, launch, proceed, enlist, chooseRoute, chooseFork, execute, push, resolve, skip, abort,
     fieldCare, treat, launchDrone, canLead, opDice, chooseLine, interlude, PERSONAS, TOPICS, LINES, TRAITS, worstNeed, fieldCareNeed, INJURIES, bestLead, odds, difficulty, poolOf, previewOf, cur, sitOf, active, team, outcomeOf, foesOf, Rule, CLASSES, ITEMS, SIT, available, refresh };
 }
 window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
