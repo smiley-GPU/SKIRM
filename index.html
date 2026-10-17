@@ -9,26 +9,36 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
 <style>
-/* SKIRM, abstract mode: the mission is a route of stages, each resolved by approach + committed operators + dice. */
+/* SKIRM ops board: the mission is a route of stages, each resolved by approach + committed operators + dice. */
 :root {
-  --bg: #0d1112;
-  --panel: #151b1c;
-  --panel-2: #1c2425;
-  --line: #2a3537;
-  --fg: #dde5e3;
-  --muted: #86948f;
-  --accent: #63c3d8;
-  --accent-ink: #052129;
-  --ok: #73d08c;
-  --warn: #e3c351;
-  --bad: #e2645b;
-  --gold: #e6b752;
-  --toast-bg: #2b1614;
-  --toast-fg: #ffd9d4;
+  --bg: #0f1216;
+  --panel: #171b21;
+  --panel-2: #1e242b;
+  --panel-3: #262d36;
+  --line: #2b323b;
+  --line-soft: #232930;
+  --fg: #e8ecef;
+  --muted: #9ea9b2;
+  --dim: #6f7a84;
+  --accent: #5cc8e6;
+  --accent-ink: #04222c;
+  --accent-soft: rgba(92, 200, 230, 0.12);
+  --ok: #6fd391;
+  --ok-soft: rgba(111, 211, 145, 0.12);
+  --warn: #f0c75e;
+  --warn-soft: rgba(240, 199, 94, 0.12);
+  --bad: #f0716a;
+  --bad-soft: rgba(240, 113, 106, 0.12);
+  --gold: #f2c14e;
+  --toast-bg: #2b1715;
+  --toast-fg: #ffdcd7;
   --display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
   --body: "Barlow", "Segoe UI", system-ui, sans-serif;
   --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
-  --radius: 6px;
+  --r-sm: 8px;
+  --r: 12px;
+  --r-lg: 16px;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
@@ -36,265 +46,342 @@
 body { margin: 0; }
 [hidden] { display: none !important; }
 html, body { height: 100%; }
-body { background: var(--bg); color: var(--fg); font: 15px/1.45 var(--body); }
+body { background: var(--bg); color: var(--fg); font: 16px/1.5 var(--body); -webkit-font-smoothing: antialiased; }
 body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
 #app { min-height: 100%; display: flex; flex-direction: column; }
-h1 { font: 700 30px/1.05 var(--display); letter-spacing: 0.01em; margin: 2px 0 4px; text-wrap: balance; text-transform: uppercase; }
-h2 { font: 700 24px/1.1 var(--display); letter-spacing: 0.01em; margin: 2px 0 4px; text-transform: uppercase; }
-h3 { font: 600 13px/1.2 var(--display); text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); margin: 0 0 10px; }
+h1 { font: 700 30px/1.1 var(--body); letter-spacing: -0.01em; margin: 2px 0 6px; text-wrap: balance; }
+h2 { font: 700 24px/1.15 var(--body); letter-spacing: -0.01em; margin: 2px 0 6px; text-wrap: balance; }
+h3 { font: 600 13px/1.2 var(--body); text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 0 0 10px; }
 small, .muted { color: var(--muted); }
 button, select, input { font: inherit; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ico { width: 1.1em; height: 1.1em; flex: none; vertical-align: -0.18em; }
 
+/* header */
 .top {
   position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
-  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
-  padding-block: 10px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
-  background: var(--bg); border-bottom: 1px solid var(--line);
+  display: flex; align-items: center; gap: 12px 20px; flex-wrap: wrap;
+  padding-block: 10px; padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px));
+  background: rgba(15, 18, 22, 0.92); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line-soft);
 }
-.brand { font: 700 20px/1 var(--display); letter-spacing: 0.24em; }
-.brand span { font-weight: 500; letter-spacing: 0.06em; color: var(--muted); margin-left: 6px; font-size: 15px; }
-.phases { display: flex; gap: 6px; align-items: center; flex: 1; font: 600 13px/1 var(--display); text-transform: uppercase; letter-spacing: 0.1em; min-width: 0; }
-.phases span { color: #56625f; }
+.brand { font: 700 22px/1 var(--display); letter-spacing: 0.22em; }
+.brand span { font: 500 14px/1 var(--body); letter-spacing: 0.02em; color: var(--muted); margin-left: 8px; }
+.phases { display: flex; gap: 4px; align-items: center; flex: 1; min-width: 0; font-size: 13px; font-weight: 600; }
+.phases span { color: var(--dim); padding: 4px 10px; border-radius: 99px; white-space: nowrap; }
 .phases span.done { color: var(--muted); }
-.phases span.on { color: var(--accent); }
-.phases i { color: #3a4644; font-style: normal; }
-.stats { display: flex; gap: 14px; font: 13px var(--mono); font-variant-numeric: tabular-nums; }
-.stats b { color: var(--muted); font-weight: 400; margin-right: 4px; }
-.top a.btn { text-decoration: none; }
+.phases span.on { color: var(--accent-ink); background: var(--accent); }
+.phases i { color: var(--line); font-style: normal; }
+.stats { display: flex; gap: 16px; font: 14px var(--body); font-variant-numeric: tabular-nums; }
+.stats b { color: var(--muted); font-weight: 500; margin-right: 5px; }
+.stats span { white-space: nowrap; }
+.top-actions { display: flex; gap: 8px; }
 
-main { flex: 1; min-height: 0; padding-block: 16px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+main { flex: 1; min-height: 0; padding-block: 20px; padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px)); }
 
-.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; min-width: 0; }
-.eyebrow { font: 600 13px/1 var(--display); text-transform: uppercase; letter-spacing: 0.16em; color: var(--accent); }
-.btn { background: var(--panel-2); color: var(--fg); border: 1px solid var(--line); border-radius: 5px; padding: 8px 12px; cursor: pointer; touch-action: manipulation; }
-.btn:hover:not(:disabled) { border-color: #4b5b58; }
+/* building blocks */
+.card { background: var(--panel); border: 1px solid var(--line-soft); border-radius: var(--r-lg); padding: 18px 20px; min-width: 0; box-shadow: var(--shadow); }
+.eyebrow { display: flex; align-items: center; gap: 6px; font: 600 12.5px/1.2 var(--body); text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent); }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: var(--panel-2); color: var(--fg); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 9px 14px; cursor: pointer; touch-action: manipulation; transition: background 0.15s, border-color 0.15s, transform 0.08s; }
+.btn:hover:not(:disabled) { background: var(--panel-3); border-color: #3b4450; }
+.btn:active:not(:disabled) { transform: translateY(1px); }
 .btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; }
+.btn.primary:hover:not(:disabled) { background: #7bd5ee; border-color: #7bd5ee; }
 .btn.danger { color: var(--bad); }
 .btn.armed { border-color: var(--gold); color: var(--gold); }
-.btn.ghost { background: transparent; }
-.btn.big { padding: 12px 22px; font: 700 17px/1 var(--display); text-transform: uppercase; letter-spacing: 0.1em; }
-.chip { display: inline-block; font: 600 12px/1 var(--display); padding: 4px 8px; border-radius: 99px; border: 1px solid currentColor; text-transform: uppercase; letter-spacing: 0.1em; white-space: nowrap; }
-.chip.ok { color: var(--ok); } .chip.warn { color: var(--warn); } .chip.bad { color: var(--bad); }
+.btn.ghost { background: transparent; border-color: var(--line); }
+.btn.icon { padding: 9px; }
+.btn.big { padding: 13px 24px; font-size: 16px; font-weight: 700; border-radius: var(--r); }
+.chip { display: inline-flex; align-items: center; gap: 4px; font: 600 12px/1 var(--body); padding: 5px 9px; border-radius: 99px; background: var(--panel-2); white-space: nowrap; }
+.chip.ok { color: var(--ok); background: var(--ok-soft); } .chip.warn { color: var(--warn); background: var(--warn-soft); } .chip.bad { color: var(--bad); background: var(--bad-soft); }
 .chip.gold, .gold { color: var(--gold); font-style: normal; }
 #toast {
-  position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); z-index: 50;
-  background: var(--toast-bg); color: var(--toast-fg); border: 1px solid var(--bad); padding: 10px 16px; border-radius: 6px; max-width: min(90vw, 560px);
+  position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(22px + env(safe-area-inset-bottom, 0px)); z-index: 50;
+  background: var(--toast-bg); color: var(--toast-fg); border: 1px solid var(--bad); padding: 12px 18px; border-radius: var(--r); max-width: min(90vw, 560px); box-shadow: var(--shadow);
 }
+.cls { display: inline-block; font: 700 11px/1 var(--body); text-transform: uppercase; letter-spacing: 0.06em; padding: 4px 7px; border-radius: 6px; background: var(--cls-bg); color: var(--cls-fg); white-space: nowrap; }
+.cls-heavy { --cls-bg: #3a2c1d; --cls-fg: #f4bf75; }
+.cls-scout { --cls-bg: #1d3424; --cls-fg: #93dea5; }
+.cls-medic { --cls-bg: #3c1f23; --cls-fg: #ffa3a3; }
+.cls-drone { --cls-bg: #1a2f3b; --cls-fg: #93d7ef; }
+.sk { display: inline-flex; align-items: center; gap: 5px; font: 700 12px/1 var(--body); letter-spacing: 0.04em; text-transform: uppercase; padding: 5px 8px; border-radius: 6px; }
+.sk-assault { background: #3a2c1d; color: #f4bf75; }
+.sk-stealth { background: #1d3424; color: #93dea5; }
+.sk-recon { background: #1a2f3b; color: #93d7ef; }
+.sk-tech { background: #2e2641; color: #cdbdf8; }
+.tags { display: flex; flex-wrap: wrap; gap: 5px; }
+.tags span { font-size: 12.5px; color: var(--muted); background: var(--panel-3); border-radius: 6px; padding: 2px 7px; }
+.tags .loud { color: #ffbdb6; background: var(--bad-soft); }
+.tags .good { color: var(--ok); background: var(--ok-soft); }
+.actions-row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; align-items: center; }
+.actions-row .grow { flex: 1; }
+@keyframes reveal { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
 /* briefing */
-.briefing { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 16px; max-width: 1400px; margin: 0 auto; }
-.col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.briefing { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 18px; max-width: 1400px; margin: 0 auto; }
+.col { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
 .area { color: var(--muted); margin: 0 0 12px; }
-.facts { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 0 0 14px; }
+.facts { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 0 0 14px; }
 .facts dt { color: var(--muted); } .facts dd { margin: 0; }
 .objectives { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
-.objectives li { background: var(--panel-2); padding: 8px 10px; border-radius: 5px; }
+.objectives li { background: var(--panel-2); padding: 10px 12px; border-radius: var(--r-sm); }
 .objectives b { margin-right: 6px; }
-.tag { font: 600 11px/1 var(--display); text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); border: 1px solid var(--line); border-radius: 3px; padding: 3px 6px; margin-right: 8px; }
-.tag.primary { color: var(--gold); border-color: var(--gold); }
-.intel-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid var(--line); }
+.tag { font: 700 11px/1 var(--body); text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); background: var(--panel-3); border-radius: 6px; padding: 4px 7px; margin-right: 8px; }
+.tag.primary { color: var(--gold); background: var(--warn-soft); }
+.intel-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line-soft); }
 .intel-row:first-of-type { border-top: 0; }
 .intel-row small { display: block; }
-.humint { margin-top: 8px; padding: 10px; background: #261816; border: 1px solid #4b2825; border-radius: 5px; display: grid; gap: 4px; }
+.humint { margin-top: 8px; padding: 12px; background: var(--bad-soft); border-radius: var(--r-sm); display: grid; gap: 4px; }
 .count { color: var(--fg); margin-left: 6px; }
-.roster { display: grid; gap: 8px; }
-.op { background: var(--panel-2); border: 1px solid transparent; border-radius: 5px; padding: 8px 10px; }
-.op.on { border-color: #2f5a63; } .op.off { opacity: 0.55; }
+.roster { display: grid; gap: 10px; }
+.op { background: var(--panel-2); border: 1px solid transparent; border-radius: var(--r); padding: 10px 12px; }
+.op.on { border-color: #2f6170; } .op.off { opacity: 0.55; }
 .op-head { display: flex; align-items: center; gap: 10px; cursor: pointer; flex-wrap: wrap; }
 .op-head input { accent-color: var(--accent); width: 18px; height: 18px; }
 .rank { font: 600 12px var(--mono); color: var(--gold); min-width: 32px; }
 .name { font-weight: 600; }
 .op .meta { color: var(--muted); font-size: 13px; margin-left: auto; }
-.xp { position: relative; height: 4px; background: #0b0f10; border-radius: 2px; margin: 6px 0 14px 28px; }
-.xp i { position: absolute; inset: 0 auto 0 0; background: #3b8095; border-radius: 2px; }
+.xp { position: relative; height: 4px; background: #0b0e11; border-radius: 2px; margin: 6px 0 14px 28px; }
+.xp i { position: absolute; inset: 0 auto 0 0; background: #3b8ba3; border-radius: 2px; }
 .xp small { position: absolute; right: 0; top: 5px; font: 11px var(--mono); }
 .loadout { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 0 0 4px 28px; }
-.loadout select { background: #0e1314; color: var(--fg); border: 1px solid var(--line); border-radius: 4px; padding: 6px; font-size: 14px; min-width: 0; width: 100%; }
-.loadout-hint { margin-left: 28px; font-size: 12px; color: var(--muted); }
+.loadout select { background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 7px; font-size: 14px; min-width: 0; width: 100%; }
+.loadout-hint { margin-left: 28px; font-size: 12.5px; color: var(--muted); }
 .fallen { margin-top: 10px; font-size: 13px; color: var(--muted); font-style: italic; }
-.cls { display: inline-block; font: 700 11px/1 var(--display); text-transform: uppercase; letter-spacing: 0.1em; padding: 3px 6px; border-radius: 3px; background: var(--cls-bg); color: var(--cls-fg); white-space: nowrap; }
-.cls-heavy { --cls-bg: #3a2c1d; --cls-fg: #f0b86a; }
-.cls-scout { --cls-bg: #1f3324; --cls-fg: #8fd9a0; }
-.cls-medic { --cls-bg: #3a1f22; --cls-fg: #ff9e9e; }
-.cls-drone { --cls-bg: #1b2f3a; --cls-fg: #8fd3ec; }
-.ability { margin: 4px 0 0 28px; font-size: 13px; color: var(--muted); }
-.skillline { margin: 4px 0 0 28px; font: 12px var(--mono); color: var(--muted); display: flex; gap: 10px; flex-wrap: wrap; }
+.ability { margin: 4px 0 0 28px; font-size: 13.5px; color: var(--muted); }
+.skillline { margin: 4px 0 0 28px; font: 12.5px var(--mono); color: var(--muted); display: flex; gap: 10px; flex-wrap: wrap; }
 .skillline b { color: var(--fg); font-weight: 600; }
-.recruit { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); display: grid; gap: 8px; font-size: 14px; color: var(--muted); }
-.recruit-btns, .class-pick { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 6px; }
+.recruit { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line-soft); display: grid; gap: 8px; font-size: 14px; color: var(--muted); }
+.recruit-btns, .class-pick { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; }
 .class-card { display: grid; gap: 6px; justify-items: start; text-align: left; }
 .class-card small { font-size: 12.5px; }
-.vehicles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 14px; }
-.veh { background: var(--panel-2); border: 1px solid var(--line); border-radius: 5px; padding: 8px 10px; cursor: pointer; display: grid; gap: 4px; align-content: start; }
-.veh.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.vehicles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+.veh { background: var(--panel-2); border: 1px solid var(--line-soft); border-radius: var(--r); padding: 10px 12px; cursor: pointer; display: grid; gap: 4px; align-content: start; }
+.veh.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); background: var(--accent-soft); }
 .veh input { position: absolute; opacity: 0; pointer-events: none; }
 .veh-head { display: flex; justify-content: space-between; gap: 6px; }
 .veh .cost { font: 12px var(--mono); color: var(--gold); }
-.veh small { font-size: 12.5px; }
+.veh small { font-size: 13px; }
 .launch { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .budget { display: flex; gap: 18px; font: 14px var(--mono); font-variant-numeric: tabular-nums; flex-wrap: wrap; }
 .budget .bad { color: var(--bad); }
 .howto ol { margin: 0; padding-left: 18px; display: grid; gap: 4px; color: var(--muted); font-size: 14px; }
 .howto b { color: var(--fg); font-weight: 600; }
+.healing { margin: 2px 0 0 28px; font-size: 12.5px; color: var(--warn); }
+.persona-line { margin: 4px 0 0 28px; font-size: 12.5px; color: var(--muted); display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.trait { font: 700 11px/1 var(--body); text-transform: uppercase; letter-spacing: 0.05em; color: var(--gold); background: var(--warn-soft); border-radius: 6px; padding: 4px 6px; }
+.trait.bond { color: var(--accent); background: var(--accent-soft); }
 
-/* route track (briefing preview and operation) */
-.route { list-style: none; margin: 0; padding: 0 0 4px; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(150px, 1fr); gap: 8px; overflow-x: auto; }
-.node { background: var(--panel-2); border: 1px solid var(--line); border-radius: 5px; padding: 8px 10px; min-width: 0; display: grid; gap: 2px; align-content: start; }
-.node.cur { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+/* route track (briefing preview and operation status) */
+.route { list-style: none; margin: 0; padding: 0 0 2px; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(140px, 1fr); gap: 8px; overflow-x: auto; }
+.node { background: var(--panel-2); border: 1px solid var(--line-soft); border-radius: var(--r); padding: 9px 12px; min-width: 0; display: grid; gap: 2px; align-content: start; }
+.node.cur { border-color: var(--accent); background: var(--accent-soft); }
 .node.done { opacity: 0.55; }
 .node.skipped { opacity: 0.4; text-decoration: line-through; }
-.node .k { font: 600 11px/1.2 var(--display); text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); }
+.node .k { font: 600 11.5px/1.2 var(--body); text-transform: uppercase; letter-spacing: 0.06em; color: var(--dim); }
 .node.cur .k { color: var(--accent); }
-.node b { font-weight: 600; font-size: 14px; }
+.node b { font-weight: 600; font-size: 14.5px; }
 .node small { font-size: 12.5px; }
 
-/* operation */
-.ops { max-width: 1400px; margin: 0 auto; display: grid; gap: 12px; }
-.ops-head { display: grid; gap: 12px; }
-.clocks { display: flex; gap: 12px 28px; flex-wrap: wrap; align-items: flex-end; }
-.meter { display: grid; gap: 5px; }
-.meter .label { font: 600 12px/1 var(--display); text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); }
-.meter .label b { color: var(--fg); margin-left: 6px; letter-spacing: 0.06em; }
+/* operation: status strip */
+.ops { max-width: 1440px; margin: 0 auto; display: grid; gap: 16px; }
+.status { display: grid; gap: 14px; padding: 14px 18px; }
+.status-top { display: flex; align-items: center; gap: 14px 28px; flex-wrap: wrap; }
+.meter { display: grid; gap: 6px; }
+.meter .label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+.meter .label b { color: var(--fg); font-weight: 600; }
 .pipbar { display: flex; gap: 4px; }
-.pipbar i { width: 22px; height: 10px; border-radius: 2px; background: #0a0d0e; border: 1px solid var(--line); }
-.pipbar.alert i.on { background: var(--warn); border-color: var(--warn); }
-.pipbar.alert i.on.hot { background: var(--bad); border-color: var(--bad); }
+.pipbar i { width: 22px; height: 8px; border-radius: 4px; background: var(--panel-3); }
+.pipbar.alert i.on { background: var(--warn); }
+.pipbar.alert i.on.hot { background: var(--bad); }
 .pipbar.alert i.tier { margin-left: 8px; }
-.pipbar.time i.on { background: var(--accent); border-color: var(--accent); }
-.meter small { font-size: 12.5px; }
-.ops-grid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 12px; align-items: start; }
-.sit-text { color: var(--muted); margin: 0 0 14px; }
-.section-label { font: 600 12px/1 var(--display); text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); margin: 0 0 8px; }
-.appr-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px; margin-bottom: 16px; }
-.appr { text-align: left; display: grid; gap: 6px; align-content: start; background: var(--panel-2); border: 1px solid var(--line); color: var(--fg); border-radius: 5px; padding: 10px; cursor: pointer; touch-action: manipulation; }
-.appr.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
-.appr .row { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
-.appr small { font-size: 13px; }
-.diff { font: 600 13px var(--mono); color: var(--gold); white-space: nowrap; }
-.tags { display: flex; flex-wrap: wrap; gap: 4px; }
-.tags span { font-size: 12px; color: var(--muted); border: 1px solid var(--line); border-radius: 3px; padding: 1px 5px; }
-.tags .loud { color: #ffb6ae; border-color: #4b2825; }
-.tags .good { color: var(--ok); border-color: #1f4a2d; }
-.sk { display: inline-block; font: 700 11px/1 var(--display); letter-spacing: 0.1em; text-transform: uppercase; padding: 3px 6px; border-radius: 3px; }
-.sk-assault { background: #3a2c1d; color: #f0b86a; }
-.sk-stealth { background: #1f3324; color: #8fd9a0; }
-.sk-recon { background: #1b2f3a; color: #8fd3ec; }
-.sk-tech { background: #2e2640; color: #c9b8f5; }
-.commit { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px; margin-bottom: 16px; }
-.opbtn { display: grid; gap: 4px; text-align: left; background: var(--panel-2); border: 1px solid var(--line); color: var(--fg); border-radius: 5px; padding: 8px 10px; cursor: pointer; touch-action: manipulation; }
-.opbtn.on { border-color: var(--accent); background: #16292d; }
-.opbtn:disabled { opacity: 0.4; cursor: not-allowed; }
-.opbtn .name { font-size: 14px; }
-.dots { font: 13px var(--mono); color: var(--accent); letter-spacing: 1px; }
-.gear { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
-.gear .btn.on, .leadrow .btn.on { border-color: var(--gold); color: var(--gold); }
-.leadrow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: -8px 0 16px; }
-.leadrow .btn { padding: 4px 10px; font-size: 13px; }
-.calc { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; background: #0e1314; border: 1px solid var(--line); border-radius: 5px; padding: 12px; margin-bottom: 14px; font-size: 13.5px; }
-.calc ul { list-style: none; margin: 4px 0 0; padding: 0; color: var(--muted); }
-.calc .big { font: 700 24px/1 var(--display); color: var(--fg); }
-.oddsbar { display: flex; height: 10px; border-radius: 3px; overflow: hidden; grid-column: 1 / -1; background: #0a0d0e; }
-.oddsbar .s { background: var(--ok); } .oddsbar .p { background: var(--warn); } .oddsbar .f { background: var(--bad); }
-.oddstext { grid-column: 1 / -1; font: 13px var(--mono); display: flex; gap: 14px; flex-wrap: wrap; }
-.oddstext .s { color: var(--ok); } .oddstext .p { color: var(--warn); } .oddstext .f { color: var(--bad); }
-.risk { grid-column: 1 / -1; display: grid; gap: 2px; font-size: 13px; }
-.risk .bad { color: #ffb6ae; } .risk .ok { color: var(--ok); }
-.actions-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; align-items: center; }
-.actions-row .grow { flex: 1; }
-.dice { display: flex; flex-wrap: wrap; gap: 6px; margin: 14px 0; }
-.die { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 6px; background: #0e1314; border: 1px solid var(--line); font: 700 20px var(--mono); color: var(--muted); animation: reveal 0.35s both; }
-.die.hit { background: #13301e; border-color: var(--ok); color: var(--ok); }
-.die.re { box-shadow: 0 0 0 2px var(--warn); }
-.outcome { font: 700 22px/1 var(--display); text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 6px; }
-.outcome.SUCCESS { color: var(--ok); } .outcome.PARTIAL { color: var(--warn); } .outcome.FAIL { color: var(--bad); }
-.costs { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 6px; margin: 12px 0; }
-.costs .btn { text-align: left; display: grid; gap: 2px; }
-.forks { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
-.fork { display: grid; gap: 6px; align-content: start; background: var(--panel-2); border: 1px solid var(--line); border-radius: 5px; padding: 12px; }
-.fork .btn { justify-self: start; margin-top: 6px; }
-.fork ul { margin: 0; padding-left: 16px; font-size: 13.5px; color: var(--muted); }
-.unit { background: var(--panel-2); border: 1px solid transparent; border-radius: 5px; padding: 8px 10px; margin-bottom: 6px; display: grid; gap: 5px; }
-.unit.down { border-color: #4b2825; }
-.unit.gone { opacity: 0.5; }
-.unit .head { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-.injuries { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; font-size: 13px; }
-.injuries li { display: flex; gap: 8px; flex-wrap: wrap; align-items: baseline; }
-.injuries b { color: #ffb6ae; font-weight: 600; }
-.injuries span { color: var(--muted); font: 12px var(--mono); }
-.injuries li.crit b, .injuries li.crit span { color: var(--bad); }
-.unhurt { font-size: 13px; color: var(--ok); }
-.inj-short { font-size: 12px; color: #ffb6ae; }
-.healing { margin: 2px 0 0 28px; font-size: 12px; color: var(--warn); }
-.persona-line { margin: 4px 0 0 28px; font-size: 12px; color: var(--muted); display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
-.trait { font: 600 11px/1 var(--display); text-transform: uppercase; letter-spacing: 0.08em; color: var(--gold); border: 1px solid #5a4a24; border-radius: 3px; padding: 3px 5px; }
-.trait.bond { color: var(--accent); border-color: #1f4a4f; }
-/* interludes */
-.interlude { max-width: 900px; margin: 0 auto; }
-.interlude .scene { color: var(--muted); font-style: italic; margin: 0 0 16px; }
-.lines { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; margin-bottom: 14px; }
-.line { display: grid; gap: 6px; align-content: start; text-align: left; background: var(--panel-2); border: 1px solid var(--line); color: var(--fg); border-radius: 5px; padding: 12px; cursor: pointer; font: inherit; touch-action: manipulation; }
-.line:hover:not(:disabled) { border-color: var(--accent); }
-.line.on { border-color: var(--gold); background: #2a2414; }
-.line.faded { opacity: 0.45; }
-.line:disabled { cursor: default; }
-.line .who { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-.line .persona { font-size: 12px; color: var(--muted); }
-.line q, .words q { font-size: 15px; line-height: 1.45; quotes: '\201C' '\201D'; }
-.line .hint { justify-self: start; font: 600 11px/1 var(--display); text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); border: 1px solid var(--line); border-radius: 3px; padding: 3px 6px; }
-.reveal { display: grid; gap: 4px; border: 1px solid var(--gold); border-radius: 5px; padding: 10px 12px; margin-bottom: 14px; animation: reveal 0.35s both; }
-.reveal b { color: var(--gold); } .reveal span { color: var(--fg); font-size: 14px; }
-.words { display: grid; gap: 10px; }
-.words div { display: grid; gap: 3px; }
-.words small { color: var(--gold); }
-.unit .skills { font: 12px var(--mono); color: var(--muted); display: flex; gap: 8px; flex-wrap: wrap; }
-.unit .skills b { color: var(--fg); font-weight: 600; }
-.unit .care { display: flex; gap: 6px; flex-wrap: wrap; }
-.unit .care .btn { padding: 4px 8px; font-size: 13px; }
-.log ol { list-style: none; margin: 0; padding: 0; font-size: 13.5px; max-height: 340px; overflow-y: auto; }
-.log li { padding: 3px 0; border-bottom: 1px solid #1c2425; color: #b6c1be; }
-.log .ev-turn { color: var(--accent); font-weight: 600; padding-top: 8px; }
-.log .ev-alert, .log .ev-down { color: #ffb6ae; } .log .ev-kill { color: var(--bad); } .log .ev-intel { color: var(--gold); } .log .ev-good { color: var(--ok); }
+.pipbar.time i.on { background: var(--accent); }
+.status-top .grow { flex: 1; }
+.ops-body { display: grid; gap: 16px; align-items: start; grid-template-columns: minmax(0, 1fr); }
+.ops-body.with-drawer { grid-template-columns: minmax(0, 1fr) 340px; }
+.stage-col { display: grid; gap: 16px; min-width: 0; }
 
-/* reports */
-.report { max-width: 720px; margin: 24px auto; padding: 24px 28px; }
-.narrative { padding-left: 20px; margin: 18px 0 26px; display: grid; gap: 10px; font-size: 16px; }
-.narrative li { animation: reveal 0.5s both; }
-.narrative li.bad { color: #ffb6ae; }
-@keyframes reveal { from { opacity: 0.15; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+/* operation: the scene */
+.scene-card { padding: 22px 24px; }
+.scene-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.sit-text { color: var(--muted); margin: 0 0 18px; font-size: 16.5px; max-width: 70ch; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.tile { position: relative; display: grid; gap: 8px; align-content: start; text-align: left; background: var(--panel-2); border: 1px solid var(--line-soft); color: var(--fg); border-radius: var(--r); padding: 16px; cursor: pointer; touch-action: manipulation; transition: border-color 0.15s, background 0.15s, transform 0.12s; }
+.tile:hover:not(:disabled) { border-color: #3d4752; transform: translateY(-1px); }
+.tile.on { border-color: var(--accent); background: linear-gradient(180deg, rgba(92, 200, 230, 0.1), rgba(92, 200, 230, 0.03)); box-shadow: inset 0 0 0 1px var(--accent); }
+.tile:disabled { opacity: 0.45; cursor: not-allowed; }
+.tile .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.tile b { font-size: 17px; }
+.tile small { font-size: 14px; }
+.tile .pct { font: 700 26px/1 var(--display); letter-spacing: 0.01em; }
+.tile .pct.lo { color: var(--bad); } .tile .pct.mid { color: var(--warn); } .tile .pct.hi { color: var(--ok); }
+.tile .foot { font-size: 13px; color: var(--muted); }
+.tile ul { margin: 0; padding-left: 18px; font-size: 14px; color: var(--muted); }
+.result { display: grid; gap: 6px; border-radius: var(--r); padding: 12px 14px; margin-bottom: 18px; background: var(--panel-2); border-left: 4px solid var(--line); animation: reveal 0.35s both; }
+.result.SUCCESS { border-left-color: var(--ok); } .result.PARTIAL { border-left-color: var(--warn); } .result.FAIL { border-left-color: var(--bad); }
+.result .rhead { display: flex; align-items: center; gap: 8px; font-weight: 700; }
+.result.SUCCESS .rhead { color: var(--ok); } .result.PARTIAL .rhead { color: var(--warn); } .result.FAIL .rhead { color: var(--bad); }
+.result ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; font-size: 14.5px; color: #c9d1d6; }
+.result li.ev-down, .result li.ev-alert { color: #ffbdb6; } .result li.ev-kill { color: var(--bad); } .result li.ev-good { color: var(--ok); } .result li.ev-intel { color: var(--gold); }
+
+/* operation: the roll */
+.roll-sub { color: var(--muted); margin: 0 0 16px; }
+.dice { display: flex; flex-wrap: wrap; gap: 10px; margin: 6px 0 18px; }
+.die { width: 52px; height: 52px; display: grid; place-items: center; border-radius: 12px; background: var(--panel-2); border: 1px solid var(--line); font: 700 24px var(--mono); color: var(--muted); transition: background 0.2s, border-color 0.2s, color 0.2s; }
+.die.hit { background: var(--ok-soft); border-color: var(--ok); color: var(--ok); }
+.die.re { box-shadow: 0 0 0 2px var(--warn); }
+.die.rolling { color: var(--fg); animation: tumble 0.18s linear infinite; }
+@keyframes tumble { 0% { transform: rotate(0deg) scale(1); } 50% { transform: rotate(12deg) scale(0.94); } 100% { transform: rotate(0deg) scale(1); } }
+.track { display: flex; align-items: center; gap: 6px; margin-bottom: 18px; }
+.track i { width: 34px; height: 10px; border-radius: 5px; background: var(--panel-3); transition: background 0.2s; }
+.track i.on { background: var(--ok); }
+.track span { margin-left: 8px; color: var(--muted); font-size: 14px; }
+.track b { color: var(--fg); }
+.roll-after { display: grid; gap: 14px; transition: opacity 0.25s; }
+.roll-after.pending { opacity: 0; pointer-events: none; }
+.outcome { display: flex; align-items: center; gap: 10px; font: 700 26px/1 var(--display); text-transform: uppercase; letter-spacing: 0.06em; }
+.outcome.SUCCESS { color: var(--ok); } .outcome.PARTIAL { color: var(--warn); } .outcome.FAIL { color: var(--bad); }
+.costs { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+.costs .btn { text-align: left; display: grid; justify-content: stretch; gap: 3px; padding: 14px; border-radius: var(--r); }
+.costs .btn b { font-size: 16px; }
+
+/* operation: the team tray */
+.tray { display: grid; gap: 16px; }
+.tray-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.tray-head h3 { margin: 0; }
+.tray-head small { font-size: 13.5px; }
+.opcards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.opcard { display: grid; align-content: start; background: var(--panel-2); border: 1px solid var(--line-soft); border-radius: var(--r); overflow: hidden; transition: border-color 0.15s, background 0.15s; }
+.opcard.on { border-color: #3a7080; background: #1b2a31; }
+.opcard.lead { border-color: var(--gold); background: #2a2516; box-shadow: inset 0 0 0 1px var(--gold); }
+.opcard.out { opacity: 0.6; }
+.opcard.gone { opacity: 0.35; }
+.optoggle { display: grid; gap: 7px; text-align: left; background: none; border: 0; color: inherit; padding: 13px 14px; cursor: pointer; touch-action: manipulation; }
+.optoggle:disabled { cursor: default; }
+.oprow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.oprow b { font-size: 15.5px; }
+.badge { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; font: 700 11.5px/1 var(--body); text-transform: uppercase; letter-spacing: 0.06em; padding: 4px 7px; border-radius: 6px; background: var(--accent-soft); color: var(--accent); }
+.badge.lead { background: var(--gold); color: #2a2000; }
+.badge.down { background: var(--bad-soft); color: var(--bad); }
+.util { font-size: 13px; }
+.opdice { font-size: 14px; color: var(--muted); }
+.opdice b { font: 700 22px/1 var(--display); color: var(--fg); margin-right: 3px; }
+.opdice b.dim { color: var(--muted); }
+.opskills { font: 12.5px var(--mono); color: var(--muted); display: flex; gap: 8px; flex-wrap: wrap; }
+.opskills b { color: var(--fg); }
+.injlist { display: grid; gap: 3px; }
+.inj { display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; font-size: 13px; color: #ffbdb6; }
+.inj .ico { color: var(--bad); align-self: center; }
+.inj small { color: var(--muted); font-size: 12.5px; }
+.inj.crit, .inj.crit small { color: var(--bad); }
+.unhurt { font-size: 13px; color: var(--ok); }
+.care { display: flex; gap: 6px; flex-wrap: wrap; padding: 0 12px 12px; }
+.care .btn { padding: 6px 10px; font-size: 13px; }
+.gearrow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.gearrow .btn.on { border-color: var(--gold); color: var(--gold); background: var(--warn-soft); }
+.go { position: sticky; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); z-index: 3; display: flex; align-items: center; gap: 12px 18px; flex-wrap: wrap; background: var(--panel-3); border: 1px solid #353e49; border-radius: var(--r); padding: 12px 14px; box-shadow: var(--shadow); }
+.go-odds { flex: 1; min-width: 240px; display: grid; gap: 7px; }
+.go-nums { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; font-size: 14px; color: var(--muted); }
+.go-nums .big { font: 700 26px/1 var(--display); color: var(--fg); }
+.oddsbar { display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: var(--bg); }
+.oddsbar .s { background: var(--ok); } .oddsbar .p { background: var(--warn); } .oddsbar .f { background: var(--bad); }
+.oddstext { font-size: 13.5px; display: flex; gap: 14px; flex-wrap: wrap; }
+.oddstext span { display: inline-flex; align-items: center; gap: 4px; }
+.oddstext .s { color: var(--ok); } .oddstext .p { color: var(--warn); } .oddstext .f { color: var(--bad); }
+.details { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px 24px; background: var(--bg); border-radius: var(--r); padding: 14px 16px; font-size: 14px; }
+.details ul { list-style: none; margin: 6px 0 0; padding: 0; color: var(--muted); display: grid; gap: 2px; }
+.details .big { font: 700 22px/1 var(--display); color: var(--fg); }
+.risk { grid-column: 1 / -1; display: grid; gap: 3px; font-size: 14px; }
+.risk .bad { color: #ffbdb6; }
+
+/* operation: drawer */
+.drawer { display: grid; gap: 18px; position: sticky; top: 80px; max-height: calc(100vh - 100px); overflow: hidden; grid-template-rows: auto minmax(0, 1fr); }
+.drawer .obj { display: grid; gap: 6px; font-size: 14.5px; }
+.drawer .obj b { color: var(--gold); margin-right: 4px; }
+.log { display: grid; grid-template-rows: auto minmax(0, 1fr); min-height: 0; }
+.log ol { list-style: none; margin: 0; padding: 0; font-size: 14px; overflow-y: auto; min-height: 0; }
+.log li { padding: 5px 0; border-bottom: 1px solid var(--line-soft); color: #bcc5cb; }
+.log .ev-turn { color: var(--accent); font-weight: 600; padding-top: 10px; }
+.log .ev-alert, .log .ev-down { color: #ffbdb6; } .log .ev-kill { color: var(--bad); } .log .ev-intel { color: var(--gold); } .log .ev-good { color: var(--ok); }
+
+/* transit scenes: interlude + insertion / extraction */
+.transit { max-width: 980px; margin: 0 auto; }
+.transit-card { padding: 26px 28px; display: grid; gap: 16px; }
+.transit-card h1 { margin-bottom: 0; }
+.transit .scene { color: var(--muted); font-style: italic; font-size: 17px; margin: 0; }
+.transit .prompt { margin: 4px 0 0; color: var(--fg); font-size: 14px; }
+.lines { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.line { display: grid; gap: 8px; align-content: start; text-align: left; background: var(--panel-2); border: 1px solid var(--line-soft); color: var(--fg); border-radius: var(--r); padding: 16px; cursor: pointer; font: inherit; touch-action: manipulation; transition: border-color 0.15s, transform 0.12s, opacity 0.2s; }
+.line:hover:not(:disabled) { border-color: var(--accent); transform: translateY(-1px); }
+.line.on { border-color: var(--gold); background: #2a2516; box-shadow: inset 0 0 0 1px var(--gold); }
+.line.faded { opacity: 0.4; }
+.line:disabled { cursor: default; }
+.line .who { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.line .persona { font-size: 13px; color: var(--muted); }
+.line q, .words q { font-size: 16.5px; line-height: 1.5; quotes: '\201C' '\201D'; }
+.line .hint { justify-self: start; font: 700 11px/1 var(--body); text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); background: var(--panel-3); border-radius: 6px; padding: 5px 7px; }
+.reveal { display: grid; gap: 4px; background: var(--warn-soft); border-radius: var(--r); padding: 14px 16px; animation: reveal 0.35s both; }
+.reveal b { color: var(--gold); } .reveal span { color: var(--fg); }
+.events { display: grid; gap: 4px; }
+.events h3 { margin: 6px 0 0; display: flex; align-items: center; gap: 6px; }
+.narrative { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; font-size: 16.5px; }
+.narrative li { position: relative; padding-left: 18px; animation: reveal 0.5s both; }
+.narrative li::before { content: ""; position: absolute; left: 2px; top: 0.6em; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+.narrative li.bad { color: #ffbdb6; } .narrative li.bad::before { background: var(--bad); }
+.report { max-width: 760px; margin: 24px auto; padding: 26px 28px; }
+.report .narrative { margin: 18px 0 26px; }
 
 /* debrief */
-.debrief { max-width: 960px; margin: 0 auto; display: grid; gap: 16px; }
-.verdict { display: inline-block; margin: 10px 0; padding: 6px 14px; border-radius: 5px; font: 700 18px/1 var(--display); text-transform: uppercase; letter-spacing: 0.14em; }
-.verdict.ok { background: #13301e; color: var(--ok); } .verdict.bad { background: #341715; color: var(--bad); }
+.debrief { max-width: 980px; margin: 0 auto; display: grid; gap: 18px; }
+.verdict { display: inline-flex; align-items: center; gap: 8px; margin: 10px 0; padding: 8px 16px; border-radius: var(--r-sm); font: 700 20px/1 var(--display); text-transform: uppercase; letter-spacing: 0.08em; }
+.verdict.ok { background: var(--ok-soft); color: var(--ok); } .verdict.bad { background: var(--bad-soft); color: var(--bad); }
 .obj-results { list-style: none; padding: 0; display: grid; gap: 4px; }
 .obj-results span { display: inline-block; width: 20px; }
 .obj-results .ok span { color: var(--ok); } .obj-results .bad span { color: var(--bad); }
 .table-wrap { overflow-x: auto; }
 .personnel { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
-.personnel th, .personnel td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.personnel th, .personnel td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--line-soft); white-space: nowrap; }
 .personnel th { color: var(--muted); font-weight: 500; font-size: 13px; }
 .personnel tr.lost td { color: var(--bad); }
-.split { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+.split { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; }
 .split ul { margin: 0; padding-left: 18px; }
 .debrief > .btn { justify-self: end; }
+.words { display: grid; gap: 12px; }
+.words div { display: grid; gap: 3px; }
+.words small { color: var(--gold); }
 
+@media (max-width: 1180px) {
+  .ops-body.with-drawer { grid-template-columns: minmax(0, 1fr); }
+  .drawer { position: static; max-height: none; }
+  .log ol { max-height: 320px; }
+}
 @media (max-width: 980px) {
-  .briefing, .ops-grid { grid-template-columns: 1fr; }
+  .briefing { grid-template-columns: 1fr; }
   .vehicles { grid-template-columns: 1fr; }
   .phases { display: none; }
   .launch { flex-direction: column; align-items: stretch; }
 }
-@media (max-width: 520px) {
+@media (max-width: 560px) {
+  main { padding-left: max(12px, env(safe-area-inset-left, 0px)); padding-right: max(12px, env(safe-area-inset-right, 0px)); padding-block: 12px; }
+  .top { padding-left: max(12px, env(safe-area-inset-left, 0px)); padding-right: max(12px, env(safe-area-inset-right, 0px)); gap: 8px 12px; }
+  .stats { gap: 10px; font-size: 13px; }
+  .card { padding: 14px; border-radius: var(--r); }
+  .scene-card, .transit-card { padding: 16px; }
   .loadout { grid-template-columns: 1fr; }
-  .stats { gap: 10px; font-size: 12px; }
-  .calc { grid-template-columns: 1fr; }
-  h1 { font-size: 26px; }
-  .pipbar i { width: 16px; }
+  .opcards { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .optoggle { padding: 10px; }
+  .tiles { grid-template-columns: 1fr; }
+  .go-odds { min-width: 0; flex-basis: 100%; }
+  .go .btn { padding: 10px 12px; }
+  .go .btn.primary { flex: 1; white-space: nowrap; }
+  h1 { font-size: 25px; }
+  h2 { font-size: 21px; }
+  .pipbar i { width: 15px; }
+  .die { width: 44px; height: 44px; font-size: 20px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .narrative li, .die { animation: none; }
+  .narrative li, .die, .result, .reveal { animation: none; }
+  .tile, .line, .btn { transition: none; }
 }
 </style>
 </head>
@@ -304,7 +391,10 @@ main { flex: 1; min-height: 0; padding-block: 16px; padding-left: max(16px, env(
     <div class="brand">SKIRM <span>ops board</span></div>
     <nav class="phases" id="phases" aria-label="Mission phase"></nav>
     <div class="stats" id="stats"></div>
-    <button id="btn-new" class="btn ghost" type="button">New campaign</button>
+    <div class="top-actions">
+      <button id="btn-sound" class="btn ghost icon" type="button" aria-label="Sound and vibration"></button>
+      <button id="btn-new" class="btn ghost" type="button">New campaign</button>
+    </div>
   </header>
   <main id="view"><p class="muted">Loading command terminal…</p></main>
 </div>
@@ -1023,7 +1113,8 @@ function newCampaign(seed) {
 }
 function recruit(xp, cls) {
   let name;
-  do name = pick(FIRST) + ' ' + pick(LAST); while (G.used[name]);
+  const firstTaken = (n) => G.roster.some((s) => s.alive && s.name.split(' ')[0] === n.split(' ')[0]); // first names must tell living operators apart
+  do name = pick(FIRST) + ' ' + pick(LAST); while (G.used[name] || firstTaken(name));
   G.used[name] = 1;
   const s = { id: G.nextSid++, name, cls, xp, kills: 0, missions: 0, recovery: 0, healing: [], alive: true, persona: freePersona(), traits: [], bonds: [], signature: null };
   G.roster.push(s);
@@ -1108,12 +1199,13 @@ function log(text, kind = 'info') {
   const l = B().log;
   l.push({ text, kind });
   if (l.length > 120) l.splice(0, l.length - 120);
+  B().capture?.push({ text, kind }); // collected while a roll resolves, to tell the result on screen
 }
 
 function makeOp(m, members) {
   G.battle = { units: [], nextId: 1, alert: 0, alerted: false, time: BASE_TIME + VEH[m.ins].time, timeMax: 0, stage: 0,
     stages: JSON.parse(JSON.stringify(m.route)), attempts: 0, reinf: 0, state: 'PLAN', roll: null, revived: [],
-    drone: { up: false, op: null, strike: 0, used: false }, hvtKilled: false, carrier: null, cache: false, kills: 0, over: false, done: false, log: [], omen: null };
+    drone: { up: false, op: null, strike: 0, used: false }, hvtKilled: false, carrier: null, cache: false, kills: 0, over: false, done: false, log: [], omen: null, lastResult: null };
   const b = G.battle;
   for (const s of members) {
     const l = m.loadouts[s.id];
@@ -1348,6 +1440,7 @@ function execute(o) {
   if (pool.value < 1) fail('No dice: commit someone who has that skill.');
 
   b.time -= cost;
+  b.lastResult = null;
   b.attempts++;
   if (b.omen && [...pool.parts, ...diff.mods].some((x) => x.omen)) b.omen.used = true;
   for (const id of gearIds) unitById(id).boom = { FRAG: 'that frag', BREACH: 'that breaching charge' }[unitById(id).util];
@@ -1377,8 +1470,17 @@ function push() {
   r.dice = r.dice.map((d, i) => { if (d >= HIT) return d; r.rerolled.push(i); return d6(); });
   raise(1, 'Pushing it makes noise.');
 }
-/** Apply the roll. A partial success needs the player to pick its cost. */
+/** Apply the roll, keeping what happened (b.lastResult) so the screen can tell it. */
 function resolve(cost) {
+  const b = G.battle, r = G.phase === 'OPERATION' && b.state === 'ROLLED' ? b.roll : null;
+  const head = r ? { label: sitOf(cur()).opts[r.opt].label, out: outcomeOf(r) } : null;
+  if (r) b.capture = [];
+  try { applyRoll(cost); } catch (e) { if (b) delete b.capture; throw e; }
+  b.lastResult = { ...head, lines: b.capture };
+  delete b.capture;
+}
+/** A partial success needs the player to pick its cost. */
+function applyRoll(cost) {
   need('OPERATION');
   const b = B();
   if (b.state !== 'ROLLED') fail('Nothing to resolve.');
@@ -1493,8 +1595,11 @@ function finish() {
   b.over = true;
   for (const u of team()) if (u.downed) killUnit(u, `${u.name} could not be recovered and is lost.`);
   b.drone.up = false; // flies home if it is still up; debrief settles the item
-  G.mission.extReport = extraction(G.mission);
-  G.phase = 'EXTRACTION';
+  const m = G.mission;
+  m.extReport = extraction(m);
+  // The way home is one transit scene: what happened getting out, then the survivors' interlude.
+  m.interOut = genInterlude('OUT');
+  G.phase = m.interOut.opts.length ? 'INTERLUDE_OUT' : 'EXTRACTION';
 }
 
 // ---------------------------------------------------------------- field care (between tests, free)
@@ -1596,6 +1701,8 @@ function chooseLine(i) {
   if (!o) fail('Pick one of the statements.');
   it.pick = i;
   it.reveal = it.phase === 'IN' ? applyOmen(o) : applyLasting(o);
+  // The way in is one transit scene: once the words are chosen, the insertion plays out underneath.
+  if (it.phase === 'IN') { G.mission.insReport = insertion(G.mission); B().timeMax = B().time; }
 }
 /** The kept pre-mission statement: a one-mission effect. Returns the reveal text. */
 function applyOmen(o) {
@@ -1780,13 +1887,12 @@ function debrief(m) {
 function proceed() {
   const m = G.mission, it = interlude();
   if (it && it.pick == null) fail('Choose whose words stay with you first.');
-  if (G.phase === 'INTERLUDE_IN') { m.insReport = insertion(m); B().timeMax = B().time; G.phase = 'INSERTION'; }
-  else if (G.phase === 'INSERTION') G.phase = 'OPERATION';
-  else if (G.phase === 'EXTRACTION') {
+  if (G.phase === 'INTERLUDE_IN' || G.phase === 'INSERTION') G.phase = 'OPERATION'; // INSERTION: saves from before transit scenes merged
+  else if (G.phase === 'EXTRACTION' && !m.interOut) { // likewise: an older save stopped on the extraction report
     m.interOut = genInterlude('OUT');
     if (m.interOut.opts.length) G.phase = 'INTERLUDE_OUT';
     else { G.debrief = debrief(m); G.phase = 'DEBRIEF'; }
-  } else if (G.phase === 'INTERLUDE_OUT') { G.debrief = debrief(m); G.phase = 'DEBRIEF'; }
+  } else if (G.phase === 'EXTRACTION' || G.phase === 'INTERLUDE_OUT') { G.debrief = debrief(m); G.phase = 'DEBRIEF'; }
   else if (G.phase === 'DEBRIEF') {
     if (G.recruits > 0) fail('Choose a class for each replacement recruit first.');
     beginBriefing();
@@ -1809,7 +1915,73 @@ function enlist(cls) {
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 let toastTimer;
-function toast(msg) { const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => (t.hidden = true), 3200); }
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => (t.hidden = true), 3200); sfx('error'); }
+
+// Line icons (24px grid, stroked), so meaning never rests on colour alone.
+const ICONS = {
+  assault: '<circle cx="12" cy="12" r="7"/><path d="M12 2v5M12 17v5M2 12h5M17 12h5"/>',
+  stealth: '<path d="M3 3l18 18"/><path d="M10.6 5.1A10 10 0 0 1 12 5c5 0 9 4.5 10 7a13 13 0 0 1-3 4M6.6 6.6C4.4 8 2.8 10.2 2 12c1 2.5 5 7 10 7 1.7 0 3.2-.5 4.5-1.2"/>',
+  recon: '<circle cx="12" cy="12" r="3"/><path d="M2 12c1.5-3.5 5.5-7 10-7s8.5 3.5 10 7c-1.5 3.5-5.5 7-10 7S3.5 15.5 2 12z"/>',
+  tech: '<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.5-.5-.5-2.5z"/>',
+  medic: '<path d="M9 3h6v6h6v6h-6v6H9v-6H3V9h6z"/>',
+  star: '<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/>',
+  check: '<path d="M4 12l5 5L20 6"/>',
+  cross: '<path d="M6 6l12 12M18 6L6 18"/>',
+  warn: '<path d="M12 3l10 18H2z"/><path d="M12 10v4M12 17.5v.5"/>',
+  time: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>',
+  alert: '<path d="M12 3a6 6 0 0 0-6 6v4l-2 3h16l-2-3V9a6 6 0 0 0-6-6zM10 19a2 2 0 0 0 4 0"/>',
+  log: '<path d="M4 6h16M4 12h16M4 18h10"/>',
+  radio: '<rect x="3" y="9" width="18" height="12" rx="2"/><path d="M7 9l10-5M8 15h.01M16 13v4"/>',
+  sound: '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/>',
+  mute: '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 9l5 6M21 9l-5 6"/>',
+};
+const ico = (n) => `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[n] || ''}</svg>`;
+const calm = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// View preferences are per-viewer conveniences (browser storage); the game itself lives in the save.
+const UI_KEY = 'skirm-ui';
+const ui = (() => { let v = {}; try { v = JSON.parse(localStorage.getItem(UI_KEY) || '{}'); } catch (e) { /* defaults */ } return { drawer: true, details: false, sound: true, ...v, rolled: null }; })();
+function saveUi() { try { localStorage.setItem(UI_KEY, JSON.stringify({ drawer: ui.drawer, details: ui.details, sound: ui.sound })); } catch (e) { /* not saved */ } }
+
+// Sound: tiny synthesized cues (no audio files) and phone vibration, both behind the header toggle.
+let audio = null, gestured = false;
+for (const ev of ['pointerdown', 'keydown']) addEventListener(ev, () => { gestured = true; }, { capture: true });
+function sfx(name) {
+  if (!ui.sound || !gestured) return; // browsers only allow audio after the player has touched the page
+  try {
+    audio ??= new (window.AudioContext || window.webkitAudioContext)();
+    if (audio.state === 'suspended') audio.resume();
+    const t = audio.currentTime;
+    const tone = (f, at, dur, type = 'sine', vol = 0.1, f2 = 0) => {
+      const o = audio.createOscillator(), g = audio.createGain();
+      o.type = type; o.frequency.setValueAtTime(f, t + at);
+      if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + at + dur);
+      g.gain.setValueAtTime(0.0001, t + at); g.gain.exponentialRampToValueAtTime(vol, t + at + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + at + dur);
+      o.connect(g).connect(audio.destination); o.start(t + at); o.stop(t + at + dur + 0.03);
+    };
+    const noise = (at, dur, vol, freq, q = 1) => {
+      const buf = audio.createBuffer(1, Math.ceil(audio.sampleRate * dur), audio.sampleRate), d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      const src = audio.createBufferSource(), f = audio.createBiquadFilter(), g = audio.createGain();
+      src.buffer = buf; f.type = 'bandpass'; f.frequency.value = freq; f.Q.value = q;
+      g.gain.setValueAtTime(vol, t + at); g.gain.exponentialRampToValueAtTime(0.0001, t + at + dur);
+      src.connect(f).connect(g).connect(audio.destination); src.start(t + at);
+    };
+    ({
+      click: () => tone(700, 0, 0.05, 'triangle', 0.05),
+      select: () => { tone(520, 0, 0.08, 'triangle', 0.07); tone(780, 0.07, 0.12, 'triangle', 0.07); },
+      tick: () => tone(1250, 0, 0.06, 'sine', 0.05),
+      error: () => tone(220, 0, 0.12, 'square', 0.03),
+      dice: () => { for (let i = 0; i < 8; i++) noise(i * 0.055 + Math.random() * 0.02, 0.035, 0.18, 2200 + Math.random() * 1800, 3); },
+      success: () => [523, 659, 784].forEach((f, i) => tone(f, i * 0.09, 0.2, 'triangle', 0.09)),
+      partial: () => { tone(587, 0, 0.16, 'triangle', 0.08); tone(523, 0.13, 0.24, 'triangle', 0.08); },
+      fail: () => { tone(330, 0, 0.2, 'sawtooth', 0.04, 220); tone(196, 0.16, 0.32, 'sawtooth', 0.04, 130); },
+      hit: () => { tone(120, 0, 0.28, 'sine', 0.22, 45); noise(0, 0.14, 0.25, 500, 0.7); },
+      radio: () => { noise(0, 0.32, 0.05, 1900, 0.9); tone(1400, 0.02, 0.04, 'square', 0.02); tone(1400, 0.3, 0.05, 'square', 0.02); },
+    })[name]?.();
+  } catch (e) { /* audio unavailable: play on silently */ }
+}
+const buzz = (ms) => { if (!ui.sound) return; try { navigator.vibrate?.(ms); } catch (e) { /* no vibration */ } };
 
 const SAVE_KEY = 'skirm-ops-v2'; // G.v 2 = injuries, 3 = interludes (v2 saves migrate)
 function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(G)); } catch (e) { /* storage unavailable: play continues unsaved */ } }
@@ -1830,13 +2002,21 @@ function run(fn) {
 
 const PHASES = [['BRIEFING', 'Briefing'], ['INSERTION', 'Insertion'], ['OPERATION', 'Operation'], ['EXTRACTION', 'Extraction'], ['DEBRIEF', 'Debrief']];
 function refresh() {
-  if (G.phase !== mounted) { mounted = G.phase; window.scrollTo(0, 0); }
+  if (G.phase !== mounted) {
+    const first = mounted === null;
+    mounted = G.phase; window.scrollTo(0, 0);
+    if (!first && interlude()) sfx('radio');
+    if (!first && G.phase === 'DEBRIEF') sfx(G.debrief?.success ? 'success' : 'fail');
+  }
+  $('#btn-sound').innerHTML = ico(ui.sound ? 'sound' : 'mute');
+  $('#btn-sound').setAttribute('aria-pressed', ui.sound);
+  $('#btn-sound').title = ui.sound ? 'Sound and vibration on' : 'Sound and vibration off';
   const shown = { INTERLUDE_IN: 'INSERTION', INTERLUDE_OUT: 'EXTRACTION' }[G.phase] || G.phase;
   const idx = PHASES.findIndex(([p]) => p === shown);
   $('#phases').innerHTML = PHASES.map(([p, l], i) => `<span class="${i === idx ? 'on' : i < idx ? 'done' : ''}">${l}</span>`).join('<i>›</i>');
   $('#stats').innerHTML = `<span><b>Mission</b>${G.flown + 1}</span><span><b>RP</b>${G.rp}</span><span><b>Operators</b>${G.roster.filter((s) => s.alive).length}</span>`;
   if (G.phase === 'BRIEFING') renderBriefing();
-  else if (interlude()) renderInterlude();
+  else if (interlude()) renderTransit();
   else if (G.phase === 'INSERTION' || G.phase === 'EXTRACTION') renderReport();
   else if (G.phase === 'OPERATION') renderOps();
   else renderDebrief();
@@ -1979,32 +2159,43 @@ function renderBriefing() {
   $('#launch').addEventListener('click', () => run(() => launch({ team: draft.team, loadouts: Object.fromEntries(draft.team.map((id) => [id, draft.loadouts[id]])), insertion: draft.insertion, extraction: draft.extraction })));
 }
 
-// ------------------------------------------------------------------ reports
+// ------------------------------------------------------------------ reports (only when nobody is left to talk on the way home, or an older save)
+const narrLine = (l, i, base = 0) => `<li style="animation-delay:${base + i * 420}ms" class="${/HOT|IED|spotted|killed|missing|fire|lost|hit |unconscious|blast/i.test(l) ? 'bad' : ''}">${esc(l)}</li>`;
 function renderReport() {
   const m = G.mission, ins = G.phase === 'INSERTION', lines = ins ? m.insReport : m.extReport;
   $('#view').innerHTML = `<section class="report card"><div class="eyebrow">Mission ${m.n} · ${ins ? 'Insertion' : 'Extraction'}</div><h1>${esc(m.codename)}</h1>
-    <ol class="narrative">${lines.map((l, i) => `<li style="animation-delay:${i * 450}ms" class="${/HOT|IED|spotted|killed|missing|fire|lost/i.test(l) ? 'bad' : ''}">${esc(l)}</li>`).join('')}</ol>
-    <button class="btn primary big" type="button" id="continue">${ins ? 'Begin operation' : 'Proceed to debrief'}</button></section>`;
+    <ol class="narrative">${lines.map((l, i) => narrLine(l, i)).join('')}</ol>
+    <button class="btn primary big" type="button" id="continue">${ins ? 'Begin operation' : 'To debrief'}</button></section>`;
   $('#continue').addEventListener('click', () => run(proceed));
 }
 
-// ------------------------------------------------------------------ interludes
-function renderInterlude() {
-  const m = G.mission, it = interlude(), [scene, prompt] = SCENES[it.phase][it.veh];
+// ------------------------------------------------------------------ transit scenes: the interlude and the insertion / extraction as one screen
+function renderTransit() {
+  const m = G.mission, it = interlude(), inbound = it.phase === 'IN', [scene, prompt] = SCENES[it.phase][it.veh], picked = it.pick != null;
   const cards = it.opts.map((o, i) => {
     const u = unitById(o.uid), s = soldier(u.sid), on = it.pick === i;
-    return `<button class="line ${on ? 'on' : ''} ${it.pick != null && !on ? 'faded' : ''}" type="button" data-line="${i}" ${it.pick != null ? 'disabled' : ''} aria-pressed="${on}">
+    return `<button class="line ${on ? 'on' : ''} ${picked && !on ? 'faded' : ''}" type="button" data-line="${i}" ${picked ? 'disabled' : ''} aria-pressed="${on}">
       <span class="who"><span class="rank">${RANKS[rankIdx(s.xp)][0]}</span><b>${esc(u.name)}</b>${classChip(u.cls)}</span>
       <span class="persona">${PERSONAS[s.persona].label}${u.inj.length ? ` · ${esc(conditionOf(u))}` : ''}</span>
       <q>${esc(o.text)}</q><span class="hint">${TOPICS[o.topic].hint}</span></button>`;
   }).join('');
-  const chosen = it.pick != null ? unitById(it.opts[it.pick].uid) : null;
-  $('#view').innerHTML = `<section class="interlude card"><div class="eyebrow">Mission ${m.n} · ${it.phase === 'IN' ? 'En route' : 'Heading home'}</div><h1>${esc(m.codename)}</h1>
-    <p class="scene">${scene}</p><h3>${prompt}</h3><div class="lines">${cards}</div>
-    ${chosen ? `<div class="reveal"><b>${esc(chosen.name)}'s words stay with you.</b><span>${esc(it.reveal)}</span></div>` : '<p class="muted">The topic of each statement hints at what it will mean. Choose one.</p>'}
-    <button class="btn primary big" type="button" id="continue" ${chosen ? '' : 'disabled'}>${it.phase === 'IN' ? 'Arrive at the drop point' : 'Back to base'}</button></section>`;
-  $('#view').querySelectorAll('[data-line]').forEach((b) => b.addEventListener('click', () => run(() => chooseLine(+b.dataset.line))));
-  $('#continue').addEventListener('click', () => run(proceed));
+  const chosen = picked ? unitById(it.opts[it.pick].uid) : null;
+  const events = (title, lines, base) => `<div class="events"><h3>${ico('radio')}${title}</h3><ol class="narrative">${lines.map((l, i) => narrLine(l, i, base)).join('')}</ol></div>`;
+  $('#view').innerHTML = `<section class="transit"><div class="card transit-card">
+    <div><div class="eyebrow">Mission ${m.n} · ${inbound ? 'En route' : 'Heading home'}</div><h1>${esc(m.codename)}</h1></div>
+    ${inbound ? '' : events('Extraction', m.extReport, 0)}
+    <p class="scene">${scene}</p><h3 class="prompt">${prompt}</h3>
+    <div class="lines">${cards}</div>
+    ${chosen ? `<div class="reveal"><b>${esc(chosen.name)}'s words stay with you.</b><span>${esc(it.reveal)}</span></div>` : '<p class="muted" style="margin:0">The tag on each statement hints at what it will mean.</p>'}
+    ${inbound && picked ? events('Insertion', m.insReport, 350) : ''}
+    <div class="actions-row"><span class="grow"></span><button class="btn primary big" type="button" id="continue" ${picked ? '' : 'disabled'}>${inbound ? 'Begin operation' : 'To debrief'}</button></div>
+  </div></section>`;
+  $('#view').querySelectorAll('[data-line]').forEach((b) => b.addEventListener('click', () => {
+    run(() => chooseLine(+b.dataset.line));
+    sfx('select');
+    if (inbound && m.insReport.some((l) => /IED|hurt|thrown|blast/i.test(l))) setTimeout(() => { sfx('hit'); buzz(120); }, 900);
+  }));
+  $('#continue').addEventListener('click', () => { sfx('click'); run(proceed); });
 }
 
 // ------------------------------------------------------------------ operation
@@ -2027,7 +2218,7 @@ function syncPlan() {
   if (sit) {
     const opt = sit.opts[plan.opt];
     plan.gear = plan.gear.filter((id) => plan.ids.includes(id) && gearUsable(unitById(id), opt));
-    if (!plan.ids.includes(plan.lead)) plan.lead = bestLead(opt, plan.ids);
+    if (!plan.ids.includes(plan.lead) || !canLead(unitById(plan.lead))) plan.lead = bestLead(opt, plan.ids);
     if (plan.strike && !canStrike(opt)) plan.strike = false;
   }
 }
@@ -2040,15 +2231,25 @@ function previewOf(i) {
   const diff = difficulty(st, sit, opt, ids);
   return { opt, pool, diff, lead, odds: odds(pool.value, diff.value), foes: foesOf(st, sit) };
 }
-function meters() {
+const pct = (x) => Math.round(x * 100);
+const SK_ICON = { ASSAULT: 'assault', STEALTH: 'stealth', RECON: 'recon', TECH: 'tech' };
+const skillTag = (k) => `<span class="sk sk-${k.toLowerCase()}">${ico(SK_ICON[k])}${SKILLS[k].label}</span>`;
+const OUT_WORD = { SUCCESS: 'Success', PARTIAL: 'Success at a cost', FAIL: 'Failure' };
+const OUT_ICON = { SUCCESS: 'check', PARTIAL: 'warn', FAIL: 'cross' };
+const hostiles = (n) => (n ? `<span class="chip bad">${n} hostile${n > 1 ? 's' : ''}</span>` : '<span class="chip">Unguarded</span>');
+
+function statusHtml() {
   const b = B(), m = G.mission;
   const pips = (n, max, cls, f) => `<div class="pipbar ${cls}">${Array.from({ length: max }, (_, i) => `<i class="${f(i)}"></i>`).join('')}</div>`;
   const alertState = b.alert >= ALERT_MAX ? 'QRF inbound' : b.alert >= ALERT_TIER ? 'Alerted' : 'Unaware';
-  const reinf = b.reinf ? '<span class="chip bad">Reinforced</span>' : m.rAt && m.intel.includes('HUMINT') ? `<small>Reinforcements after action ${m.rAt} (now ${b.attempts})</small>` : '';
-  return `<div class="clocks">
-    <div class="meter"><span class="label">Alert<b>${b.alert}/${ALERT_MAX} · ${alertState}</b></span>${pips(b.alert, ALERT_MAX, 'alert', (i) => `${i < b.alert ? 'on' : ''} ${i >= ALERT_TIER && i < b.alert ? 'hot' : ''} ${i === ALERT_TIER ? 'tier' : ''}`)}</div>
-    <div class="meter"><span class="label">Time<b>${b.time} left</b></span>${pips(b.time, b.timeMax, 'time', (i) => (i < b.time ? 'on' : ''))}</div>
-    <div class="meter">${reinf}${b.drone.up ? `<span class="chip ok">Drone up${b.drone.strike ? ' · strike ready' : ''}</span>` : ''}</div></div>`;
+  const reinf = b.reinf ? '<span class="chip bad">Reinforced</span>' : m.rAt && m.intel.includes('HUMINT') ? `<span class="chip">Reinforcements after action ${m.rAt} (now ${b.attempts})</span>` : '';
+  return `<div class="card status"><div class="status-top">
+    <div class="meter"><span class="label">${ico('alert')}Alert <b>${b.alert}/${ALERT_MAX} · ${alertState}</b></span>${pips(b.alert, ALERT_MAX, 'alert', (i) => `${i < b.alert ? 'on' : ''} ${i >= ALERT_TIER && i < b.alert ? 'hot' : ''} ${i === ALERT_TIER ? 'tier' : ''}`)}</div>
+    <div class="meter"><span class="label">${ico('time')}Time <b>${b.time} left</b></span>${pips(b.time, b.timeMax, 'time', (i) => (i < b.time ? 'on' : ''))}</div>
+    ${reinf}${b.drone.up ? `<span class="chip ok">Drone up${b.drone.strike ? ' · strike ready' : ''}</span>` : ''}
+    <span class="grow"></span>
+    <button class="btn ghost" type="button" data-act="drawer" aria-pressed="${ui.drawer}">${ico('log')}${ui.drawer ? 'Hide log' : 'Log & objectives'}</button>
+  </div>${routeHtml(b.stages, b.stage)}</div>`;
 }
 function tagsOf(opt, foes) {
   const t = [];
@@ -2071,99 +2272,152 @@ function riskLines(p, sit) {
   out.push('<span class="muted">Failure costs the time but not the stage: you can try again.</span>');
   return out.join('');
 }
+/** What the last roll did, told on the scene card until the next action. */
+function resultHtml() {
+  const r = B().lastResult;
+  if (!r?.out) return '';
+  const lines = r.lines.filter((l) => l.kind !== 'turn' && !l.text.startsWith(r.label + ':')); // the heading already says how it went
+  return `<div class="result ${r.out}"><div class="rhead">${ico(OUT_ICON[r.out])}${esc(r.label)}: ${OUT_WORD[r.out].toLowerCase()}</div>
+    ${lines.length ? `<ul>${lines.map((l) => `<li class="ev-${l.kind}">${esc(l.text)}</li>`).join('')}</ul>` : ''}</div>`;
+}
 function forkHtml(st) {
   const b = B();
   if (st.kind === 'APPROACH') {
     const sat = G.mission.intel.includes('SATELLITE');
     return `<div class="eyebrow">Stage ${b.stage + 1} · Approach</div><h2>Choose your route in</h2><p class="sit-text">The route sets the time you spend and shapes the perimeter stage that follows.</p>
-      <div class="forks">${st.choices.map((c, i) => { const r = ROUTES[c]; const fx = Object.entries(r.mod).map(([k, v]) => `${SKILLS[k].label} ${signed(v)}`).join(', ');
-        return `<div class="fork"><b>${r.label}</b><small>${r.text}</small><div class="tags"><span>${r.time} time</span>${sat ? `<span>${fx ? 'Perimeter: ' + fx : 'No perimeter effect'}</span>` : '<span>Effect unknown without satellite imagery</span>'}${r.reveal ? '<span class="good">Reveals 2 stages</span>' : ''}</div>
-        <button class="btn primary" type="button" data-act="route" data-i="${i}" ${r.time > b.time ? 'disabled' : ''}>Take this route</button></div>`; }).join('')}</div>`;
+      <div class="tiles">${st.choices.map((c, i) => { const r = ROUTES[c]; const fx = Object.entries(r.mod).map(([k, v]) => `${SKILLS[k].label} ${signed(v)}`).join(', ');
+        return `<button class="tile" type="button" data-act="route" data-i="${i}" ${r.time > b.time ? 'disabled' : ''}><span class="row"><b>${r.label}</b><span class="chip">${ico('time')}${r.time} time</span></span><small>${r.text}</small>
+          <span class="tags">${sat ? `<span>${fx ? 'Perimeter: ' + fx : 'No perimeter effect'}</span>` : '<span>Effect unknown without satellite imagery</span>'}${r.reveal ? '<span class="good">Reveals 2 stages</span>' : ''}</span></button>`; }).join('')}</div>`;
   }
   return `<div class="eyebrow">Stage ${b.stage + 1} · ${KIND[st.kind]}</div><h2>Choose your way in</h2><p class="sit-text">Two entry points. You can see both from here.</p>
-    <div class="forks">${st.choices.map((c, i) => { const s = SIT[c], f = foesOf(st, s);
-      return `<div class="fork"><b>${s.label}</b><small>${s.text}</small><div class="tags"><span>${f ? f + ' hostile' + (f > 1 ? 's' : '') : 'Unguarded'}</span>${s.hazard ? '<span class="loud">Hazard</span>' : ''}</div>
-      <ul>${s.opts.map((o) => `<li>${SKILLS[o.skill].label} ${o.diff}: ${o.label}</li>`).join('')}</ul>
-      <button class="btn primary" type="button" data-act="fork" data-i="${i}">Go this way</button></div>`; }).join('')}</div>`;
+    <div class="tiles">${st.choices.map((c, i) => { const s = SIT[c], f = foesOf(st, s);
+      return `<button class="tile" type="button" data-act="fork" data-i="${i}"><span class="row"><b>${s.label}</b>${hostiles(f)}</span><small>${s.text}</small>
+        ${s.hazard ? '<span class="tags"><span class="loud">Hazard</span></span>' : ''}<ul>${s.opts.map((o) => `<li>${SKILLS[o.skill].label} ${o.diff}: ${o.label}</li>`).join('')}</ul></button>`; }).join('')}</div>`;
 }
-function planHtml(st, sit) {
-  const b = B(), p = previewOf(plan.opt), opt = p.opt;
-  const appr = sit.opts.map((o, i) => { const q = previewOf(i);
-    return `<button class="appr ${i === plan.opt ? 'on' : ''}" type="button" data-act="opt" data-i="${i}" aria-pressed="${i === plan.opt}">
-      <span class="row">${skillChip(o.skill)}<span class="diff">Diff ${q.diff.value} · ${Math.round(q.odds.s * 100)}%</span></span>
-      <b>${o.label}</b><small>${o.desc}</small><span class="tags">${tagsOf(o, q.foes)}</span></button>`; }).join('');
-  const ops = team().map((u) => { const ok = active(u), on = plan.ids.includes(u.id), isLead = u.id === p.lead, n = on && !isLead ? 1 : opDice(u, opt.skill);
-    const role = !ok ? '' : isLead ? 'Lead' : on ? 'Support' : canLead(u) ? `${n} as lead` : "Can't lead";
-    return `<button class="opbtn ${on ? 'on' : ''}" type="button" data-act="op" data-id="${u.id}" ${ok ? '' : 'disabled'} aria-pressed="${on}">
-      <span class="name">${esc(u.name)}</span><span>${classChip(u.cls)}</span><span class="inj-short">${esc(conditionOf(u))}</span>
-      <span class="dots">${ok ? '●'.repeat(n) || '–' : u.downed ? 'DOWN' : 'Out'} <span class="muted">${role}</span></span></button>`; }).join('');
-  const leads = plan.ids.length > 1 ? `<div class="leadrow"><span class="muted">Lead:</span>${plan.ids.map(unitById).map((u) => `<button class="btn ${u.id === p.lead ? 'on' : ''}" type="button" data-act="lead" data-id="${u.id}" aria-pressed="${u.id === p.lead}" ${canLead(u) ? '' : 'disabled title="Untreated critical injury"'}>${esc(u.name.split(' ')[0])} · ${canLead(u) ? opDice(u, opt.skill) : "can't lead"}</button>`).join('')}</div>` : '';
-  const gearBtns = plan.ids.map(unitById).filter((u) => gearUsable(u, opt)).map((u) => `<button class="btn ${plan.gear.includes(u.id) ? 'on' : ''}" type="button" data-act="gear" data-id="${u.id}" aria-pressed="${plan.gear.includes(u.id)}">${ITEMS[u.util].label} · ${esc(u.name.split(' ')[0])} (+${GEAR_USE[u.util].dice}${GEAR_USE[u.util].alert ? ', loud' : ''})</button>`);
-  if (canStrike(opt)) gearBtns.push(`<button class="btn ${plan.strike ? 'on' : ''}" type="button" data-act="strike" aria-pressed="${plan.strike}">Drone strike (+2)</button>`);
-  const cost = 1 + (opt.time || 0), pct = (x) => Math.round(x * 100);
-  return `<div class="eyebrow">Stage ${b.stage + 1} · ${KIND[st.kind]}</div><h2>${esc(sit.label)}</h2>
-    <p class="sit-text">${esc(sit.text)} ${p.foes ? `<b>${p.foes} hostile${p.foes > 1 ? 's' : ''}.</b>` : ''}</p>
-    <div class="section-label">1 · Approach</div><div class="appr-list">${appr}</div>
-    <div class="section-label">2 · Commit operators <span class="muted">(the lead rolls their ${SKILLS[opt.skill].label} dice and takes the first hit; each supporter adds 1 die)</span></div><div class="commit">${ops}</div>${leads}
-    ${gearBtns.length ? `<div class="section-label">3 · Spend gear</div><div class="gear">${gearBtns.join('')}</div>` : ''}
-    <div class="calc">
+function planSceneHtml(st, sit) {
+  const b = B(), foes = foesOf(st, sit);
+  const tiles = sit.opts.map((o, i) => { const q = previewOf(i), s = pct(q.odds.s);
+    return `<button class="tile ${i === plan.opt ? 'on' : ''}" type="button" data-act="opt" data-i="${i}" aria-pressed="${i === plan.opt}">
+      <span class="row">${skillTag(o.skill)}<span class="pct ${s < 35 ? 'lo' : s < 65 ? 'mid' : 'hi'}">${s}%</span></span>
+      <b>${o.label}</b><small>${o.desc}</small><span class="tags">${tagsOf(o, q.foes)}</span>
+      <span class="foot">Difficulty ${q.diff.value} · ${q.pool.value} dice</span></button>`; }).join('');
+  return `${resultHtml()}<div class="scene-head"><div class="eyebrow">Stage ${b.stage + 1} · ${KIND[st.kind]}</div>${hostiles(foes)}</div>
+    <h2>${esc(sit.label)}</h2><p class="sit-text">${esc(sit.text)}</p><div class="tiles">${tiles}</div>`;
+}
+function rollSceneHtml(st, sit) {
+  const b = B(), r = b.roll, opt = sit.opts[r.opt], out = outcomeOf(r), s = successes(r), lead = unitById(r.lead);
+  const victim = active(lead) ? lead : r.ids.map(unitById).find(active);
+  const costDesc = (k, c) => (k === 'WOUND' ? hitPreview(victim) : c.desc);
+  const key = `${G.flown}:${b.stage}:${b.attempts}:${r.pushed}`;
+  return `<div class="eyebrow">Stage ${b.stage + 1} · ${KIND[st.kind]} · ${esc(sit.label)}</div><h2>${esc(opt.label)}</h2>
+    <p class="roll-sub">${esc(lead.name)} leads${r.ids.length > 1 ? ` with ${r.ids.length - 1} in support` : ''}: ${r.dice.length} dice, every 5 or 6 counts.</p>
+    <div class="dice" data-roll="${key}">${r.dice.map((d, i) => `<span class="die ${d >= HIT ? 'hit' : ''} ${r.rerolled.includes(i) ? 're' : ''}">${d}</span>`).join('')}</div>
+    <div class="track">${Array.from({ length: r.diff }, (_, i) => `<i class="${i < s ? 'on' : ''}"></i>`).join('')}<span><b>${s}</b> of ${r.diff} needed</span></div>
+    <div class="roll-after">
+      <div class="outcome ${out}">${ico(OUT_ICON[out])}${OUT_WORD[out]}${r.pushed ? ' <small class="muted" style="font-size:14px">pushed</small>' : ''}</div>
+      ${out === 'PARTIAL' ? `<div class="costs">${Object.entries(COSTS).map(([k, c]) => `<button class="btn" type="button" data-act="cost" data-c="${k}"><b>${c.label}</b><small>${esc(costDesc(k, c))}</small></button>`).join('')}</div>` : ''}
+      <div class="actions-row">${out !== 'SUCCESS' && !r.pushed ? `<button class="btn" type="button" data-act="push">Push: re-roll ${r.dice.length - s} misses (+1 alert)</button>` : ''}<span class="grow"></span>
+        ${out === 'PARTIAL' ? '' : `<button class="btn primary big" type="button" data-act="accept">${out === 'SUCCESS' ? 'Continue' : 'Accept failure'}</button>`}</div>
+    </div>`;
+}
+/** Injuries as named chips with their effect. */
+function injHtml(u) {
+  if (u.dead) return '';
+  const rows = [];
+  if (u.downed) rows.push(`<span class="inj crit">${ico('medic')}<b>Unconscious</b><small>dies in ${u.bleed} stage${u.bleed > 1 ? 's' : ''} unless treated</small></span>`);
+  for (const w of u.inj) rows.push(`<span class="inj ${INJURIES[w.id].tier === 3 && !w.t ? 'crit' : ''}">${ico('medic')}<b>${esc(injName(w))}</b><small>${esc(injEffect(w))}</small></span>`);
+  return rows.length ? `<span class="injlist">${rows.join('')}</span>` : '<span class="unhurt">Unhurt</span>';
+}
+function opCardHtml(u, p, opt) {
+  const b = B(), ok = active(u), on = plan.ids.includes(u.id), lead = !!p && u.id === p.lead, free = b.state === 'PLAN' && !b.over;
+  let role = '', dice = '';
+  if (u.dead) role = '<span class="badge down">KIA</span>';
+  else if (u.downed) role = '<span class="badge down">Down</span>';
+  else if (lead) role = `<span class="badge lead">${ico('star')}Lead</span>`;
+  else if (on) role = '<span class="badge">Support</span>';
+  if (opt && ok) dice = `<span class="opdice">${on ? (lead ? `<b>${opDice(u, opt.skill)}</b>dice` : '<b>+1</b>die') : canLead(u) ? `<b class="dim">${opDice(u, opt.skill)}</b>as lead` : "can't lead until treated"}</span>`;
+  else if (ok) dice = `<span class="opskills">${skillLine((k) => opDice(u, k))}</span>`;
+  const care = [], medics = team().filter((x) => x.cls === 'MEDIC' && active(x) && !b.revived.includes(x.id)), kits = team().filter((x) => active(x) && x.util === 'MEDKIT');
+  if (free && (ok || u.downed) && fieldCareNeed(u)) for (const md of medics) care.push(`<button class="btn" type="button" data-act="care" data-m="${md.id}" data-t="${u.id}">${ico('medic')}Field care · ${esc(firstName(md))}</button>`);
+  if (free && (ok || u.downed) && worstNeed(u)) for (const k of kits) care.push(`<button class="btn" type="button" data-act="treat" data-h="${k.id}" data-t="${u.id}">${ico('medic')}Medkit · ${esc(firstName(k))}</button>`);
+  if (free && ok && u.util === 'DRONE' && !b.drone.used) care.push(`<button class="btn" type="button" data-act="drone" data-id="${u.id}">Launch drone</button>`);
+  return `<div class="opcard ${on ? 'on' : ''} ${lead ? 'lead' : ''} ${ok ? '' : u.dead ? 'gone' : 'out'}">
+    <button class="optoggle" type="button" data-act="op" data-id="${u.id}" ${ok && opt && free ? '' : 'disabled'} aria-pressed="${on}">
+      <span class="oprow"><b>${esc(u.name)}</b>${role}</span>
+      <span class="oprow">${classChip(u.cls)}${u.util ? `<span class="muted util">${ITEMS[u.util].label}</span>` : ''}${b.carrier === u.id ? '<span class="chip gold">Intel</span>' : ''}</span>
+      ${dice}${injHtml(u)}
+    </button>${care.length ? `<div class="care">${care.join('')}</div>` : ''}</div>`;
+}
+function trayHtml(st, sit) {
+  const b = B(), p = sit ? previewOf(plan.opt) : null, opt = p?.opt;
+  const cards = team().map((u) => opCardHtml(u, p, opt)).join('');
+  if (!sit) return `<div class="card tray"><div class="tray-head"><h3>Team</h3><small>Choose where to go first.</small></div><div class="opcards">${cards}</div></div>`;
+  const gear = plan.ids.map(unitById).filter((u) => gearUsable(u, opt)).map((u) => `<button class="btn ${plan.gear.includes(u.id) ? 'on' : ''}" type="button" data-act="gear" data-id="${u.id}" aria-pressed="${plan.gear.includes(u.id)}">${ITEMS[u.util].label} · ${esc(firstName(u))} (+${GEAR_USE[u.util].dice}${GEAR_USE[u.util].alert ? ', loud' : ''})</button>`);
+  if (canStrike(opt)) gear.push(`<button class="btn ${plan.strike ? 'on' : ''}" type="button" data-act="strike" aria-pressed="${plan.strike}">Drone strike (+2)</button>`);
+  const cost = 1 + (opt.time || 0);
+  return `<div class="card tray">
+    <div class="tray-head"><h3>Team for ${esc(opt.label.toLowerCase())}</h3><small>Tap to add · tap again to lead · tap the lead to stand down</small></div>
+    <div class="opcards">${cards}</div>
+    ${gear.length ? `<div class="gearrow"><h3 style="margin:0 6px 0 0">Gear</h3>${gear.join('')}</div>` : ''}
+    ${ui.details ? `<div class="details">
       <div><span class="big">${p.pool.value}</span> dice<ul>${p.pool.parts.map((x) => `<li>${esc(x.label)} ${signed(x.v)}</li>`).join('') || '<li>Nobody committed</li>'}</ul></div>
       <div><span class="big">${p.diff.value}</span> difficulty<ul>${p.diff.mods.map((x) => `<li>${esc(x.label)} ${x.label === 'Base' ? x.v : signed(x.v)}</li>`).join('')}</ul></div>
-      <div class="oddsbar" aria-hidden="true"><i class="s" style="width:${pct(p.odds.s)}%"></i><i class="p" style="width:${pct(p.odds.p)}%"></i><i class="f" style="width:${pct(p.odds.f)}%"></i></div>
-      <div class="oddstext"><span class="s">Success ${pct(p.odds.s)}%</span><span class="p">At a cost ${pct(p.odds.p)}%</span><span class="f">Fail ${pct(p.odds.f)}%</span><span class="muted">before pushing</span></div>
-      <div class="risk">${riskLines(p, sit)}</div></div>
-    <div class="actions-row">
-      <button class="btn danger ${plan.abortArmed ? 'armed' : ''}" type="button" data-act="abort">${plan.abortArmed ? 'Tap again to abort' : 'Abort mission'}</button>
-      ${st.kind === 'OPTIONAL' ? '<button class="btn" type="button" data-act="skip">Skip this target</button>' : ''}<span class="grow"></span>
-      <button class="btn primary big" type="button" data-act="exec" ${p.pool.value && p.lead != null && cost <= b.time ? '' : 'disabled'}>Execute · ${cost} time</button></div>`;
-}
-function rollHtml(st, sit) {
-  const b = B(), r = b.roll, opt = sit.opts[r.opt], out = outcomeOf(r), s = successes(r);
-  const word = { SUCCESS: 'Success', PARTIAL: 'Success at a cost', FAIL: 'Failure' }[out];
-  const lead = unitById(r.lead), victim = active(lead) ? lead : r.ids.map(unitById).find(active);
-  const costDesc = (k, c) => (k === 'WOUND' ? hitPreview(victim) : c.desc);
-  return `<div class="eyebrow">Stage ${b.stage + 1} · ${KIND[st.kind]} · ${esc(sit.label)}</div><h2>${esc(opt.label)}</h2>
-    <div class="dice">${r.dice.map((d, i) => `<span class="die ${d >= HIT ? 'hit' : ''} ${r.rerolled.includes(i) ? 're' : ''}" style="animation-delay:${i * 60}ms">${d}</span>`).join('')}</div>
-    <div class="outcome ${out}">${word}</div><p>${s} success${s === 1 ? '' : 'es'} against difficulty ${r.diff}.${r.pushed ? ' Pushed.' : ''}</p>
-    ${out === 'PARTIAL' ? `<div class="section-label">Choose the cost</div><div class="costs">${Object.entries(COSTS).map(([k, c]) => `<button class="btn" type="button" data-act="cost" data-c="${k}"><b>${c.label}</b><small>${esc(costDesc(k, c))}</small></button>`).join('')}</div>` : ''}
-    <div class="actions-row">${out !== 'SUCCESS' && !r.pushed ? `<button class="btn" type="button" data-act="push">Push: re-roll ${r.dice.length - s} misses (+1 alert)</button>` : ''}<span class="grow"></span>
-      ${out === 'PARTIAL' ? '' : `<button class="btn primary big" type="button" data-act="accept">${out === 'SUCCESS' ? 'Continue' : 'Accept failure'}</button>`}</div>`;
-}
-function squadHtml() {
-  const b = B(), medics = team().filter((u) => u.cls === 'MEDIC' && active(u) && !b.revived.includes(u.id)), kits = team().filter((u) => active(u) && u.util === 'MEDKIT');
-  const free = b.state === 'PLAN' && !b.over;
-  const rows = team().map((u) => {
-    const gone = u.dead;
-    const status = gone ? '<span class="chip bad">KIA</span>' : '';
-    const care = [], first = (x) => esc(x.name.split(' ')[0]);
-    if (free && (active(u) || u.downed) && fieldCareNeed(u)) for (const md of medics) care.push(`<button class="btn" type="button" data-act="care" data-m="${md.id}" data-t="${u.id}">Field care (${first(md)})</button>`);
-    if (free && (active(u) || u.downed) && worstNeed(u)) for (const k of kits) care.push(`<button class="btn" type="button" data-act="treat" data-h="${k.id}" data-t="${u.id}">Medkit (${first(k)})</button>`);
-    if (free && active(u) && u.util === 'DRONE' && !b.drone.used) care.push(`<button class="btn" type="button" data-act="drone" data-id="${u.id}">Launch drone</button>`);
-    const inj = [];
-    if (u.downed) inj.push(`<li class="crit"><b>Unconscious</b><span>Out of action · dies in ${u.bleed} stage${u.bleed > 1 ? 's' : ''} unless treated</span></li>`);
-    if (!gone) for (const w of u.inj) inj.push(`<li class="${INJURIES[w.id].tier === 3 && !w.t ? 'crit' : ''}"><b>${esc(injName(w))}</b><span>${esc(injEffect(w))}</span></li>`);
-    return `<div class="unit ${u.downed ? 'down' : ''} ${gone ? 'gone' : ''}"><div class="head"><span class="name">${esc(u.name)}</span>${classChip(u.cls)}${status}${b.carrier === u.id ? '<span class="chip gold">Intel</span>' : ''}</div>
-      ${gone ? '' : inj.length ? `<ul class="injuries">${inj.join('')}</ul>` : '<div class="unhurt">Unhurt</div>'}
-      <div class="skills">${skillLine((k) => opDice(u, k))}${u.util ? `<span>· ${ITEMS[u.util].label}</span>` : ''}</div>
-      ${care.length ? `<div class="care">${care.join('')}</div>` : ''}</div>`;
-  }).join('');
-  return `<div class="card"><h3>Team</h3>${rows}</div>`;
+      <div class="risk">${riskLines(p, sit)}</div></div>` : ''}
+    <div class="go">
+      <div class="go-odds"><div class="go-nums"><span class="big">${p.pool.value}</span>dice vs difficulty<span class="big">${p.diff.value}</span></div>
+        <div class="oddsbar" aria-hidden="true"><i class="s" style="width:${pct(p.odds.s)}%"></i><i class="p" style="width:${pct(p.odds.p)}%"></i><i class="f" style="width:${pct(p.odds.f)}%"></i></div>
+        <div class="oddstext"><span class="s">${ico('check')}${pct(p.odds.s)}% success</span><span class="p">${ico('warn')}${pct(p.odds.p)}% at a cost</span><span class="f">${ico('cross')}${pct(p.odds.f)}% fail</span></div></div>
+      <button class="btn ghost" type="button" data-act="details" aria-pressed="${ui.details}">${ui.details ? 'Hide details' : 'Details'}</button>
+      ${st.kind === 'OPTIONAL' ? '<button class="btn" type="button" data-act="skip">Skip target</button>' : ''}
+      <button class="btn danger ${plan.abortArmed ? 'armed' : ''}" type="button" data-act="abort">${plan.abortArmed ? 'Tap again to abort' : 'Abort'}</button>
+      <button class="btn primary big" type="button" data-act="exec" ${p.pool.value && p.lead != null && cost <= b.time ? '' : 'disabled'}>Execute · ${cost} time</button>
+    </div></div>`;
 }
 /** One line on how an operator is doing, by injury names only. */
 const conditionOf = (u) => (u.dead ? 'KIA' : u.downed ? 'Unconscious' : u.inj.length ? u.inj.map((w) => INJURIES[w.id].label).join(', ') : 'Unhurt');
-function objectivesHtml() {
+function drawerHtml() {
   const b = B(), m = G.mission, carrier = b.carrier != null ? unitById(b.carrier) : null;
   const st = (t) => ({ RETRIEVE_INTEL: carrier ? 'Carrier must get out' : 'Not secured', ELIMINATE_HVT: b.hvtKilled ? 'Confirmed dead' : 'Alive', NO_CASUALTIES: team().some((u) => u.dead) ? 'Failed' : 'So far, so good', UNDETECTED: b.alerted ? 'Failed' : 'Undetected' })[t];
-  return `<div class="card"><h3>Objectives</h3><div class="muted" style="font-size:14px"><div><b style="color:var(--gold)">Primary</b> ${OBJ[m.primary].label}: ${st(m.primary)}</div><div><b>Secondary</b> ${OBJ[m.secondary].label}: ${st(m.secondary)}</div></div></div>`;
+  return `<aside class="card drawer"><div><h3>Objectives</h3><div class="obj"><div><b>Primary</b>${OBJ[m.primary].label}: ${st(m.primary)}</div><div><b style="color:var(--muted)">Secondary</b>${OBJ[m.secondary].label}: ${st(m.secondary)}</div></div></div>
+    <div class="log"><h3>Log</h3><ol>${b.log.slice(-60).reverse().map((e) => `<li class="ev-${e.kind}">${esc(e.text)}</li>`).join('')}</ol></div></aside>`;
 }
 function renderOps() {
   const b = B(), st = cur(), sit = sitOf(st);
   syncPlan();
-  const main = st.kind === 'APPROACH' || !sit ? forkHtml(st) : b.state === 'ROLLED' ? rollHtml(st, sit) : planHtml(st, sit);
-  $('#view').innerHTML = `<section class="ops">
-    <div class="card ops-head">${meters()}${routeHtml(b.stages, b.stage)}</div>
-    <div class="ops-grid"><div class="card">${main}</div>
-      <aside class="col">${objectivesHtml()}${squadHtml()}<div class="card log"><h3>Log</h3><ol>${b.log.slice(-40).reverse().map((e) => `<li class="ev-${e.kind}">${esc(e.text)}</li>`).join('')}</ol></div></aside></div></section>`;
+  const rolled = b.state === 'ROLLED';
+  const scene = st.kind === 'APPROACH' || !sit ? resultHtml() + forkHtml(st) : rolled ? rollSceneHtml(st, sit) : planSceneHtml(st, sit);
+  $('#view').innerHTML = `<section class="ops">${statusHtml()}
+    <div class="ops-body ${ui.drawer ? 'with-drawer' : ''}"><div class="stage-col"><div class="card scene-card">${scene}</div>${rolled ? '' : trayHtml(st, sit)}</div>
+    ${ui.drawer ? drawerHtml() : ''}</div></section>`;
+  if (rolled) animateRoll();
+}
+/** Dice tumble and settle one by one, filling the success track; the outcome and its buttons appear when they stop. */
+function animateRoll() {
+  const r = B().roll, box = $('.dice[data-roll]'), after = $('.roll-after');
+  const key = box.dataset.roll;
+  if (ui.rolled === key || calm()) { ui.rolled = key; return; }
+  ui.rolled = key;
+  const dice = [...box.children], track = [...document.querySelectorAll('.track i')], count = $('.track b');
+  const moving = r.pushed ? r.rerolled : r.dice.map((_, i) => i);
+  let hits = r.dice.filter((d, i) => d >= HIT && !moving.includes(i)).length, left = moving.length;
+  const paint = () => { track.forEach((t, i) => t.classList.toggle('on', i < hits)); count.textContent = hits; };
+  const done = () => { after.classList.remove('pending'); const out = outcomeOf(r); sfx(out.toLowerCase()); if (out === 'FAIL') buzz(60); };
+  if (!left) return;
+  after.classList.add('pending');
+  for (const i of moving) { dice[i].classList.remove('hit'); dice[i].classList.add('rolling'); }
+  paint();
+  sfx('dice');
+  moving.forEach((i, k) => {
+    const el = dice[i], end = Date.now() + 420 + k * 120;
+    const spin = setInterval(() => {
+      if (Date.now() < end) { el.textContent = 1 + Math.floor(Math.random() * 6); return; } // purely visual, not the game's seeded dice
+      clearInterval(spin);
+      el.textContent = r.dice[i];
+      el.classList.remove('rolling');
+      if (r.dice[i] >= HIT) { el.classList.add('hit'); hits++; paint(); sfx('tick'); }
+      if (--left === 0) done();
+    }, 55);
+  });
 }
 // One delegated handler for every operation-screen button.
 $('#view').addEventListener('click', (e) => {
@@ -2171,28 +2425,36 @@ $('#view').addEventListener('click', (e) => {
   if (!el || G?.phase !== 'OPERATION') return;
   const a = el.dataset.act, n = (k) => +el.dataset[k];
   if (a !== 'abort') plan.abortArmed = false;
-  if (a === 'opt') { plan.opt = n('i'); plan.lead = null; return refresh(); }
-  if (a === 'lead') { plan.lead = n('id'); return refresh(); }
-  if (a === 'op') {
-    const id = n('id');
-    if (plan.ids.includes(id)) plan.ids = plan.ids.filter((x) => x !== id);
-    else if (plan.ids.length > MAX_SUPPORT) return toast(`A fireteam is a lead and ${MAX_SUPPORT} in support. Stand someone down first.`);
-    else plan.ids = [...plan.ids, id];
+  if (a === 'drawer') { ui.drawer = !ui.drawer; saveUi(); sfx('click'); return refresh(); }
+  if (a === 'details') { ui.details = !ui.details; saveUi(); sfx('click'); return refresh(); }
+  if (a === 'opt') { plan.opt = n('i'); plan.lead = null; sfx('click'); return refresh(); }
+  if (a === 'op') { // off → in (support, or lead if first) → lead → off
+    const id = n('id'), u = unitById(id), on = plan.ids.includes(id), isLead = previewOf(plan.opt).lead === id;
+    if (!on) {
+      if (plan.ids.length > MAX_SUPPORT) return toast(`A fireteam is a lead and ${MAX_SUPPORT} in support. Stand someone down first.`);
+      plan.ids = [...plan.ids, id];
+    } else if (!isLead && canLead(u)) plan.lead = id;
+    else { plan.ids = plan.ids.filter((x) => x !== id); if (plan.lead === id) plan.lead = null; }
+    sfx('click');
     return refresh();
   }
-  if (a === 'gear') { const id = n('id'); plan.gear = plan.gear.includes(id) ? plan.gear.filter((x) => x !== id) : [...plan.gear, id]; return refresh(); }
-  if (a === 'strike') { plan.strike = !plan.strike; return refresh(); }
+  if (a === 'gear') { const id = n('id'); plan.gear = plan.gear.includes(id) ? plan.gear.filter((x) => x !== id) : [...plan.gear, id]; sfx('click'); return refresh(); }
+  if (a === 'strike') { plan.strike = !plan.strike; sfx('click'); return refresh(); }
   if (a === 'abort') { if (!plan.abortArmed) { plan.abortArmed = true; return refresh(); } return run(abort); }
-  if (a === 'route') return run(() => chooseRoute(n('i')));
-  if (a === 'fork') return run(() => chooseFork(n('i')));
+  if (a === 'route') { sfx('click'); return run(() => chooseRoute(n('i'))); }
+  if (a === 'fork') { sfx('click'); return run(() => chooseFork(n('i'))); }
   if (a === 'exec') return run(() => execute({ opt: plan.opt, ids: plan.ids, lead: previewOf(plan.opt).lead, gear: plan.gear, strike: plan.strike }));
   if (a === 'push') return run(push);
-  if (a === 'accept') return run(() => resolve());
-  if (a === 'cost') return run(() => resolve(el.dataset.c));
-  if (a === 'skip') return run(skip);
-  if (a === 'care') return run(() => fieldCare(n('m'), n('t')));
-  if (a === 'treat') return run(() => treat(n('h'), n('t')));
-  if (a === 'drone') return run(() => launchDrone(n('id')));
+  if (a === 'accept' || a === 'cost') {
+    run(() => resolve(a === 'cost' ? el.dataset.c : undefined));
+    const lines = G.battle?.lastResult?.lines || [];
+    if (lines.some((l) => l.kind === 'down')) { sfx('hit'); buzz(140); } else sfx('click');
+    return;
+  }
+  if (a === 'skip') { sfx('click'); return run(skip); }
+  if (a === 'care') { sfx('select'); return run(() => fieldCare(n('m'), n('t'))); }
+  if (a === 'treat') { sfx('select'); return run(() => treat(n('h'), n('t'))); }
+  if (a === 'drone') { sfx('select'); return run(() => launchDrone(n('id'))); }
 });
 
 // ------------------------------------------------------------------ debrief
@@ -2217,6 +2479,11 @@ function renderDebrief() {
 }
 
 // ------------------------------------------------------------------ boot
+$('#btn-sound').addEventListener('click', () => {
+  ui.sound = !ui.sound; saveUi();
+  sfx('select'); buzz(30);
+  refresh();
+});
 $('#btn-new').addEventListener('click', (e) => {
   const b = e.currentTarget;
   if (b.dataset.armed) {
