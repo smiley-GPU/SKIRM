@@ -19,7 +19,7 @@
   --line-soft: #232930;
   --fg: #e8ecef;
   --muted: #9ea9b2;
-  --dim: #6f7a84;
+  --dim: #8a949e; /* 5:1 on panels: dim text stays readable */
   --accent: #5cc8e6;
   --accent-ink: #04222c;
   --accent-soft: rgba(92, 200, 230, 0.12);
@@ -70,11 +70,30 @@ button, select, input { font: inherit; }
 .phases span { color: var(--dim); padding: 4px 10px; border-radius: 99px; white-space: nowrap; }
 .phases span.done { color: var(--muted); }
 .phases span.on { color: var(--accent-ink); background: var(--accent); }
-.phases i { color: var(--line); font-style: normal; }
+.phases i { color: var(--dim); font-style: normal; }
 .stats { display: flex; gap: 16px; font: 14px var(--body); font-variant-numeric: tabular-nums; }
 .stats b { color: var(--muted); font-weight: 500; margin-right: 5px; }
 .stats span { white-space: nowrap; }
 .top-actions { display: flex; gap: 8px; }
+.stats span[title] { cursor: help; }
+.menu-wrap { position: relative; }
+.menu { position: absolute; right: 0; top: calc(100% + 8px); z-index: 20; min-width: 250px; display: grid; gap: 2px; padding: 6px; background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); }
+.menu button { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 8px 12px; background: none; border: 0; border-radius: var(--r-sm); color: var(--fg); text-align: left; cursor: pointer; }
+.menu button:hover, .menu button:focus-visible { background: var(--panel-3); }
+.menu button b { margin-left: auto; color: var(--muted); font-weight: 500; }
+.menu hr { border: 0; border-top: 1px solid var(--line-soft); margin: 4px 0; width: 100%; }
+.menu .danger { color: var(--bad); } .menu .armed { color: var(--gold); }
+/* help: how to play and a glossary, from any screen */
+dialog.help { width: min(760px, calc(100vw - 24px)); max-height: calc(100dvh - 40px); padding: 0; background: var(--panel); color: var(--fg); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow); }
+dialog.help::backdrop { background: rgba(5, 7, 9, 0.72); }
+.help-head { position: sticky; top: 0; z-index: 1; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 20px; background: var(--panel); border-bottom: 1px solid var(--line-soft); }
+.help-head h2 { margin: 0; }
+.help-body { padding: 18px 20px 24px; display: grid; gap: 22px; }
+.help-body h3 { margin-bottom: 8px; }
+.help-body ol { margin: 0; padding-left: 20px; display: grid; gap: 5px; color: var(--muted); font-size: 14.5px; }
+.help-body ol b { color: var(--fg); font-weight: 600; }
+.gloss { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 7px 16px; margin: 0; font-size: 14.5px; }
+.gloss dt { font-weight: 600; } .gloss dd { margin: 0; color: var(--muted); }
 
 main { flex: 1; min-height: 0; padding-block: 20px; padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px)); }
 
@@ -128,7 +147,6 @@ main { flex: 1; min-height: 0; padding-block: 20px; padding-left: max(20px, env(
 @keyframes reveal { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
 /* briefing */
-.briefing { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 18px; max-width: 1400px; margin: 0 auto; }
 .col { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
 .area { color: var(--muted); margin: 0 0 12px; }
 .facts { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 0 0 14px; }
@@ -150,7 +168,6 @@ main { flex: 1; min-height: 0; padding-block: 20px; padding-left: max(20px, env(
 .op > :not(.face) { grid-column: 2; }
 .face { flex: none; display: block; width: 90px; height: 90px; border-radius: 10px; object-fit: cover; background: var(--panel); border: 1px solid var(--line-soft); }
 .face.f56 { width: 56px; height: 56px; border-radius: 9px; } .face.f48 { width: 48px; height: 48px; border-radius: 8px; } .face.f40 { width: 40px; height: 40px; border-radius: 7px; }
-td.who { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .bubble { grid-template-columns: auto 1fr; column-gap: 10px; } .bubble .face { grid-row: 1 / span 2; border-color: var(--c); } .bubble b, .bubble span { grid-column: 2; }
 @media (max-width: 700px) { .op { grid-template-columns: 64px minmax(0, 1fr); column-gap: 10px; } .face.f90 { width: 64px; height: 64px; } }
 .op.on { border-color: #2f6170; } .op.off { opacity: 0.55; }
@@ -180,11 +197,8 @@ td.who { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .veh-head { display: flex; justify-content: space-between; gap: 6px; }
 .veh .cost { font: 12px var(--mono); color: var(--gold); }
 .veh small { font-size: 13px; }
-.launch { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .budget { display: flex; gap: 18px; font: 14px var(--mono); font-variant-numeric: tabular-nums; flex-wrap: wrap; }
 .budget .bad { color: var(--bad); }
-.howto ol { margin: 0; padding-left: 18px; display: grid; gap: 4px; color: var(--muted); font-size: 14px; }
-.howto b { color: var(--fg); font-weight: 600; }
 .healing { margin: 2px 0 0 28px; font-size: 12.5px; color: var(--warn); }
 .persona-line { margin: 4px 0 0 28px; font-size: 12.5px; color: var(--muted); display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 .trait { font: 700 11px/1 var(--body); text-transform: uppercase; letter-spacing: 0.05em; color: var(--gold); background: var(--warn-soft); border-radius: 6px; padding: 4px 6px; }
@@ -192,7 +206,6 @@ td.who { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
 .trait.spec { color: #cdbdf8; background: rgba(205, 189, 248, 0.12); }
 .spec-desc { color: #cdbdf8; }
-.loadout.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .bad-text { color: var(--bad); } .warn-text { color: var(--warn); }
 .locked { opacity: 0.5; }
 .veh.locked { cursor: not-allowed; }
@@ -207,8 +220,8 @@ td.who { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .offer .btn { justify-self: start; }
 .offer-head { display: flex; gap: 6px; flex-wrap: wrap; }
 .dept { display: grid; gap: 14px; }
-.tabs { display: flex; flex-wrap: wrap; gap: 6px; }
-.tab { display: inline-flex; align-items: baseline; gap: 6px; background: var(--panel-2); color: var(--muted); border: 1px solid var(--line-soft); border-radius: 99px; padding: 7px 13px; cursor: pointer; font-weight: 600; font-size: 14px; }
+.tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.tab { display: inline-flex; align-items: baseline; justify-content: center; gap: 6px; background: var(--panel-2); color: var(--muted); border: 1px solid var(--line-soft); border-radius: var(--r-sm); padding: 9px 8px; white-space: nowrap; cursor: pointer; font-weight: 600; font-size: 14px; }
 .tab small { color: var(--dim); font-weight: 500; }
 .tab.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 .tab.on small { color: var(--accent-ink); }
@@ -280,7 +293,7 @@ td.who { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .tile { position: relative; display: grid; gap: 8px; align-content: start; text-align: left; background: var(--panel-2); border: 1px solid var(--line-soft); color: var(--fg); border-radius: var(--r); padding: 16px; cursor: pointer; touch-action: manipulation; transition: border-color 0.15s, background 0.15s, transform 0.12s; }
 .tile:hover:not(:disabled) { border-color: #3d4752; transform: translateY(-1px); }
 .tile.on { border-color: var(--accent); background: linear-gradient(180deg, rgba(92, 200, 230, 0.1), rgba(92, 200, 230, 0.03)); box-shadow: inset 0 0 0 1px var(--accent); }
-.tile:disabled { opacity: 0.45; cursor: not-allowed; }
+.tile:disabled { opacity: 0.6; cursor: not-allowed; }
 .tile .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .tile b { font-size: 17px; }
 .tile small { font-size: 14px; }
@@ -299,7 +312,9 @@ td.who { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .roll-sub { color: var(--muted); margin: 0 0 16px; }
 .dice { display: flex; flex-wrap: wrap; gap: 10px; margin: 6px 0 18px; }
 .die { width: 52px; height: 52px; display: grid; place-items: center; border-radius: 12px; background: var(--panel-2); border: 1px solid var(--line); font: 700 24px var(--mono); color: var(--muted); transition: background 0.2s, border-color 0.2s, color 0.2s; }
+.die { position: relative; }
 .die.hit { background: var(--ok-soft); border-color: var(--ok); color: var(--ok); }
+.die.hit::after { content: "\2713"; position: absolute; top: 2px; right: 5px; font: 700 11px/1 var(--body); } /* a hit is marked, not only coloured */
 .die.re { box-shadow: 0 0 0 2px var(--warn); }
 .die.rolling { color: var(--fg); animation: tumble 0.18s linear infinite; }
 @keyframes tumble { 0% { transform: rotate(0deg) scale(1); } 50% { transform: rotate(12deg) scale(0.94); } 100% { transform: rotate(0deg) scale(1); } }
@@ -372,7 +387,7 @@ td.who { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .log { display: grid; grid-template-rows: auto minmax(0, 1fr); min-height: 0; }
 .log ol { list-style: none; margin: 0; padding: 0; font-size: 14px; overflow-y: auto; min-height: 0; }
 .log li { padding: 5px 0; border-bottom: 1px solid var(--line-soft); color: #bcc5cb; }
-.log .ev-turn { color: var(--accent); font-weight: 600; padding-top: 10px; }
+.log .ev-turn { color: var(--fg); font-weight: 600; padding-top: 12px; border-bottom-color: var(--line); }
 .log .ev-say-good, .log .ev-say-bad, .log .ev-say-neutral { font-style: italic; } .log .ev-say-good { color: var(--ok); } .log .ev-say-bad { color: var(--bad); } .log .ev-say-neutral { color: var(--gold); }
 .log .ev-alert, .log .ev-down { color: #ffbdb6; } .log .ev-kill { color: var(--bad); } .log .ev-intel { color: var(--gold); } .log .ev-good { color: var(--ok); }
 
@@ -388,7 +403,6 @@ td.who { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .line.on { border-color: var(--gold); background: #2a2516; box-shadow: inset 0 0 0 1px var(--gold); }
 .line.faded { opacity: 0.4; }
 .line:disabled { cursor: default; }
-.line .who { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .line .persona { font-size: 13px; color: var(--muted); }
 .line q, .words q { font-size: 16.5px; line-height: 1.5; quotes: '\201C' '\201D'; }
 .line .hint { justify-self: start; font: 700 11px/1 var(--body); text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); background: var(--panel-3); border-radius: 6px; padding: 5px 7px; }
@@ -417,26 +431,90 @@ td.who { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .personnel tr.lost td { color: var(--bad); }
 .split { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; }
 .split ul { margin: 0; padding-left: 18px; }
-.debrief > .btn { justify-self: end; }
 .words { display: grid; gap: 12px; }
 .words div { display: grid; gap: 3px; }
 .words small { color: var(--gold); }
 
+/* base offers */
+.offer .chip:not(.warn):not(.bad) { background: var(--panel-3); color: var(--fg); }
+.offer .objectives { gap: 4px; }
+.offer .objectives li { background: none; padding: 0; display: flex; align-items: center; }
+.offer .objectives .tag { min-width: 86px; text-align: center; }
+
+/* briefing: three steps (intel, team and gear, transport) with a pinned bar */
+.brief { max-width: 1400px; margin: 0 auto; display: grid; gap: 18px; }
+.brief-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 14px 24px; flex-wrap: wrap; }
+.brief-head .area { margin: 0; }
+.steps { list-style: none; margin: 0; padding: 0; display: flex; gap: 6px; flex-wrap: wrap; }
+.steps button { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 6px 14px 6px 6px; background: var(--panel-2); border: 1px solid var(--line-soft); border-radius: 99px; color: var(--muted); font-weight: 600; font-size: 14px; cursor: pointer; white-space: nowrap; }
+.steps button i { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--panel-3); color: var(--fg); font: 700 13px/1 var(--body); }
+.steps button.done i { background: var(--ok-soft); color: var(--ok); }
+.steps button[aria-current] { color: var(--fg); border-color: var(--accent); background: var(--accent-soft); }
+.steps button[aria-current] i { background: var(--accent); color: var(--accent-ink); }
+.brief-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+.roster.wide { grid-template-columns: repeat(auto-fill, minmax(min(100%, 560px), 1fr)); }
+.brief-bar { position: sticky; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); z-index: 3; display: flex; align-items: center; gap: 10px 18px; flex-wrap: wrap; background: var(--panel-3); border: 1px solid #353e49; border-radius: var(--r); padding: 12px 14px; box-shadow: var(--shadow); }
+.brief-bar .budget { flex: 1; }
+.why { font-size: 13.5px; color: var(--warn); }
+.brief-bar .why, .go .why { flex-basis: 100%; order: 3; }
+.go .why { text-align: right; }
+.team-sum { display: flex; flex-wrap: wrap; gap: 8px; }
+.team-sum > span { display: flex; align-items: center; gap: 8px; background: var(--panel-2); border-radius: var(--r-sm); padding: 6px 12px 6px 6px; font-size: 14px; }
+.intel-row .btn { white-space: nowrap; flex: none; }
+.loadout.four { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 10px; }
+.slot { display: grid; gap: 3px; min-width: 0; font: 600 11.5px/1.2 var(--body); text-transform: uppercase; letter-spacing: 0.06em; color: var(--dim); }
+.slot select { font: 14px/1.3 var(--body); text-transform: none; letter-spacing: normal; }
+
+/* one operator identity on every screen: face, rank and name, then class and specialty */
+.idn { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 10px; align-items: center; text-align: left; }
+.idn > .face { grid-row: span 2; }
+.idn-name { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.idn-chips { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 4px; }
+
+/* operation */
+.go-btns { flex: 1 1 380px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.go-btns .danger { margin-right: auto; }
+.route.fade-r { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 40px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 40px), transparent); }
+.route.fade-l { -webkit-mask-image: linear-gradient(90deg, transparent, #000 40px); mask-image: linear-gradient(90deg, transparent, #000 40px); }
+.route.fade-l.fade-r { -webkit-mask-image: linear-gradient(90deg, transparent, #000 40px, #000 calc(100% - 40px), transparent); mask-image: linear-gradient(90deg, transparent, #000 40px, #000 calc(100% - 40px), transparent); }
+.strip { display: flex; flex-wrap: wrap; gap: 8px; }
+.strip > span { display: flex; align-items: center; gap: 10px; background: var(--panel-2); border: 1px solid var(--line-soft); border-radius: var(--r-sm); padding: 6px 12px 6px 6px; font-size: 14px; }
+.strip > span.lead { border-color: var(--gold); }
+.strip small { display: block; font-size: 12.5px; }
+.strip .inj-t { color: #ffbdb6; }
+.bubble b { display: flex; align-items: center; gap: 5px; }
+
+@media (pointer: coarse) {
+  .btn, .tab, .loadout select { min-height: 44px; }
+  .op-head input { width: 22px; height: 22px; }
+}
 @media (max-width: 1180px) {
   .ops-body.with-drawer { grid-template-columns: minmax(0, 1fr); }
   .drawer { position: static; max-height: none; }
   .log ol { max-height: 320px; }
 }
 @media (max-width: 980px) {
-  .briefing, .base { grid-template-columns: 1fr; }
+  .base, .brief-grid { grid-template-columns: 1fr; }
   .vehicles { grid-template-columns: 1fr; }
   .phases { display: none; }
-  .launch { flex-direction: column; align-items: stretch; }
+  .top { flex-wrap: nowrap; }
+  .stats { margin-left: auto; min-width: 0; }
 }
 @media (max-width: 560px) {
   main { padding-left: max(12px, env(safe-area-inset-left, 0px)); padding-right: max(12px, env(safe-area-inset-right, 0px)); padding-block: 12px; }
   .top { padding-left: max(12px, env(safe-area-inset-left, 0px)); padding-right: max(12px, env(safe-area-inset-right, 0px)); gap: 8px 12px; }
   .stats { gap: 10px; font-size: 13px; }
+  .brand { font-size: 18px; letter-spacing: 0.16em; }
+  .brand span { display: none; }
+  .steps { width: 100%; }
+  .steps button { flex: 1; justify-content: center; padding-right: 10px; font-size: 13px; }
+  .op > .loadout, .op > .loadout-hint { grid-column: 1 / -1; margin-left: 0; } /* the full card width, so item names fit */
+  .brief-bar { gap: 8px; padding: 10px 12px; }
+  .brief-bar .budget { flex-basis: 100%; gap: 12px; font-size: 13px; }
+  .brief-bar .actions-row { flex: 1; flex-wrap: nowrap; }
+  .brief-bar .actions-row .btn { flex: 1; }
+  .tile.opt { padding: 12px 14px; gap: 6px; }
+  .tile.opt:not(.on) > small { display: none; } /* only the chosen approach shows its description: shorter scroll to the team */
   .card { padding: 14px; border-radius: var(--r); }
   .scene-card, .transit-card { padding: 16px; }
   .loadout, .loadout.four { grid-template-columns: 1fr 1fr; }
@@ -464,12 +542,20 @@ td.who { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     <nav class="phases" id="phases" aria-label="Mission phase"></nav>
     <div class="stats" id="stats"></div>
     <div class="top-actions">
-      <button id="btn-sound" class="btn ghost icon" type="button" aria-label="Sound and vibration"></button>
-      <button id="btn-new" class="btn ghost" type="button">New campaign</button>
+      <button id="btn-help" class="btn ghost icon" type="button" aria-label="How to play" title="How to play" aria-haspopup="dialog"></button>
+      <div class="menu-wrap">
+        <button id="btn-menu" class="btn ghost icon" type="button" aria-label="Menu" title="Menu" aria-haspopup="menu" aria-expanded="false" aria-controls="menu"></button>
+        <div class="menu" id="menu" role="menu" hidden>
+          <button id="btn-sound" type="button" role="menuitemcheckbox"></button>
+          <hr>
+          <button id="btn-new" class="danger" type="button" role="menuitem">New campaign</button>
+        </div>
+      </div>
     </div>
   </header>
   <main id="view"><p class="muted">Loading command terminal…</p></main>
 </div>
+<dialog class="help" id="help" aria-labelledby="help-title"></dialog>
 <div id="toast" role="status" hidden></div>
 <div id="bubbles" aria-live="polite"></div>
 
@@ -1510,6 +1596,14 @@ function beginBase(tick = true) {
     const loc = pick(Object.keys(LOCATIONS).filter((k) => !used.has(k)));
     used.add(loc);
     return genMission(n, loc, back?.at === i ? back.o : null);
+  });
+  // No two offers share a word in their names; fixed up in order, without drawing from the RNG.
+  bs.offers.forEach((m, i) => {
+    const taken = bs.offers.slice(0, i).flatMap((o) => o.codename.split(' ').slice(1));
+    let [, a, w] = m.codename.split(' ');
+    while (taken.includes(a)) a = ADJ[(ADJ.indexOf(a) + 1) % ADJ.length];
+    while (taken.includes(w)) w = NOUN[(NOUN.indexOf(w) + 1) % NOUN.length];
+    m.codename = `Operation ${a} ${w}`;
   });
   G.mission = null;
   G.battle = null;
@@ -2562,7 +2656,7 @@ function debrief(m) {
     if (u.droneLost) lost.push('Recon Drone (shot down)');
     s.xp += xp; s.kills += u.kills; s.missions++;
     const after = rankIdx(s.xp);
-    soldiers.push({ name: u.name, face: s.face, cls: s.cls, status, injuries, kills: u.kills, xp, rank: RANKS[after][1], promoted: s.alive && after !== before ? RANKS[after][1] : null });
+    soldiers.push({ name: u.name, face: s.face, cls: s.cls, spec: s.spec, status, injuries, kills: u.kills, xp, rank: RANKS[after][1], promoted: s.alive && after !== before ? RANKS[after][1] : null });
   }
   if (anyOut) {
     for (let i = 0; i < b.kills; i++) if (chance(25)) { const it = pick(FACTIONS[m.faction].loot); G.armory[it] = (G.armory[it] || 0) + 1; gained.push(`${ITEMS[it].label} (captured from ${FACTIONS[m.faction].label.toLowerCase()})`); }
@@ -2661,6 +2755,10 @@ const ICONS = {
   sound: '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/>',
   mute: '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 9l5 6M21 9l-5 6"/>',
   cloud: '<path d="M7 18a4 4 0 0 1-.6-8A6 6 0 0 1 18 9a4.5 4.5 0 0 1-.5 9z"/>',
+  help: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17.5h.01"/>',
+  more: '<path d="M5 12h.01M12 12h.01M19 12h.01" stroke-width="3"/>',
+  next: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+  back: '<path d="M19 12H5M11 6l-6 6 6 6"/>',
 };
 const ico = (n) => `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[n] || ''}</svg>`;
 const calm = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -2714,7 +2812,7 @@ const SAVE_KEY = 'skirm-ops-v2'; // G.v 2 = injuries, 3 = interludes (v2 saves m
 function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(G)); } catch (e) { /* storage unavailable: play continues unsaved */ } }
 
 let mounted = null;
-const draft = { mission: null, team: [], loadouts: {}, insertion: 'FOOT', extraction: 'FOOT' };
+const draft = { mission: null, team: [], loadouts: {}, insertion: 'FOOT', extraction: 'FOOT', step: 0 };
 const plan = { key: null, opt: 0, ids: [], lead: null, gear: [], strike: false, abortArmed: false };
 
 function run(fn) {
@@ -2735,13 +2833,12 @@ function refresh() {
     if (!first && interlude()) sfx('radio');
     if (!first && G.phase === 'DEBRIEF') sfx(G.debrief?.success ? 'success' : 'fail');
   }
-  $('#btn-sound').innerHTML = ico(ui.sound ? 'sound' : 'mute');
-  $('#btn-sound').setAttribute('aria-pressed', ui.sound);
-  $('#btn-sound').title = ui.sound ? 'Sound and vibration on' : 'Sound and vibration off';
+  $('#btn-sound').innerHTML = `${ico(ui.sound ? 'sound' : 'mute')}Sound and vibration<b>${ui.sound ? 'On' : 'Off'}</b>`;
+  $('#btn-sound').setAttribute('aria-checked', ui.sound);
   const shown = { INTERLUDE_IN: 'INSERTION', INTERLUDE_OUT: 'EXTRACTION' }[G.phase] || G.phase;
   const idx = PHASES.findIndex(([p]) => p === shown);
-  $('#phases').innerHTML = PHASES.map(([p, l], i) => `<span class="${i === idx ? 'on' : i < idx ? 'done' : ''}">${l}</span>`).join('<i>›</i>');
-  $('#stats').innerHTML = `<span><b>Mission</b>${G.flown + 1}</span><span><b>RP</b>${G.rp}</span><span><b>BP</b>${G.bp}</span><span><b>Operators</b>${G.roster.filter((s) => s.alive).length}</span>`;
+  $('#phases').innerHTML = PHASES.map(([p, l], i) => `<span class="${i === idx ? 'on' : i < idx ? 'done' : ''}" ${i === idx ? 'aria-current="step"' : ''}>${l}</span>`).join('<i aria-hidden="true">›</i>');
+  $('#stats').innerHTML = `<span><b>Mission</b>${G.flown + 1}</span><span title="${GLOSSARY.RP}"><b>RP</b>${G.rp}</span><span title="${GLOSSARY.BP}"><b>BP</b>${G.bp}</span>`;
   if (G.phase === 'BASE') renderBase();
   else if (G.phase === 'BRIEFING') renderBriefing();
   else if (interlude()) renderTransit();
@@ -2763,7 +2860,7 @@ function showBubbles() {
 function bubble(e) {
   const box = $('#bubbles'), el = document.createElement('div');
   el.className = `bubble ${e.mood}`;
-  el.innerHTML = `${e.face ? faceImg(e, 'f40') : ''}<b>${esc(e.who)}</b><span>${esc(e.line)}</span>`;
+  el.innerHTML = `${e.face ? faceImg(e, 'f40') : ''}<b>${ico({ good: 'check', bad: 'warn', neutral: 'radio' }[e.mood])}${esc(e.who)}</b><span>${esc(e.line)}</span>`; // the icon carries the mood, not only the colour
   el.addEventListener('click', () => el.remove());
   box.append(el);
   while (box.children.length > 3) box.firstChild.remove();
@@ -2914,7 +3011,7 @@ function syncDraft() {
   const key = G.mission.n + ':' + G.flown + ':' + G.mission.codename;
   if (draft.mission === key) return;
   draft.mission = key;
-  Object.assign(draft, { team: [], loadouts: {}, insertion: 'FOOT', extraction: 'FOOT' });
+  Object.assign(draft, { team: [], loadouts: {}, insertion: 'FOOT', extraction: 'FOOT', step: 0 });
   const fresh = G.roster.filter(available).sort((a, c) => soldierFat(a) - soldierFat(c)); // rested operators first
   for (const s of fresh) {
     if (draft.team.length >= MAX_TEAM) break;
@@ -2923,39 +3020,44 @@ function syncDraft() {
     draft.loadouts[s.id] = l;
   }
 }
+const BRIEF_STEPS = ['Intel', 'Team & gear', 'Transport'];
+const SLOT_LABEL = { WEAPON: 'Weapon', ARMOR: 'Armour', KIT: 'Kit', UTILITY: 'Utility' };
+/** The briefing in three steps (intel, team and gear, transport) under a pinned bar with the budget and the way on. */
 function renderBriefing() {
   syncDraft();
-  const m = G.mission, left = remaining();
+  const m = G.mission, left = remaining(), step = draft.step;
   for (const f of ['insertion', 'extraction']) if (vehBlock(m, draft[f], f === 'insertion' ? 'ins' : 'ext')) draft[f] = 'FOOT';
   const cost = VEH[draft.insertion].cost + VEH[draft.extraction].cost;
   const okBudget = cost <= G.rp, okKit = draft.team.length > 0 && Object.values(left).every((n) => n >= 0);
+  const why = !draft.team.length ? 'Pick at least one operator in Team & gear.' : !okKit ? 'The armory is short of gear for these loadouts.'
+    : !okBudget ? `Transport costs ${cost} RP and you have ${G.rp}. Pick a cheaper ride.` : '';
   const intelRows = Object.entries(INTEL).map(([id, i]) => {
     const own = m.intel.includes(id), lock = G.base.lv.INTEL < i.lv, c = intelCost(id, draft.team);
     return `<div class="intel-row ${lock ? 'locked' : ''}"><div><b>${i.label}</b><small>${i.desc}</small></div>${own ? '<span class="chip ok">Acquired</span>' : lock ? `<span class="chip">Intelligence L${i.lv}</span>`
       : `<button class="btn" type="button" data-intel="${id}" ${G.rp < c ? 'disabled' : ''}>Buy · ${c ? c + ' RP' : 'free'}</button>`}</div>`;
   }).join('');
   const humint = m.intel.includes('HUMINT') || m.intel.includes('SIGINT') ? `<div class="humint"><div>${m.rAt ? `Expect ${m.rCount === 1 ? 'one vehicle' : 'two vehicles'} of reinforcements after your ${m.rAt}${['th', 'st', 'nd', 'rd'][m.rAt] || 'th'} action.` : 'No reinforcements expected.'}</div></div>` : '';
-  const select = (sid, slot, cur, none) => {
+  const select = (sid, slot, cur) => {
     const allowed = slot === 'KIT' ? KITS : CLASSES[classOf(sid)][{ WEAPON: 'weapons', ARMOR: 'armor', UTILITY: 'utility' }[slot]];
     const opts = allowed.map((k) => {
       const n = (left[k] || 0) + (cur === k ? 1 : 0);
       if (n <= 0 && cur !== k) return '';
       return `<option value="${k}" ${cur === k ? 'selected' : ''}>${ITEMS[k].label} (${n})</option>`;
     }).join('');
-    return `<select id="lo-${sid}-${slot}" data-sid="${sid}" data-slot="${slot}" aria-label="${slot.toLowerCase()}">${none ? `<option value="">${slot === 'WEAPON' ? 'Handgun only' : `No ${slot.toLowerCase()}`}</option>` : ''}${opts}</select>`;
+    return `<label class="slot"><span>${SLOT_LABEL[slot]}</span><select id="lo-${sid}-${slot}" data-sid="${sid}" data-slot="${slot}"><option value="">${slot === 'WEAPON' ? 'Handgun only' : `No ${SLOT_LABEL[slot].toLowerCase()}`}</option>${opts}</select></label>`;
   };
   const roster = G.roster.filter((s) => s.alive).map((s) => {
     const on = draft.team.includes(s.id), l = draft.loadouts[s.id], nx = nextXp(s.xp), pct = nx > 0 ? Math.min(100, Math.round((s.xp / nx) * 100)) : 100, ok = available(s);
     return `<div class="op ${on ? 'on' : ''} ${ok ? '' : 'off'}">${faceImg(s, 'f90')}
       <label class="op-head"><input type="checkbox" id="pick-${s.id}" data-pick="${s.id}" ${on ? 'checked' : ''} ${ok ? '' : 'disabled'}>
-        <span class="rank">${RANKS[rankIdx(s.xp)][0]}</span><span class="name">${esc(s.name)}</span>${classChip(s.cls)}${fatChip(soldierFat(s))}
+        <span class="rank">${RANKS[rankIdx(s.xp)][0]}</span><span class="name">${esc(s.name)}</span>${fatChip(soldierFat(s))}
         <span class="meta">${s.missions} ops · ${s.kills} kills</span>${ok ? '' : `<span class="chip warn">Recovering · ${s.recovery} mission${s.recovery > 1 ? 's' : ''}</span>`}</label>
       ${!ok && s.healing?.length ? `<div class="healing">${s.healing.map(esc).join(', ')}</div>` : ''}
-      <div class="persona-line">${specChip(s)}<span>${PERSONAS[s.persona].label}</span>${traitChips(s)}</div>
+      <div class="persona-line">${classChip(s.cls)}${specChip(s)}<span>${PERSONAS[s.persona].label}</span>${traitChips(s)}</div>
       <div class="skillline">${skillLine((k) => diceFor(s.cls, s.xp, on ? [l.weapon, l.armor, l.kit] : [], k))}<span class="muted">dice</span></div>
       <div class="ability">${CLASSES[s.cls].ability} <span class="spec-desc">${SPECS[s.spec].desc}</span></div>
       <div class="xp"><i style="width:${pct}%"></i><small>${s.xp}${nx > 0 ? ' / ' + nx : ''} XP</small></div>
-      ${on ? `<div class="loadout four">${select(s.id, 'WEAPON', l.weapon, true)}${select(s.id, 'ARMOR', l.armor, true)}${select(s.id, 'KIT', l.kit, true)}${select(s.id, 'UTILITY', l.utility, true)}</div>
+      ${on ? `<div class="loadout four">${select(s.id, 'WEAPON', l.weapon)}${select(s.id, 'ARMOR', l.armor)}${select(s.id, 'KIT', l.kit)}${select(s.id, 'UTILITY', l.utility)}</div>
       <div class="loadout-hint">${[l.weapon, l.armor, l.kit, l.utility].filter(Boolean).map((x) => `${ITEMS[x].label}: ${itemSummary(x)}`).concat(l.weapon ? [] : [handgunNote(s)]).join(' · ')}</div>` : ''}</div>`;
   }).join('');
   const vehicles = (f) => Object.entries(VEH).map(([id, v]) => { const why = vehBlock(m, id, f === 'insertion' ? 'ins' : 'ext');
@@ -2963,36 +3065,40 @@ function renderBriefing() {
     const wx = vehWeather(id, m.env.forecast);
     return `<label class="veh ${draft[f] === id ? 'on' : ''} ${why ? 'locked' : ''}"><input type="radio" id="${f}-${id}" name="${f}" value="${id}" ${draft[f] === id ? 'checked' : ''} ${why ? 'disabled' : ''}>
       <span class="veh-head"><b>${v.label}</b><span class="cost">${v.cost ? v.cost + ' RP' : 'Free'}</span></span><small>${why ? `<span class="bad-text">${why}.</span> ` : ''}${typeof wx === 'number' && wx > 0 ? `<span class="warn-text">Forecast: riskier (+${wx}%).</span> ` : ''}${typeof wx === 'string' && f === 'extraction' ? `<span class="warn-text">The forecast weather would ground it: you might walk out.</span> ` : ''}${v.desc}</small></label>`; }).join('');
+  const tot = `<dt>Time on target</dt><dd>${BASE_TIME + VEH[draft.insertion].time} (base ${BASE_TIME}, +${VEH[draft.insertion].time} from insertion)</dd><dt>Reward</dt><dd>${m.reward.rp} RP · ${m.reward.bp} BP on success</dd>`;
 
-  $('#view').innerHTML = `<section class="briefing">
-    <div class="col">
-      <div class="card"><div class="eyebrow">Mission ${m.n} · Briefing · ${LOCATIONS[m.loc].label}</div><h1>${esc(m.codename)}</h1><p class="area">${esc(m.area)}</p>
+  const body = [
+    () => `<div class="brief-grid"><div class="col"><div class="card"><h3>Situation</h3>
         <dl class="facts"><dt>Weather</dt><dd>${forecastText(m)} ${envSummary({ time: m.env.time, weather: m.env.forecast })}</dd>
-          ${enemyFacts(m).map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}
-          <dt>Threat</dt><dd>${threat(m)}</dd><dt>Time on target</dt><dd>${BASE_TIME + VEH[draft.insertion].time} (base ${BASE_TIME}, +${VEH[draft.insertion].time} from insertion)</dd><dt>Reward</dt><dd>${m.reward.rp} RP · ${m.reward.bp} BP on success</dd></dl>
+          ${enemyFacts(m).map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}<dt>Threat</dt><dd>${threat(m)}</dd>${tot}</dl>
         <ul class="objectives"><li><span class="tag primary">Primary</span><b>${OBJ[m.primary].label}</b>${OBJ[m.primary].desc}</li>
-          <li><span class="tag">Secondary</span><b>${OBJ[m.secondary].label}</b>${OBJ[m.secondary].desc}</li></ul></div>
-      <div class="card"><h3>Operation plan</h3>${routeHtml(m.route, -1)}
+          <li><span class="tag">Secondary</span><b>${OBJ[m.secondary].label}</b>${OBJ[m.secondary].desc}</li></ul></div></div>
+      <div class="col"><div class="card"><h3>Operation plan</h3>${routeHtml(m.route, -1)}
         ${m.intel.some((i) => ['SATELLITE', 'HUMINT', 'UAV'].includes(i)) ? '' : '<p class="muted" style="margin:8px 0 0">Entry points are unscouted. Buy intel to see what is waiting.</p>'}</div>
-      <div class="card"><h3>Intelligence</h3>${intelRows}${humint}</div>
-      <div class="card howto"><h3>How a stage works</h3><ol>
-        <li><b>Pick an approach.</b> Each one tests a skill: Assault, Stealth, Recon or Tech. Some need a specialist to lead them.</li>
-        <li><b>Commit operators.</b> The lead rolls their dice for that skill and takes the first hit. Each supporter adds 1 die. More bodies make Stealth noisier (Scouts and infiltrators excepted), and only committed operators get shot.</li>
-        <li><b>Everyone carries a handgun.</b> A primary weapon is optional. A lead with only the handgun rolls ${HANDGUN_PENALTY} Assault die fewer, except in close quarters (inside the objective, a stairwell, a pier) or as a CQB specialist.</li>
-        <li><b>Spend gear</b> for extra dice, then roll. Every 5 or 6 is a success. Meet the difficulty to succeed. One short is a success at a cost you choose.</li>
-        <li><b>Push</b> to re-roll the misses, at +1 alert. Every action spends time. At ${ALERT_TIER} alert the enemy is awake; at ${ALERT_MAX} a QRF forces you out.</li>
-        <li><b>Fatigue</b> builds with every test, failure, long route, heat and smoke. Tired leads roll 1 die fewer, exhausted ones 2. Resting costs time.</li>
-        <li><b>Injuries</b> cost dice when the injured operator leads. A critical injury stops them leading and knocks them out in ${CRIT_STAGES} stages unless treated; the unconscious die in ${BLEED_STAGES} more.</li></ol></div>
-    </div>
-    <div class="col">
-      <div class="card"><h3>Team <span class="count">${draft.team.length}/${MAX_TEAM}</span></h3><div class="roster">${roster}</div></div>
-      <div class="card"><h3>Insertion</h3><div class="vehicles">${vehicles('insertion')}</div><h3>Extraction</h3><div class="vehicles">${vehicles('extraction')}</div></div>
-      <div class="card launch"><div class="budget"><span>Requisition <b>${G.rp}</b></span><span>Transport <b>${cost}</b></span><span class="${okBudget ? '' : 'bad'}">Remaining <b>${G.rp - cost}</b></span></div>
-        <div class="actions-row"><button class="btn ghost" type="button" id="back">Back to base</button>
-        <button class="btn primary big" type="button" id="launch" ${okBudget && okKit ? '' : 'disabled'}>Launch mission</button></div></div>
-    </div></section>`;
+        <div class="card"><h3>Intelligence</h3>${intelRows}${humint}</div></div></div>`,
+    () => `<div class="card"><h3>Team <span class="count">${draft.team.length}/${MAX_TEAM}</span></h3>
+        <p class="muted" style="margin:0 0 12px">Tick up to ${MAX_TEAM} operators and choose what they carry. Everyone has a handgun; the rest comes from the armory.</p><div class="roster wide">${roster}</div></div>`,
+    () => `<div class="brief-grid"><div class="col"><div class="card"><h3>Insertion</h3><div class="vehicles">${vehicles('insertion')}</div></div>
+        <div class="card"><h3>Extraction</h3><div class="vehicles">${vehicles('extraction')}</div></div></div>
+      <div class="col"><div class="card"><h3>Going in</h3>
+        ${draft.team.length ? `<div class="team-sum">${draft.team.map((id) => soldier(id)).map((s) => `<span>${faceImg(s, 'f40')}<span><b>${esc(s.name)}</b><br>${classChip(s.cls)}</span></span>`).join('')}</div>` : '<p class="muted">Nobody yet.</p>'}
+        <dl class="facts" style="margin:14px 0 0"><dt>Weather</dt><dd>${forecastText(m)}</dd>${tot}</dl></div></div></div>`,
+  ][step]();
+
+  $('#view').innerHTML = `<section class="brief">
+    <div class="card brief-head"><div><div class="eyebrow">Mission ${m.n} · Briefing · ${LOCATIONS[m.loc].label}</div><h1>${esc(m.codename)}</h1><p class="area">${esc(m.area)}</p></div>
+      <ol class="steps" aria-label="Briefing steps">${BRIEF_STEPS.map((l, i) => `<li><button type="button" data-step="${i}" class="${i < step ? 'done' : ''}" ${i === step ? 'aria-current="step"' : ''}><i>${i < step ? '✓' : i + 1}</i>${l}</button></li>`).join('')}</ol></div>
+    ${body}
+    <div class="brief-bar"><div class="budget"><span>Team <b>${draft.team.length}/${MAX_TEAM}</b></span><span>Transport <b>${cost} RP</b></span><span class="${okBudget ? '' : 'bad'}">RP left <b>${G.rp - cost}</b></span></div>
+      <div class="actions-row">${step ? `<button class="btn ghost" type="button" data-step="${step - 1}">${ico('back')}${BRIEF_STEPS[step - 1]}</button>` : '<button class="btn ghost" type="button" id="back">Back to base</button>'}
+        ${step < BRIEF_STEPS.length - 1 ? `<button class="btn primary big" type="button" data-step="${step + 1}">${BRIEF_STEPS[step + 1]}${ico('next')}</button>`
+          : `<button class="btn primary big" type="button" id="launch" ${why ? 'disabled' : ''}>Launch mission</button>`}</div>
+      ${why ? `<span class="why" role="status">${ico('warn')} ${why}</span>` : ''}</div>
+  </section>`;
+  fadeRoutes();
 
   const v = $('#view');
+  v.querySelectorAll('[data-step]').forEach((b) => b.addEventListener('click', () => { draft.step = +b.dataset.step; sfx('click'); renderBriefing(); window.scrollTo(0, 0); }));
   v.querySelectorAll('[data-intel]').forEach((b) => b.addEventListener('click', () => { sfx('select'); run(() => buyIntel(b.dataset.intel, draft.team)); }));
   v.querySelectorAll('[data-pick]').forEach((cb) => cb.addEventListener('change', () => {
     const id = +cb.dataset.pick;
@@ -3003,11 +3109,22 @@ function renderBriefing() {
     } else { draft.team = draft.team.filter((x) => x !== id); delete draft.loadouts[id]; }
     sfx('click');
     renderBriefing();
+    $(`#pick-${id}`)?.focus();
   }));
-  v.querySelectorAll('select[data-sid]').forEach((s) => s.addEventListener('change', () => { draft.loadouts[s.dataset.sid][s.dataset.slot.toLowerCase()] = s.value || null; renderBriefing(); }));
-  v.querySelectorAll('input[type=radio]').forEach((r) => r.addEventListener('change', () => { draft[r.name] = r.value; sfx('click'); renderBriefing(); }));
-  $('#back').addEventListener('click', () => { sfx('click'); run(backToBase); });
-  $('#launch').addEventListener('click', () => run(() => launch({ team: draft.team, loadouts: Object.fromEntries(draft.team.map((id) => [id, draft.loadouts[id]])), insertion: draft.insertion, extraction: draft.extraction })));
+  v.querySelectorAll('select[data-sid]').forEach((s) => s.addEventListener('change', () => { draft.loadouts[s.dataset.sid][s.dataset.slot.toLowerCase()] = s.value || null; renderBriefing(); $(`#${s.id}`)?.focus(); }));
+  v.querySelectorAll('input[type=radio]').forEach((r) => r.addEventListener('change', () => { draft[r.name] = r.value; sfx('click'); renderBriefing(); $(`#${r.id}`)?.focus(); }));
+  $('#back')?.addEventListener('click', () => { sfx('click'); run(backToBase); });
+  $('#launch')?.addEventListener('click', () => run(() => launch({ team: draft.team, loadouts: Object.fromEntries(draft.team.map((id) => [id, draft.loadouts[id]])), insertion: draft.insertion, extraction: draft.extraction })));
+}
+/** Long routes scroll sideways: keep the current stage in view and fade the edge that hides more stages. */
+function fadeRoutes() {
+  for (const r of document.querySelectorAll('.route')) {
+    const cur = r.querySelector('.node.cur');
+    if (cur && r.scrollWidth > r.clientWidth) r.scrollLeft = Math.max(0, cur.offsetLeft - r.offsetLeft - 24);
+    const fade = () => { r.classList.toggle('fade-l', r.scrollLeft > 4); r.classList.toggle('fade-r', r.scrollLeft + r.clientWidth < r.scrollWidth - 4); };
+    fade();
+    r.addEventListener('scroll', fade, { passive: true });
+  }
 }
 
 // ------------------------------------------------------------------ reports (only when nobody is left to talk on the way home, or an older save)
@@ -3026,7 +3143,7 @@ function renderTransit() {
   const cards = it.opts.map((o, i) => {
     const u = unitById(o.uid), s = soldier(u.sid), on = it.pick === i;
     return `<button class="line ${on ? 'on' : ''} ${picked && !on ? 'faded' : ''}" type="button" data-line="${i}" ${picked ? 'disabled' : ''} aria-pressed="${on}">
-      <span class="who">${faceImg(s, 'f56')}<span class="rank">${RANKS[rankIdx(s.xp)][0]}</span><b>${esc(u.name)}</b>${classChip(u.cls)}</span>
+      <span class="idn">${faceImg(s, 'f56')}<span class="idn-name"><span class="rank">${RANKS[rankIdx(s.xp)][0]}</span><b>${esc(u.name)}</b></span><span class="idn-chips">${classChip(u.cls)}${specChip(s)}</span></span>
       <span class="persona">${PERSONAS[s.persona].label}${u.inj.length ? ` · ${esc(conditionOf(u))}` : ''}</span>
       <q>${esc(o.text)}</q><span class="hint">${TOPICS[o.topic].hint}</span></button>`;
   }).join('');
@@ -3039,7 +3156,7 @@ function renderTransit() {
     <div class="lines">${cards}</div>
     ${chosen ? `<div class="reveal"><b>${esc(chosen.name)}'s words stay with you.</b><span>${esc(it.reveal)}</span></div>` : '<p class="muted" style="margin:0">The tag on each statement hints at what it will mean.</p>'}
     ${inbound && picked ? events('Insertion', m.insReport, 350) : ''}
-    <div class="actions-row"><span class="grow"></span><button class="btn primary big" type="button" id="continue" ${picked ? '' : 'disabled'}>${inbound ? 'Begin operation' : 'To debrief'}</button></div>
+    <div class="actions-row">${picked ? '' : `<span class="why">${ico('warn')} Pick whose words stay with you to go on.</span>`}<span class="grow"></span><button class="btn primary big" type="button" id="continue" ${picked ? '' : 'disabled'}>${inbound ? 'Begin operation' : 'To debrief'}</button></div>
   </div></section>`;
   $('#view').querySelectorAll('[data-line]').forEach((b) => b.addEventListener('click', () => {
     run(() => chooseLine(+b.dataset.line));
@@ -3156,10 +3273,10 @@ function planSceneHtml(st, sit) {
   const b = B(), foes = foesOf(st, sit);
   const tiles = sit.opts.map((o, i) => {
     const locked = o.need && !specialists(o.need).length;
-    if (locked) return `<button class="tile locked" type="button" disabled><span class="row">${skillTag(o.skill)}<span class="chip">${SPECS[o.need].label}</span></span>
+    if (locked) return `<button class="tile opt locked" type="button" disabled><span class="row">${skillTag(o.skill)}<span class="chip">${SPECS[o.need].label}</span></span>
       <b>${o.label}</b><small>${o.desc}</small><span class="foot">Needs a ${SPECS[o.need].label.toLowerCase()} on the team to lead it.</span></button>`;
     const q = previewOf(i), s = pct(q.odds.s);
-    return `<button class="tile ${i === plan.opt ? 'on' : ''}" type="button" data-act="opt" data-i="${i}" aria-pressed="${i === plan.opt}">
+    return `<button class="tile opt ${i === plan.opt ? 'on' : ''}" type="button" data-act="opt" data-i="${i}" aria-pressed="${i === plan.opt}">
       <span class="row">${skillTag(o.skill)}<span class="pct ${s < 35 ? 'lo' : s < 65 ? 'mid' : 'hi'}">${s}%</span></span>
       <b>${o.label}</b><small>${o.desc}</small><span class="tags">${o.need ? `<span class="spec-tag">${SPECS[o.need].label}</span>` : ''}${tagsOf(o, q.foes)}</span>
       <span class="foot">Difficulty ${q.diff.value} · ${q.pool.value} dice</span></button>`; }).join('');
@@ -3221,6 +3338,7 @@ function trayHtml(st, sit) {
   const gear = plan.ids.map(unitById).filter((u) => gearUsable(u, opt)).map((u) => `<button class="btn ${plan.gear.includes(u.id) ? 'on' : ''}" type="button" data-act="gear" data-id="${u.id}" aria-pressed="${plan.gear.includes(u.id)}">${ITEMS[u.util].label} · ${esc(firstName(u))} (+${GEAR_USE[u.util].dice}${GEAR_USE[u.util].alert ? ', loud' : ''})</button>`);
   if (canStrike(opt)) gear.push(`<button class="btn ${plan.strike ? 'on' : ''}" type="button" data-act="strike" aria-pressed="${plan.strike}">Drone strike (+2)</button>`);
   const cost = 1 + (opt.time || 0);
+  const why = !p.pool.value ? 'Commit at least one operator.' : p.lead == null ? 'Nobody committed can lead this: add someone fit to lead.' : cost > b.time ? `Needs ${cost} time and ${b.time} is left.` : '';
   return `<div class="card tray">
     <div class="tray-head"><h3>Team for ${esc(opt.label.toLowerCase())}</h3><small>Tap an operator to add or stand them down · Make lead picks who rolls</small></div>
     <div class="opcards">${cards}</div>
@@ -3233,11 +3351,14 @@ function trayHtml(st, sit) {
       <div class="go-odds"><div class="go-nums"><span class="big">${p.pool.value}</span>dice vs difficulty<span class="big">${p.diff.value}</span></div>
         <div class="oddsbar" aria-hidden="true"><i class="s" style="width:${pct(p.odds.s)}%"></i><i class="p" style="width:${pct(p.odds.p)}%"></i><i class="f" style="width:${pct(p.odds.f)}%"></i></div>
         <div class="oddstext"><span class="s">${ico('check')}${pct(p.odds.s)}% success</span><span class="p">${ico('warn')}${pct(p.odds.p)}% at a cost</span><span class="f">${ico('cross')}${pct(p.odds.f)}% fail</span></div></div>
-      <button class="btn ghost" type="button" data-act="details" aria-pressed="${ui.details}">${ui.details ? 'Hide details' : 'Details'}</button>
-      <button class="btn" type="button" data-act="rest" ${b.time > REST_TIME && team().some((u) => active(u) && u.fat) ? '' : 'disabled'} title="Everyone sheds ${REST_GAIN} fatigue">Rest · ${REST_TIME} time</button>
-      ${st.kind === 'OPTIONAL' ? '<button class="btn" type="button" data-act="skip">Skip target</button>' : ''}
-      <button class="btn danger ${plan.abortArmed ? 'armed' : ''}" type="button" data-act="abort">${plan.abortArmed ? 'Tap again to abort' : 'Abort'}</button>
-      <button class="btn primary big" type="button" data-act="exec" ${p.pool.value && p.lead != null && cost <= b.time ? '' : 'disabled'}>Execute · ${cost} time</button>
+      <div class="go-btns">
+        <button class="btn ghost danger ${plan.abortArmed ? 'armed' : ''}" type="button" data-act="abort">${plan.abortArmed ? 'Tap again to abort' : 'Abort'}</button>
+        <button class="btn ghost" type="button" data-act="details" aria-pressed="${ui.details}">${ui.details ? 'Hide details' : 'Details'}</button>
+        <button class="btn" type="button" data-act="rest" ${b.time > REST_TIME && team().some((u) => active(u) && u.fat) ? '' : 'disabled'} title="Everyone sheds ${REST_GAIN} fatigue">Rest · ${REST_TIME} time</button>
+        ${st.kind === 'OPTIONAL' ? '<button class="btn" type="button" data-act="skip">Skip target</button>' : ''}
+        <button class="btn primary big" type="button" data-act="exec" ${why ? 'disabled' : ''}>Execute · ${cost} time</button>
+      </div>
+      ${why ? `<span class="why" role="status">${ico('warn')} ${why}</span>` : ''}
     </div></div>`;
 }
 /** One line on how an operator is doing, by injury names only. */
@@ -3254,9 +3375,16 @@ function renderOps() {
   const rolled = b.state === 'ROLLED';
   const scene = st.kind === 'APPROACH' || !sit ? resultHtml() + forkHtml(st) : rolled ? rollSceneHtml(st, sit) : planSceneHtml(st, sit);
   $('#view').innerHTML = `<section class="ops">${statusHtml()}
-    <div class="ops-body ${ui.drawer ? 'with-drawer' : ''}"><div class="stage-col"><div class="card scene-card">${scene}</div>${rolled ? '' : trayHtml(st, sit)}</div>
+    <div class="ops-body ${ui.drawer ? 'with-drawer' : ''}"><div class="stage-col"><div class="card scene-card">${scene}</div>${rolled ? rollTeamHtml() : trayHtml(st, sit)}</div>
     ${ui.drawer ? drawerHtml() : ''}</div></section>`;
+  fadeRoutes();
   if (rolled) animateRoll();
+}
+/** While the dice are out, the fireteam on the roll stays in sight, wounds and all. */
+function rollTeamHtml() {
+  const r = B().roll;
+  return `<div class="card tray"><h3>On the roll</h3><div class="strip">${r.ids.map(unitById).map((u) => `<span class="${u.id === r.lead ? 'lead' : ''}">${faceImg(soldier(u.sid), 'f40')}
+    <span><b>${esc(u.name)}</b><small class="${u.inj.length || u.downed ? 'inj-t' : 'muted'}">${u.id === r.lead ? 'Lead' : 'Support'} · ${esc(conditionOf(u))} · ${FAT_LABEL[fatState(u)]}</small></span></span>`).join('')}</div></div>`;
 }
 /** Dice tumble and settle one by one, filling the success track; the outcome and its buttons appear when they stop. */
 function animateRoll() {
@@ -3345,18 +3473,77 @@ function renderDebrief() {
       <ul class="obj-results">${d.objectives.map((o) => `<li class="${o.ok ? 'ok' : 'bad'}"><span>${o.ok ? '✓' : '✗'}</span>${o.primary ? 'Primary' : 'Secondary'}: <b>${o.label}</b></li>`).join('')}</ul>
       <p>Requisition awarded: <b>+${d.rp} RP</b> · Base points: <b>+${d.bp ?? 0} BP</b></p></div>
     <div class="card"><h3>Personnel</h3><div class="table-wrap"><table class="personnel"><thead><tr><th>Operator</th><th>Status</th><th>Injuries</th><th>Kills</th><th>XP</th><th>Rank</th></tr></thead><tbody>
-      ${d.soldiers.map((s) => `<tr class="${/KIA|MIA/.test(s.status) ? 'lost' : ''}"><td class="who">${s.face ? faceImg(s, 'f40') : ''}${esc(s.name)} ${classChip(s.cls)}</td><td>${s.status}</td><td>${s.injuries.length ? s.injuries.map(esc).join(', ') : '<span class="muted">None</span>'}</td><td>${s.kills}</td><td>${s.xp ? '+' + s.xp : '-'}</td><td>${s.promoted ? `<span class="chip gold">Promoted: ${s.promoted}</span>` : s.rank}</td></tr>`).join('')}
+      ${d.soldiers.map((s) => `<tr class="${/KIA|MIA/.test(s.status) ? 'lost' : ''}"><td><span class="idn">${s.face ? faceImg(s, 'f40') : ''}<span class="idn-name"><b>${esc(s.name)}</b></span><span class="idn-chips">${classChip(s.cls)}${s.spec ? specChip(s) : ''}</span></span></td><td>${s.status}</td><td>${s.injuries.length ? s.injuries.map(esc).join(', ') : '<span class="muted">None</span>'}</td><td>${s.kills}</td><td>${s.xp ? '+' + s.xp : '-'}</td><td>${s.promoted ? `<span class="chip gold">Promoted: ${s.promoted}</span>` : s.rank}</td></tr>`).join('')}
     </tbody></table></div></div>
     ${d.words?.length ? `<div class="card"><h3>Words that stayed</h3><div class="words">${d.words.map((w) => `<div><span class="muted">${w.when} · ${esc(w.name)}</span><q>${esc(w.text)}</q><small>${esc(w.reveal)}</small></div>`).join('')}</div></div>` : ''}
     <div class="card split"><div><h3>Gear lost</h3>${list(d.lost, 'Nothing lost.')}</div><div><h3>Gear gained</h3>${list(d.gained, 'Nothing recovered.')}</div>${d.notes.length ? `<div><h3>Notes</h3>${list(d.notes, '')}</div>` : ''}</div>
     ${G.recruits > 0 ? `<div class="card"><h3>Replacements · ${G.recruits} to assign</h3><p class="muted">Pick the class of each new recruit.</p>
       <div class="class-pick">${Object.entries(CLASSES).map(([id, c]) => `<button class="btn class-card" type="button" data-enlist="${id}">${classChip(id)}<small>${c.ability}</small></button>`).join('')}</div></div>` : ''}
-    <button class="btn primary big" type="button" id="next" ${G.recruits > 0 ? 'disabled' : ''}>Back to base</button></section>`;
+    <div class="actions-row">${G.recruits > 0 ? `<span class="why">${ico('warn')} Pick a class for every replacement first.</span>` : ''}<button class="btn primary big" type="button" id="next" ${G.recruits > 0 ? 'disabled' : ''}>Back to base</button></div></section>`;
   $('#view').querySelectorAll('[data-enlist]').forEach((b) => b.addEventListener('click', () => run(() => { const s = enlist(b.dataset.enlist); toast(`${s.name} joins as ${CLASSES[s.cls].label}.`); })));
   $('#next').addEventListener('click', () => run(proceed));
 }
 
+// ------------------------------------------------------------------ help: how to play and a glossary, from any screen
+const GLOSSARY = {
+  RP: 'Requisition points: spent on transport, intel, recruits, treatment, repairs and fabricated gear. Earned on missions.',
+  BP: 'Base points: spent on upgrading the six base departments. Earned on successful missions.',
+};
+function helpHtml() {
+  const terms = [
+    ['RP', GLOSSARY.RP], ['BP', GLOSSARY.BP],
+    ['Alert', `How awake the enemy is, 0 to ${ALERT_MAX}. At ${ALERT_TIER} they are alerted and shoot back harder; at ${ALERT_MAX} a quick reaction force forces you out.`],
+    ['Time', 'Every action, route and rest spends time. When it runs out, the team has to leave.'],
+    ['Difficulty', 'How many successes (dice showing 5 or 6) a test needs. One short is a success at a cost you choose.'],
+    ['Push', 'Re-roll the misses once, at +1 alert.'],
+    ['Lead and support', `The lead rolls their own dice for the skill and takes the first hit; each of up to ${MAX_SUPPORT} supporters adds 1 die.`],
+    ['Fatigue', 'Builds with tests, failures, long routes, heat and smoke. Tired leads roll 1 die fewer, exhausted ones 2. Rest at base, in a treatment bed, or briefly in the field.'],
+    ['Injuries', `Named wounds that cost dice when the operator leads. A critical one knocks them out in ${CRIT_STAGES} stages unless treated; the unconscious die in ${BLEED_STAGES} more.`],
+    ['Close quarters', `Inside the objective, a stairwell or a pier. A handgun-only lead loses ${HANDGUN_PENALTY} Assault die everywhere else, unless they are a CQB specialist.`],
+    ['Specialty', 'Every operator has one: it unlocks special approaches or bends a rule. Shown in purple.'],
+  ];
+  return `<div class="help-head"><h2 id="help-title">How to play</h2><button class="btn ghost icon" type="button" id="help-close" aria-label="Close">${ico('cross')}</button></div>
+    <div class="help-body">
+      <div><h3>The campaign</h3><ol>
+        <li><b>Base.</b> Pick an operation from the mission board, spend BP on departments and RP on recruits, treatment and gear.</li>
+        <li><b>Briefing.</b> Buy intel, pick up to ${MAX_TEAM} operators and their loadouts, then the transport in and out.</li>
+        <li><b>Operation.</b> Work through the route stage by stage, then get out.</li>
+        <li><b>Debrief.</b> Injuries, promotions, loot and rewards. Then back to base.</li></ol></div>
+      <div><h3>How a stage works</h3><ol>
+        <li><b>Pick an approach.</b> Each one tests a skill: Assault, Stealth, Recon or Tech. Some need a specialist to lead them. The percentage is the chance of a clean success.</li>
+        <li><b>Commit operators.</b> Tap an operator to add or stand them down; Make lead picks who rolls. More bodies make Stealth noisier (Scouts and infiltrators excepted), and only committed operators get shot.</li>
+        <li><b>Everyone carries a handgun.</b> A primary weapon is optional. A lead with only the handgun rolls ${HANDGUN_PENALTY} Assault die fewer, except in close quarters or as a CQB specialist.</li>
+        <li><b>Spend gear</b> for extra dice, then execute. Every 5 or 6 is a success. Meet the difficulty to succeed; one short is a success at a cost you choose.</li>
+        <li><b>Push</b> to re-roll the misses, at +1 alert. Failure costs time but not the stage: you can try again.</li></ol></div>
+      <div><h3>Glossary</h3><dl class="gloss">${terms.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl></div>
+    </div>`;
+}
+function openHelp() {
+  const d = $('#help');
+  d.innerHTML = helpHtml();
+  $('#help-close').addEventListener('click', () => d.close());
+  closeMenu();
+  sfx('click');
+  d.showModal();
+}
+$('#help').addEventListener('click', (e) => { if (e.target === e.currentTarget) e.currentTarget.close(); }); // a tap on the backdrop closes it
+
 // ------------------------------------------------------------------ boot
+const menuOpen = () => !$('#menu').hidden;
+function closeMenu() {
+  $('#menu').hidden = true; $('#btn-menu').setAttribute('aria-expanded', 'false');
+  const n = $('#btn-new'); delete n.dataset.armed; n.textContent = 'New campaign'; n.classList.remove('armed');
+}
+$('#btn-help').innerHTML = ico('help');
+$('#btn-menu').innerHTML = ico('more');
+$('#btn-help').addEventListener('click', openHelp);
+$('#btn-menu').addEventListener('click', () => {
+  if (menuOpen()) return closeMenu();
+  $('#menu').hidden = false; $('#btn-menu').setAttribute('aria-expanded', 'true');
+  $('#btn-sound').focus();
+});
+addEventListener('click', (e) => { if (menuOpen() && !e.target.closest('.menu-wrap')) closeMenu(); });
+addEventListener('keydown', (e) => { if (e.key === 'Escape' && menuOpen()) { closeMenu(); $('#btn-menu').focus(); } });
 $('#btn-sound').addEventListener('click', () => {
   ui.sound = !ui.sound; saveUi();
   sfx('select'); buzz(30);
@@ -3365,14 +3552,13 @@ $('#btn-sound').addEventListener('click', () => {
 $('#btn-new').addEventListener('click', (e) => {
   const b = e.currentTarget;
   if (b.dataset.armed) {
-    delete b.dataset.armed; b.textContent = 'New campaign';
+    closeMenu();
     draft.mission = null; plan.key = null; mounted = null;
     newCampaign((Math.random() * 2 ** 31) | 0);
     persist(); refresh();
     return;
   }
-  b.dataset.armed = '1'; b.textContent = 'Tap again to restart';
-  setTimeout(() => { delete b.dataset.armed; b.textContent = 'New campaign'; }, 3000);
+  b.dataset.armed = '1'; b.textContent = 'Tap again to restart: the campaign is lost'; b.classList.add('armed');
 });
 
 /** v2 saves (before interludes): give every soldier a personality and empty traits; mid-mission units get event counters. */
