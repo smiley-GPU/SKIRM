@@ -95,6 +95,16 @@ main { flex: 1; min-height: 0; padding-block: 20px; padding-left: max(20px, env(
 .chip { display: inline-flex; align-items: center; gap: 4px; font: 600 12px/1 var(--body); padding: 5px 9px; border-radius: 99px; background: var(--panel-2); white-space: nowrap; }
 .chip.ok { color: var(--ok); background: var(--ok-soft); } .chip.warn { color: var(--warn); background: var(--warn-soft); } .chip.bad { color: var(--bad); background: var(--bad-soft); }
 .chip.gold, .gold { color: var(--gold); font-style: normal; }
+/* speech bubbles: operators commenting on what just happened */
+#bubbles { position: fixed; top: 84px; right: 24px; z-index: 60; display: grid; gap: 14px; width: min(340px, calc(100vw - 32px)); pointer-events: none; }
+.bubble { --c: var(--gold); pointer-events: auto; position: relative; display: grid; gap: 3px; padding: 10px 14px 11px; border: 1px solid var(--c); border-radius: 14px 14px 14px 4px; background: color-mix(in srgb, var(--c) 16%, var(--panel)); color: var(--fg); box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35); font-size: 15px; line-height: 1.35; cursor: pointer; animation: bub-in 0.25s ease-out; transition: opacity 0.5s, transform 0.5s; }
+.bubble b { color: var(--c); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; }
+.bubble::after { content: ""; position: absolute; left: 16px; bottom: -7px; width: 12px; height: 12px; background: inherit; border-right: 1px solid var(--c); border-bottom: 1px solid var(--c); transform: rotate(45deg); }
+.bubble.good { --c: var(--ok); } .bubble.bad { --c: var(--bad); } .bubble.neutral { --c: var(--gold); }
+.bubble.out { opacity: 0; transform: translateY(-6px); }
+@keyframes bub-in { from { opacity: 0; transform: translateY(8px) scale(0.96); } }
+@media (max-width: 700px) { #bubbles { top: 12px; left: 16px; right: 16px; width: auto; } }
+@media (prefers-reduced-motion: reduce) { .bubble { animation: none; transition: none; } }
 #toast {
   position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(22px + env(safe-area-inset-bottom, 0px)); z-index: 50;
   background: var(--toast-bg); color: var(--toast-fg); border: 1px solid var(--bad); padding: 12px 18px; border-radius: var(--r); max-width: min(90vw, 560px); box-shadow: var(--shadow);
@@ -135,6 +145,14 @@ main { flex: 1; min-height: 0; padding-block: 20px; padding-left: max(20px, env(
 .count { color: var(--fg); margin-left: 6px; }
 .roster { display: grid; gap: 10px; }
 .op { background: var(--panel-2); border: 1px solid transparent; border-radius: var(--r); padding: 10px 12px; }
+.op { display: grid; grid-template-columns: 90px minmax(0, 1fr); column-gap: 14px; }
+.op > .face { grid-row: 1 / span 6; }
+.op > :not(.face) { grid-column: 2; }
+.face { flex: none; display: block; width: 90px; height: 90px; border-radius: 10px; object-fit: cover; background: var(--panel); border: 1px solid var(--line-soft); }
+.face.f56 { width: 56px; height: 56px; border-radius: 9px; } .face.f48 { width: 48px; height: 48px; border-radius: 8px; } .face.f40 { width: 40px; height: 40px; border-radius: 7px; }
+td.who { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.bubble { grid-template-columns: auto 1fr; column-gap: 10px; } .bubble .face { grid-row: 1 / span 2; border-color: var(--c); } .bubble b, .bubble span { grid-column: 2; }
+@media (max-width: 700px) { .op { grid-template-columns: 64px minmax(0, 1fr); column-gap: 10px; } .face.f90 { width: 64px; height: 64px; } }
 .op.on { border-color: #2f6170; } .op.off { opacity: 0.55; }
 .op-head { display: flex; align-items: center; gap: 10px; cursor: pointer; flex-wrap: wrap; }
 .op-head input { accent-color: var(--accent); width: 18px; height: 18px; }
@@ -355,6 +373,7 @@ main { flex: 1; min-height: 0; padding-block: 20px; padding-left: max(20px, env(
 .log ol { list-style: none; margin: 0; padding: 0; font-size: 14px; overflow-y: auto; min-height: 0; }
 .log li { padding: 5px 0; border-bottom: 1px solid var(--line-soft); color: #bcc5cb; }
 .log .ev-turn { color: var(--accent); font-weight: 600; padding-top: 10px; }
+.log .ev-say-good, .log .ev-say-bad, .log .ev-say-neutral { font-style: italic; } .log .ev-say-good { color: var(--ok); } .log .ev-say-bad { color: var(--bad); } .log .ev-say-neutral { color: var(--gold); }
 .log .ev-alert, .log .ev-down { color: #ffbdb6; } .log .ev-kill { color: var(--bad); } .log .ev-intel { color: var(--gold); } .log .ev-good { color: var(--ok); }
 
 /* transit scenes: interlude + insertion / extraction */
@@ -452,6 +471,7 @@ main { flex: 1; min-height: 0; padding-block: 20px; padding-left: max(20px, env(
   <main id="view"><p class="muted">Loading command terminal…</p></main>
 </div>
 <div id="toast" role="status" hidden></div>
+<div id="bubbles" aria-live="polite"></div>
 
 <script>
 'use strict';
@@ -770,6 +790,10 @@ const CLASSES = {
 const ADJ = ['Silent', 'Iron', 'Broken', 'Pale', 'Crimson', 'Hollow', 'Distant', 'Bitter', 'Northern', 'Sudden'];
 const NOUN = ['Harrier', 'Lantern', 'Anvil', 'Meridian', 'Thicket', 'Sparrow', 'Bastion', 'Ember', 'Gauntlet', 'Kestrel'];
 const FIRST = ['Alex', 'Sam', 'Jordan', 'Riley', 'Casey', 'Morgan', 'Niko', 'Tariq', 'Elena', 'Mika', 'Jonas', 'Aino', 'Viktor', 'Lena', 'Omar', 'Petra', 'Dario', 'Iris', 'Kai', 'Sasha'];
+// Portraits in img/operators: m1..m10 and f1..f9. Female first names get an f portrait; names used by anyone get either.
+const FACES = { m: 10, f: 9 };
+const FEMALE_FIRST = ['Elena', 'Aino', 'Lena', 'Petra', 'Iris'];
+const EITHER_FIRST = ['Alex', 'Sam', 'Jordan', 'Riley', 'Casey', 'Morgan', 'Mika', 'Kai', 'Sasha'];
 const LAST = ['Hale', 'Korhonen', 'Reyes', 'Novak', 'Brandt', 'Okafor', 'Lindqvist', 'Marsh', 'Varga', 'Sato', 'Kowalski', 'Moreau', 'Haddad', 'Petrov', 'Quinn', 'Aalto', 'Ferreira', 'Doyle', 'Ivanova', 'Kerr'];
 
 const rankIdx = (xp) => { let i = 0; RANKS.forEach((r, k) => { if (xp >= r[2]) i = k; }); return i; };
@@ -864,6 +888,96 @@ const TRAIT_CAP = 3, BOND_CAP = 2, NEMESIS_XP = 15, GRUDGE_XP = 20, REFLECT_XP =
 const WEAPON_NAME = { CARBINE: 'carbine', SMG: 'SMG', DMR: 'marksman rifle', LMG: 'LMG', AK: 'AK', HANDGUN: 'handgun' };
 const THREAT_NAME = { SENTRY: 'the sentries', PATROL: 'that patrol', TOWER: 'the watchtower', MINES: 'the tripwires', DOGS: 'the dogs', INTEL: 'the guards on the cache', HVT: 'the HVT', CACHE: 'the cache guard',
   CLIFF: 'that rock face', RIVERX: 'the guards at the ford', DOCKS: 'the pier crew', CHECKPOINT: 'the checkpoint', ROOFTOP: 'the rooftop spotter', OPENGROUND: 'that open ground', FIRELINE: 'the fire' };
+// Barks: what operators say out loud during an operation, in their personality's voice. They pop up as speech bubbles
+// and stay in the log. mood: good = green, bad = red, neutral = yellow. pri: which wins when several happen at once;
+// odds: % chance it is said at all. Slots: {mate} (the teammate it is about), {threat} (what is at this stage).
+const BARK = {
+  SUCCESS: { mood: 'good', pri: 1, odds: 50 }, KILL: { mood: 'good', pri: 2, odds: 70 }, HEALED: { mood: 'good', pri: 2, odds: 70 },
+  PARTIAL: { mood: 'neutral', pri: 1, odds: 50 }, STAGE: { mood: 'neutral', pri: 0, odds: 40 },
+  FAIL: { mood: 'bad', pri: 2, odds: 60 }, WOUND: { mood: 'bad', pri: 3, odds: 70 }, ALERT: { mood: 'bad', pri: 2, odds: 100 },
+  DOWN: { mood: 'bad', pri: 4, odds: 100 }, LOST: { mood: 'bad', pri: 5, odds: 100 },
+};
+const BARKS_PER_ACTION = 2;
+const BARKS = {
+  STOIC: { SUCCESS: ['Done. Next.', 'As briefed.'], KILL: ['Target down.', 'Two in the chest. Moving.'], PARTIAL: ['Not clean. It will do.'], FAIL: ['Reset. Again.'],
+    WOUND: ['Hit. I can work.', 'It is nothing. Keep going.'], HEALED: ['Thanks, {mate}. Back in.'], DOWN: ['{mate} is down. Cover them.'], LOST: ['{mate} is gone. Finish the job.'],
+    ALERT: ['They know. Tighten up.'], STAGE: ['Eyes on {threat}. Standard drill.', '{threat}. We have done worse.'] },
+  JOKER: { SUCCESS: ['And the crowd goes wild.', 'Tell me that was not beautiful.'], KILL: ['He did not see that coming. Literally.', 'Sorry, buddy. Wrong night.'],
+    PARTIAL: ['Technically a win. I will take technically.'], FAIL: ['In my defence, that was a terrible idea.'], WOUND: ['Ow. Put that in the brochure.', 'I am fine. My dignity is not.'],
+    HEALED: ['{mate}, you have the hands of an angel. Cold ones.'], DOWN: ['{mate}, stop napping, this is not the bus!'], LOST: ['No joke for this one. {mate}...'],
+    ALERT: ['So that is the surprise party ruined.'], STAGE: ['{threat}. Lovely. Who booked this?', 'Ah, {threat}. My favourite.'] },
+  FATALIST: { SUCCESS: ['Worked. For now.', 'Luck. It runs out.'], KILL: ['Their turn tonight. Ours later.', 'One less. Plenty more.'], PARTIAL: ['Always a price. Told you.'], FAIL: ['Of course.'],
+    WOUND: ['There it is. Knew it was coming.', 'Thought it would be worse. Give it time.'], HEALED: ['Patched up for the next one. Thanks, {mate}.'],
+    DOWN: ['{mate}. It was always going to be one of us.'], LOST: ['{mate}. Should have been me. Next time it will be.'], ALERT: ['Here we go. The bad part.'],
+    STAGE: ['{threat}. This is where it goes wrong.', 'Hope everyone wrote their letters. {threat}.'] },
+  ROOKIE: { SUCCESS: ['Did I do that? I did that!', 'It worked! Sorry. Quiet. It worked.'], KILL: ['I got him. I actually got him.', 'Is he... yeah. Okay. Okay.'],
+    PARTIAL: ['That counts, right? Tell me that counts.'], FAIL: ['Sorry! Sorry. My fault.'], WOUND: ["I'm hit! Is it bad? Don't tell me.", 'That really hurts. Nobody said it hurts this much.'],
+    HEALED: ['Thanks, {mate}. I owe you. Like, a lot.'], DOWN: ['{mate}! Somebody help {mate}!'], LOST: ['{mate}? No. No, no...'], ALERT: ['Uh. Are those all for us?'],
+    STAGE: ['Is that {threat}? Like in training?', 'Okay. {threat}. I read about this.'] },
+  GEARHEAD: { SUCCESS: ['Kit performed to spec.', 'See? Maintenance matters.'], KILL: ['Good grouping. Zeroed it myself.', 'Clean function, clean shot.'],
+    PARTIAL: ['Something rattled. I will find out what.'], FAIL: ['That was user error, not the gear.'], WOUND: ['They scratched my plate carrier. And me.', 'Hit. Check my kit first, then me.'],
+    HEALED: ['Nice work, {mate}. Proper tourniquet, too.'], DOWN: ['{mate} is down! Grab their kit, grab them!'], LOST: ['{mate}. Their rifle comes home. They should have.'],
+    ALERT: ['Radios lighting up. Somebody tripped something.'], STAGE: ['{threat}. Right tool for it?', 'Checking batteries before {threat}.'] },
+  GLORY: { SUCCESS: ['Did everyone see that?', 'Write that one down.'], KILL: ['That one goes on my tally.', 'Mine. Count it.'], PARTIAL: ['Messy. Still counts in the story.'],
+    FAIL: ['Nobody saw that. Nobody.'], WOUND: ['A scar! Finally.', 'Hit. Make it look cool in the report.'], HEALED: ['Thanks, {mate}. Make sure I still look good.'],
+    DOWN: ['{mate}, not now! You will miss the best part!'], LOST: ['{mate} deserved a better ending than this.'], ALERT: ['Now it is a real fight.'],
+    STAGE: ['{threat}. Finally something worth the trip.', 'Leave {threat} to me.'] },
+  GUARDIAN: { SUCCESS: ['Good. Everyone still with me?', 'Clear. Keep close.'], KILL: ['He was aiming at us. Not anymore.', 'That is one fewer pointed at you.'],
+    PARTIAL: ['Close. Too close. Check yourselves.'], FAIL: ['Get behind me. Now.'], WOUND: ['Better me than you lot.', 'I am hit. Keep going, I am covering.'],
+    HEALED: ['Thanks, {mate}. Now let me get back in front.'], DOWN: ['I have {mate}! I have them!'], LOST: ['I was supposed to keep {mate} safe.'],
+    ALERT: ['They are coming. Stay behind cover.'], STAGE: ['{threat}. Nobody goes first but me.', 'Stay tight past {threat}.'] },
+  SUPERSTITIOUS: { SUCCESS: ['Touch wood. Somebody touch wood.', 'Knew it. Lucky socks.'], KILL: ['Fate picked him, not me.', 'His charm ran out.'],
+    PARTIAL: ['The luck is thinning. I felt it.'], FAIL: ['Someone said it would be easy. I heard it.'], WOUND: ['I knew it. I saw a crow this morning.', 'Who whistled? Somebody whistled.'],
+    HEALED: ['Bless you, {mate}. Truly.'], DOWN: ['{mate} gave back the lucky coin yesterday. I told them.'], LOST: ['{mate}... I should have given them the charm.'],
+    ALERT: ['Bad omen. Very bad omen.'], STAGE: ['{threat}. Thirteen steps to get here. I counted.', 'Do not say {threat} out loud. It hears.'] },
+  MERC: { SUCCESS: ['That is what you pay me for.', 'Billable.'], KILL: ['He was overpaid.', 'Bonus on that one, I hope.'], PARTIAL: ['That cost extra. I am noting it.'],
+    FAIL: ['Not in my contract, that.'], WOUND: ['Hazard pay. I want hazard pay.', 'Hit. Add it to the invoice.'], HEALED: ['Good work, {mate}. I will buy the first round.'],
+    DOWN: ['{mate} is down. Get them, they owe me money.'], LOST: ['{mate}. Nobody pays enough for that.'], ALERT: ['Price just went up.'],
+    STAGE: ['{threat}. Not enough money in the world.', 'Fine. {threat}. Double time, double pay.'] },
+  PLANNER: { SUCCESS: ['Exactly as planned.', 'Phase complete. Moving to the next.'], KILL: ['Threat removed per plan.', 'Right where I expected him.'], PARTIAL: ['Deviation. Manageable.'],
+    FAIL: ['That was not in the plan. Revising.'], WOUND: ['Hit. Plan for one less pair of hands.', 'Unforeseen. Adjusting.'], HEALED: ['Back on schedule. Thanks, {mate}.'],
+    DOWN: ['{mate} down. Contingency B. Move!'], LOST: ['{mate}. There was no plan for that.'], ALERT: ['Alarm. Switch to the hard plan.'],
+    STAGE: ['{threat}. Page four of the plan.', 'We rehearsed {threat}. Do it like we rehearsed.'] },
+  LONER: { SUCCESS: ['Told you I could do it alone.', 'Easier without help.'], KILL: ['Quiet. Done.', 'One less.'], PARTIAL: ['Too many of us. Too much noise.'],
+    FAIL: ['Should have gone in alone.'], WOUND: ['Leave it. I will manage.', 'Hit. Do not fuss.'], HEALED: ['...Thanks, {mate}.'], DOWN: ['Fine. I will get {mate}.'],
+    LOST: ['{mate}. ...Keep moving.'], ALERT: ['Crowded now.'], STAGE: ['{threat}. Give me room.', 'I will scout {threat}. Alone.'] },
+  JUNKIE: { SUCCESS: ['Yes! Again! Do it again!', 'My heart is going a thousand an hour!'], KILL: ['Woo! Did you feel that?', 'Now we are dancing!'],
+    PARTIAL: ['Close! Love it when it is close!'], FAIL: ['Okay, that was a rush. Just not the good kind.'], WOUND: ['Ha! That stings! I feel alive!', 'Hit! Best night ever, honestly.'],
+    HEALED: ['Patch me up fast, {mate}, I am missing it!'], DOWN: ['{mate}, wake up, you are missing everything!'], LOST: ['{mate}... that is not fun anymore.'],
+    ALERT: ['Now it is a party!'], STAGE: ['{threat}! Finally!', 'Oh, {threat}. Come on, come on.'] },
+  HOMESICK: { SUCCESS: ['One step closer to home.', 'Good. Let us get this over with.'], KILL: ['He had a home too.', 'Done. I just want to go home.'], PARTIAL: ['Fine. Just keep moving.'],
+    FAIL: ['I am supposed to be home for her birthday.'], WOUND: ['Do not tell my mother.', 'Hit. Still going home. Still going home.'],
+    HEALED: ['Thanks, {mate}. I promised I would come back.'], DOWN: ['{mate}! You promised you would come home!'], LOST: ["Someone has to tell {mate}'s family."],
+    ALERT: ['Longer night now.'], STAGE: ['{threat}. Home is the other way.', 'Get past {threat}, then home.'] },
+  PHILOSOPHER: { SUCCESS: ['Order, briefly, out of chaos.', 'Effort, rewarded. Rare.'], KILL: ["He was somebody's whole world.", 'Necessary is not the same as right.'],
+    PARTIAL: ['Everything costs. The universe keeps books.'], FAIL: ['Failure teaches. I would rather not learn.'],
+    WOUND: ['Pain is information. This is a lot of information.', 'The body objects. Noted.'], HEALED: ['Kindness under fire, {mate}. Thank you.'],
+    DOWN: ['{mate}! Stay with us. Stay.'], LOST: ['{mate} was here a moment ago. That is all we get.'], ALERT: ['Chaos returns, as it does.'],
+    STAGE: ['{threat}. What would a wiser person do?', 'Every road leads to {threat} tonight.'] },
+  AVENGER: { SUCCESS: ['Keep pushing. They pay for every step.', 'Good. More.'], KILL: ['That is for the ones we lost.', 'Not enough. Not yet.'],
+    PARTIAL: ['Close enough. They will feel the rest.'], FAIL: ['They will pay for that too.'], WOUND: ['They will regret that.', 'Hit. Just makes me angrier.'],
+    HEALED: ['Patch me up, {mate}. I am not finished.'], DOWN: ['They got {mate}. They will pay.'], LOST: ['{mate}. Add it to the list.'], ALERT: ['Good. Let them come.'],
+    STAGE: ['{threat}. Somebody there owes us.', 'I have been waiting for {threat}.'] },
+  PERFECTIONIST: { SUCCESS: ['Acceptable.', 'Clean. That is how it is done.'], KILL: ['Centre mass. Textbook.', 'One round. As it should be.'], PARTIAL: ['Sloppy. We drill that again at home.'],
+    FAIL: ['Unacceptable. Again, properly.'], WOUND: ['Bad angle. I should not have been there.', 'Hit. My own fault. Sloppy.'], HEALED: ['Neat work, {mate}. Very neat.'],
+    DOWN: ['{mate} is down. Do it right, do it fast.'], LOST: ['{mate}. We did something wrong. I will find it.'], ALERT: ['Someone was careless.'],
+    STAGE: ['{threat}. No mistakes here.', 'Precise movement past {threat}. Precise.'] },
+  OPTIMIST: { SUCCESS: ['See? Told you it would work!', 'Going great, everyone!'], KILL: ['That is one problem solved!', 'Down he goes. Things are looking up.'], PARTIAL: ['Hey, a win is a win!'],
+    FAIL: ['Next one will go better. Bound to.'], WOUND: ['Only a flesh wound! Probably!', 'Hit, but look, still smiling.'], HEALED: ['Good as new! Thanks, {mate}!'],
+    DOWN: ['{mate} will be fine! Get them up!'], LOST: ['{mate}... I really thought we would all make it.'], ALERT: ['Well, at least we know where they are now!'],
+    STAGE: ['{threat}? We have got this.', 'There is a bright side to {threat}. Somewhere.'] },
+  VETERAN: { SUCCESS: ['Seen it done worse.', 'Good. Do not get cocky.'], KILL: ['Should have kept his head down.', 'Just like the old days.'],
+    PARTIAL: ['They always find a way to take something.'], FAIL: ['Happens. Breathe. Go again.'], WOUND: ['Had worse shaving.', 'Another scar for the collection.'],
+    HEALED: ['Steady hands, {mate}. You will go far.'], DOWN: ['{mate}, stay with me. I have seen people come back from worse.'],
+    LOST: ['{mate}. Never gets easier. Anyone who says it does is lying.'], ALERT: ['There it is. Every op, sooner or later.'],
+    STAGE: ['{threat}. Seen a hundred of those.', 'Slow is smooth past {threat}. Smooth is fast.'] },
+  BELIEVER: { SUCCESS: ['For the cause.', 'This is why we are here.'], KILL: ['Justice, delivered.', 'He chose his side.'], PARTIAL: ['Sacrifice is part of it.'],
+    FAIL: ['A setback. The mission stands.'], WOUND: ['I bleed for something. That is enough.', 'Hit. It does not matter. The mission matters.'],
+    HEALED: ['Thank you, {mate}. Back to the work.'], DOWN: ['{mate} gave everything. Get them out!'], LOST: ['{mate} died for something. Remember that.'],
+    ALERT: ['Let them come. We are in the right.'], STAGE: ['{threat}. Stand firm.', 'This is the work. {threat}, then onward.'] },
+  QUIET: { SUCCESS: ['...Good.', '*nods*'], KILL: ['...', 'Down.'], PARTIAL: ['Hm.'], FAIL: ['...Damn.'], WOUND: ['*grits teeth*', 'Fine.'], HEALED: ['*a nod to {mate}*'],
+    DOWN: ['{mate}.'], LOST: ['...{mate}.'], ALERT: ['Company.'], STAGE: ['{threat}.', '*points at {threat}*'] },
+};
 const SCENES = {
   IN: { HELO: ['The helicopter lifts off and banks toward the hills. Through the open door, the lights of the base shrink to nothing.', 'When the rotor noise swallows the talk, whose words stay with you?'],
     GROUND: ['The convoy pulls out of the gate onto the dark road. The trucks rattle; someone checks a radio for the third time.', 'When the talk dies down to engine noise, whose words stay with you?'],
@@ -1351,9 +1465,19 @@ function recruit(xp, cls) {
   G.used[name] = 1;
   const s = { id: G.nextSid++, name, cls, xp, kills: 0, missions: 0, recovery: 0, healing: [], alive: true, persona: freePersona(), spec: freeSpec(cls),
     traits: [], bonds: [], signature: null, fatigue: 0 };
+  s.face = freeFace(s);
   G.roster.push(s);
   return s;
 }
+/** A portrait nobody alive is wearing, if one is left. Chosen by a hash of the operator, not the game generator. */
+function freeFace(s) {
+  const first = s.name.split(' ')[0], h = [...s.name].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, s.id * 7919);
+  const set = FEMALE_FIRST.includes(first) || (EITHER_FIRST.includes(first) && h % 2) ? 'f' : 'm', n = FACES[set];
+  const taken = new Set(G.roster.filter((x) => x.alive && x !== s).map((x) => x.face));
+  for (let k = 0; k < n; k++) { const f = set + (((h >>> 1) + k) % n + 1); if (!taken.has(f)) return f; }
+  return set + ((h >>> 1) % n + 1);
+}
+const faceImg = (s, cls = '') => `<img class="face ${cls}" src="img/operators/${s.face}.jpg" width="90" height="90" alt="">`;
 /** A personality nobody alive on the roster has yet (20 personalities, at most 12 operators). */
 function freePersona() {
   const taken = new Set(G.roster.filter((s) => s.alive).map((s) => s.persona));
@@ -1585,7 +1709,30 @@ function log(text, kind = 'info') {
   const l = B().log;
   l.push({ text, kind });
   if (l.length > 120) l.splice(0, l.length - 120);
-  B().capture?.push({ text, kind }); // collected while a roll resolves, to tell the result on screen
+  if (!kind.startsWith('say')) B().capture?.push({ text, kind }); // collected while a roll resolves, to tell the result on screen
+}
+// Barks draw from their own hash stream, never the game generator: what people say must not change what happens.
+const barkRnd = () => { const b = B(), k = (b.barkN = (b.barkN || 0) + 1) * 2654435761 + G.flown * 40503 + (G.rs >>> 0); let x = k >>> 0; x = Math.imul(x ^ (x >>> 16), 0x45d9f3b); x = Math.imul(x ^ (x >>> 16), 0x45d9f3b); return ((x ^ (x >>> 16)) >>> 0) / 4294967296; };
+const barkPick = (a) => a[Math.floor(barkRnd() * a.length)];
+/** Something an operator might comment on. Collected during a command; flushCues() decides who actually speaks. */
+function cue(ev, u, ctx = {}) {
+  if (!u) return;
+  (B().cues ||= []).push({ ev, uid: u.id, mate: ctx.mate ? firstName(ctx.mate) : null, threat: ctx.threat ?? null });
+}
+/** A teammate (not `about`) who could say something right now. */
+const witness = (about) => { const w = team().filter((x) => x !== about && active(x)); return w.length ? barkPick(w) : null; };
+/** The most important things that just happened get said out loud, in the speaker's voice; at most BARKS_PER_ACTION. */
+function flushCues() {
+  const b = B(), cues = (b.cues || []).sort((x, y) => BARK[y.ev].pri - BARK[x.ev].pri), said = new Set();
+  b.cues = [];
+  for (const c of cues) {
+    const u = unitById(c.uid);
+    if (said.size >= BARKS_PER_ACTION || said.has(c.uid) || !u || u.dead || u.downed || u.missing || barkRnd() * 100 >= BARK[c.ev].odds) continue;
+    const t = barkPick(BARKS[soldier(u.sid).persona][c.ev]).replace(/\{mate\}/g, c.mate ?? 'mate').replace(/\{threat\}/g, c.threat ?? 'this');
+    const line = t.charAt(0).toUpperCase() + t.slice(1);
+    said.add(c.uid);
+    B().log.push({ text: `${firstName(u)}: "${line}"`, kind: 'say-' + BARK[c.ev].mood, who: u.name, face: soldier(u.sid).face, line, mood: BARK[c.ev].mood, seq: (b.seq = (b.seq || 0) + 1) });
+  }
 }
 
 function makeOp(m, members) {
@@ -1692,7 +1839,7 @@ function raise(n, text) {
   if (jammer) { b.jammed = true; n -= 1; log(`${jammer.name} jams their radio net: the alarm spreads slower.`, 'good'); if (!n) return; }
   b.alert = Math.min(ALERT_MAX, b.alert + n);
   if (text) log(`${text} Alert ${b.alert}/${ALERT_MAX}.`, 'alert');
-  if (b.alert >= ALERT_TIER && !b.alerted) { b.alerted = true; log('The enemy is alerted. Stealth gets harder and they shoot back harder.', 'alert'); }
+  if (b.alert >= ALERT_TIER && !b.alerted) { b.alerted = true; log('The enemy is alerted. Stealth gets harder and they shoot back harder.', 'alert'); cue('ALERT', witness(null)); }
 }
 // ---------------------------------------------------------------- injuries
 const injFx = (w) => (w.t ? INJURIES[w.id].fxT : INJURIES[w.id].fx) || {};
@@ -1735,9 +1882,11 @@ function hurt(u, mod = 0, tier = severity(u, mod), cause = 'is hit') {
   const w = { id, t: false, clock: at === 3 ? CRIT_STAGES : 0 };
   u.inj.push(w);
   log(`${u.name} ${cause}: ${INJURIES[id].label.toLowerCase()}${at > tier ? ', on top of the rest' : ''}. ${injEffect(w)}.`, 'down');
+  cue('WOUND', u);
 }
 function knockOut(u, text) {
   u.downed = true; u.wasOut = true; u.bleed = BLEED_STAGES;
+  cue('DOWN', witness(u), { mate: u });
   log(`${text} Treat them within ${BLEED_STAGES} stages or they die.`, 'down');
 }
 /** What a forced minor hit would turn into, for the cost preview. */
@@ -1768,6 +1917,7 @@ function killUnit(u, text) {
   const b = B();
   u.downed = false; u.dead = true;
   log(text, 'kill');
+  cue('LOST', witness(u), { mate: u });
   if (b.carrier === u.id) {
     const other = team().find(active);
     b.carrier = other ? other.id : null;
@@ -1901,6 +2051,7 @@ function applyRoll(cost) {
   b.state = 'PLAN';
   if (out === 'FAIL') {
     log(`${opt.label} fails.`, 'alert');
+    cue('FAIL', lead);
     tire(members);
     const extra = off?.trait === 'COMMANDER' ? 1 : 0;
     if (extra) log(`${off.name} has the whole compound on the radio.`, 'alert');
@@ -1917,6 +2068,8 @@ function applyRoll(cost) {
     else if (cost === 'TIME') b.time = Math.max(0, b.time - 1);
     else { const t = active(lead) ? lead : members.find(active); if (t) hurt(t, 0, 1, 'takes a knock'); } // same victim the cost preview named
   } else log(`${opt.label}: clean success.`, 'good');
+  cue(opt.kills && foes ? 'KILL' : out === 'SUCCESS' ? 'SUCCESS' : 'PARTIAL', lead);
+  cue(opt.kills && foes ? 'KILL' : out === 'SUCCESS' ? 'SUCCESS' : 'PARTIAL', lead);
   for (const u of members) u.tests++;
   if (!lead.dead && (ITEMS[lead.weapon]?.dice?.[opt.skill] || 0) > 0) lead.weaponWins++;
   raise(opt.alert || 0, 'That was loud.');
@@ -2017,6 +2170,7 @@ function settle(cleared) {
     cleared = true;
   }
   if (cleared) advance();
+  flushCues();
   if (b.time <= 0 && !b.done) {
     log('The extraction window has closed. Everyone left must get out on foot.', 'alert');
     for (const u of team()) if (active(u)) u.stranded = true;
@@ -2037,6 +2191,9 @@ function advance() {
   st.seen = true;
   log(`Stage ${b.stage + 1}: ${KIND[st.kind]}${st.pick != null ? ' · ' + SIT[st.choices[st.pick]].label : ''}.`, 'turn');
   if (off?.grudge) log(`${off.name} is waiting here, regrouped and furious. Every approach is 1 harder.`, 'alert');
+  const sk = st.pick != null ? st.choices[st.pick] : null;
+  if (off) cue('STAGE', witness(null), { threat: off.name });
+  else if (THREAT_NAME[sk]) cue('STAGE', witness(null), { threat: THREAT_NAME[sk] });
   if (e.turnAt === b.stage && e.turnTo) { // the weather can change fast
     e.weather = e.turnTo; e.turnTo = null;
     log(`The weather turns: ${WEATHER[e.weather].label.toLowerCase()}. ${envSummary(e)}`, 'alert');
@@ -2076,6 +2233,7 @@ function finish() {
   const b = B();
   b.over = true;
   for (const u of team()) if (u.downed) killUnit(u, `${u.name} could not be recovered and is lost.`);
+  b.cues = []; // the shooting is over: nobody is watching the bubbles now
   b.drone.up = false; // flies home if it is still up; debrief settles the item
   const m = G.mission;
   m.extReport = extraction(m);
@@ -2097,6 +2255,8 @@ function fieldCare(medicId, targetId) {
   b.revived.push(md.id);
   if (t !== md) { md.cared.push(t.id); t.caredBy.push(md.id); }
   log(`${md.name} works on ${t === md ? 'themself' : t.name}: ${applyCare(t, false)}.`, 'good');
+  if (t !== md) cue('HEALED', t, { mate: md });
+  flushCues();
 }
 /** Any medkit: fix the worst problem. In a medic's hands it also cleans up every minor injury. */
 function treat(holderId, targetId) {
@@ -2107,6 +2267,8 @@ function treat(holderId, targetId) {
   h.consumed = 'MEDKIT'; h.util = null;
   if (t !== h) { h.cared.push(t.id); t.caredBy.push(h.id); }
   log(`${h.name} uses a medkit on ${t === h ? 'themself' : t.name}: ${applyCare(t, h.cls === 'MEDIC')}.`, 'good');
+  if (t !== h) cue('HEALED', t, { mate: h });
+  flushCues();
 }
 function launchDrone(uid) {
   needPlan();
@@ -2400,7 +2562,7 @@ function debrief(m) {
     if (u.droneLost) lost.push('Recon Drone (shot down)');
     s.xp += xp; s.kills += u.kills; s.missions++;
     const after = rankIdx(s.xp);
-    soldiers.push({ name: u.name, cls: s.cls, status, injuries, kills: u.kills, xp, rank: RANKS[after][1], promoted: s.alive && after !== before ? RANKS[after][1] : null });
+    soldiers.push({ name: u.name, face: s.face, cls: s.cls, status, injuries, kills: u.kills, xp, rank: RANKS[after][1], promoted: s.alive && after !== before ? RANKS[after][1] : null });
   }
   if (anyOut) {
     for (let i = 0; i < b.kills; i++) if (chance(25)) { const it = pick(FACTIONS[m.faction].loot); G.armory[it] = (G.armory[it] || 0) + 1; gained.push(`${ITEMS[it].label} (captured from ${FACTIONS[m.faction].label.toLowerCase()})`); }
@@ -2584,8 +2746,29 @@ function refresh() {
   else if (G.phase === 'BRIEFING') renderBriefing();
   else if (interlude()) renderTransit();
   else if (G.phase === 'INSERTION' || G.phase === 'EXTRACTION') renderReport();
-  else if (G.phase === 'OPERATION') renderOps();
+  else if (G.phase === 'OPERATION') { renderOps(); showBubbles(); }
   else renderDebrief();
+}
+// Speech bubbles: barks new since the last render pop up one after another, linger and fade. They stay in the log;
+// nothing is replayed after a reload.
+const BUBBLE_MS = 4500;
+let bubbleKey = null, bubbleSeq = 0;
+function showBubbles() {
+  const b = B(), key = `${G.flown}:${G.mission.codename}`, seq = b.seq || 0;
+  if (bubbleKey !== key) { bubbleKey = key; bubbleSeq = seq; return; }
+  const fresh = b.log.filter((e) => e.seq > bubbleSeq);
+  bubbleSeq = seq;
+  fresh.forEach((e, i) => setTimeout(() => bubble(e), 300 + i * 900));
+}
+function bubble(e) {
+  const box = $('#bubbles'), el = document.createElement('div');
+  el.className = `bubble ${e.mood}`;
+  el.innerHTML = `${e.face ? faceImg(e, 'f40') : ''}<b>${esc(e.who)}</b><span>${esc(e.line)}</span>`;
+  el.addEventListener('click', () => el.remove());
+  box.append(el);
+  while (box.children.length > 3) box.firstChild.remove();
+  setTimeout(() => el.classList.add('out'), BUBBLE_MS);
+  setTimeout(() => el.remove(), BUBBLE_MS + 500);
 }
 
 const classChip = (cls) => `<span class="cls cls-${cls.toLowerCase()}">${CLASSES[cls].label}</span>`;
@@ -2663,7 +2846,7 @@ function deptHtml(d) {
   let body = '';
   if (d === 'BARRACKS') {
     const alive = G.roster.filter((s) => s.alive);
-    body = `<div class="roster-list">${alive.map((s) => `<div class="rrow"><span class="rank">${RANKS[rankIdx(s.xp)][0]}</span><b>${esc(s.name)}</b>${classChip(s.cls)}${specChip(s)}
+    body = `<div class="roster-list">${alive.map((s) => `<div class="rrow">${faceImg(s, 'f40')}<span class="rank">${RANKS[rankIdx(s.xp)][0]}</span><b>${esc(s.name)}</b>${classChip(s.cls)}${specChip(s)}
         <span class="muted">${PERSONAS[s.persona].label}</span>${traitChips(s)}<span class="grow"></span>${fatChip(soldierFat(s))}${s.recovery ? `<span class="chip warn">Recovering · ${s.recovery}</span>` : ''}</div>`).join('')}</div>
       ${alive.length < rosterMax() ? `<div class="recruit"><span>Recruit an operator · ${recruitCost()} RP · roster ${alive.length}/${rosterMax()}</span><div class="recruit-btns">${Object.entries(CLASSES).map(([id, c]) =>
         `<button class="btn" type="button" data-enlist="${id}" ${G.rp < recruitCost() ? 'disabled' : ''}>${c.label}</button>`).join('')}</div></div>` : `<p class="muted">Roster full (${rosterMax()}).</p>`}
@@ -2676,7 +2859,7 @@ function deptHtml(d) {
   } else if (d === 'MED') {
     const needy = G.roster.filter((s) => s.alive && (s.recovery || s.fatigue));
     body = `<p class="muted">Beds in use: ${bs.beds.length}/${bs.lv.MED}. Treatment costs ${TREAT_COST} RP and lasts until the next mission comes home: ${bs.lv.MED >= 3 ? 'injuries heal fully' : 'recovery runs twice as fast'}, and fatigue is cleared.</p>
-      ${needy.length ? `<div class="roster-list">${needy.map((s) => `<div class="rrow"><b>${esc(s.name)}</b>${classChip(s.cls)}<span class="muted">${s.recovery ? `${s.healing?.join(', ') || 'Wounded'} · out ${s.recovery}` : 'Unhurt'}</span>${fatChip(soldierFat(s))}${s.fatigue && !soldierFat(s) ? '<span class="muted">Weary</span>' : ''}<span class="grow"></span>
+      ${needy.length ? `<div class="roster-list">${needy.map((s) => `<div class="rrow">${faceImg(s, 'f40')}<b>${esc(s.name)}</b>${classChip(s.cls)}<span class="muted">${s.recovery ? `${s.healing?.join(', ') || 'Wounded'} · out ${s.recovery}` : 'Unhurt'}</span>${fatChip(soldierFat(s))}${s.fatigue && !soldierFat(s) ? '<span class="muted">Weary</span>' : ''}<span class="grow"></span>
         <button class="btn ${inBed(s.id) ? 'on' : ''}" type="button" data-bed="${s.id}">${inBed(s.id) ? 'In treatment · cancel' : `Treat · ${TREAT_COST} RP`}</button></div>`).join('')}</div>` : '<p>Nobody needs treatment.</p>'}`;
   } else if (d === 'ENG') {
     const inv = Object.keys(ITEMS).filter((k) => G.armory[k]).map((k) => `<span class="inv"><b>${G.armory[k]}</b> ${ITEMS[k].label}</span>`).join('');
@@ -2763,7 +2946,7 @@ function renderBriefing() {
   };
   const roster = G.roster.filter((s) => s.alive).map((s) => {
     const on = draft.team.includes(s.id), l = draft.loadouts[s.id], nx = nextXp(s.xp), pct = nx > 0 ? Math.min(100, Math.round((s.xp / nx) * 100)) : 100, ok = available(s);
-    return `<div class="op ${on ? 'on' : ''} ${ok ? '' : 'off'}">
+    return `<div class="op ${on ? 'on' : ''} ${ok ? '' : 'off'}">${faceImg(s, 'f90')}
       <label class="op-head"><input type="checkbox" id="pick-${s.id}" data-pick="${s.id}" ${on ? 'checked' : ''} ${ok ? '' : 'disabled'}>
         <span class="rank">${RANKS[rankIdx(s.xp)][0]}</span><span class="name">${esc(s.name)}</span>${classChip(s.cls)}${fatChip(soldierFat(s))}
         <span class="meta">${s.missions} ops · ${s.kills} kills</span>${ok ? '' : `<span class="chip warn">Recovering · ${s.recovery} mission${s.recovery > 1 ? 's' : ''}</span>`}</label>
@@ -2843,7 +3026,7 @@ function renderTransit() {
   const cards = it.opts.map((o, i) => {
     const u = unitById(o.uid), s = soldier(u.sid), on = it.pick === i;
     return `<button class="line ${on ? 'on' : ''} ${picked && !on ? 'faded' : ''}" type="button" data-line="${i}" ${picked ? 'disabled' : ''} aria-pressed="${on}">
-      <span class="who"><span class="rank">${RANKS[rankIdx(s.xp)][0]}</span><b>${esc(u.name)}</b>${classChip(u.cls)}</span>
+      <span class="who">${faceImg(s, 'f56')}<span class="rank">${RANKS[rankIdx(s.xp)][0]}</span><b>${esc(u.name)}</b>${classChip(u.cls)}</span>
       <span class="persona">${PERSONAS[s.persona].label}${u.inj.length ? ` · ${esc(conditionOf(u))}` : ''}</span>
       <q>${esc(o.text)}</q><span class="hint">${TOPICS[o.topic].hint}</span></button>`;
   }).join('');
@@ -3025,7 +3208,7 @@ function opCardHtml(u, p, opt) {
   if (free && ok && u.util === 'DRONE' && !b.drone.used) care.push(`<button class="btn" type="button" data-act="drone" data-id="${u.id}">Launch drone</button>`);
   return `<div class="opcard ${on ? 'on' : ''} ${lead ? 'lead' : ''} ${ok ? '' : u.dead ? 'gone' : 'out'}">
     <button class="optoggle" type="button" data-act="op" data-id="${u.id}" ${ok && opt && free ? '' : 'disabled'} aria-pressed="${on}">
-      <span class="oprow"><b>${esc(u.name)}</b>${role}</span>
+      <span class="oprow">${faceImg(soldier(u.sid), 'f48')}<b>${esc(u.name)}</b>${role}</span>
       <span class="oprow">${classChip(u.cls)}<span class="trait spec">${SPECS[soldier(u.sid).spec].label}</span>${b.carrier === u.id ? '<span class="chip gold">Intel</span>' : ''}</span>
       ${`<span class="muted util">${[u.weapon || 'HANDGUN', u.kit, u.util].filter(Boolean).map((x) => ITEMS[x].label + (x === 'HANDGUN' ? ' only' : '')).join(' · ')}</span>`}
       ${dice}${u.dead ? '' : `<span class="fat fat-${fatState(u)}" title="Fatigue ${u.fat}/${FAT_MAX}"><span class="fat-pips">${Array.from({ length: FAT_MAX }, (_, i) => `<i class="${i < u.fat ? 'on' : ''}"></i>`).join('')}</span>${FAT_LABEL[fatState(u)]}</span>`}${injHtml(u)}
@@ -3162,7 +3345,7 @@ function renderDebrief() {
       <ul class="obj-results">${d.objectives.map((o) => `<li class="${o.ok ? 'ok' : 'bad'}"><span>${o.ok ? '✓' : '✗'}</span>${o.primary ? 'Primary' : 'Secondary'}: <b>${o.label}</b></li>`).join('')}</ul>
       <p>Requisition awarded: <b>+${d.rp} RP</b> · Base points: <b>+${d.bp ?? 0} BP</b></p></div>
     <div class="card"><h3>Personnel</h3><div class="table-wrap"><table class="personnel"><thead><tr><th>Operator</th><th>Status</th><th>Injuries</th><th>Kills</th><th>XP</th><th>Rank</th></tr></thead><tbody>
-      ${d.soldiers.map((s) => `<tr class="${/KIA|MIA/.test(s.status) ? 'lost' : ''}"><td>${esc(s.name)} ${classChip(s.cls)}</td><td>${s.status}</td><td>${s.injuries.length ? s.injuries.map(esc).join(', ') : '<span class="muted">None</span>'}</td><td>${s.kills}</td><td>${s.xp ? '+' + s.xp : '-'}</td><td>${s.promoted ? `<span class="chip gold">Promoted: ${s.promoted}</span>` : s.rank}</td></tr>`).join('')}
+      ${d.soldiers.map((s) => `<tr class="${/KIA|MIA/.test(s.status) ? 'lost' : ''}"><td class="who">${s.face ? faceImg(s, 'f40') : ''}${esc(s.name)} ${classChip(s.cls)}</td><td>${s.status}</td><td>${s.injuries.length ? s.injuries.map(esc).join(', ') : '<span class="muted">None</span>'}</td><td>${s.kills}</td><td>${s.xp ? '+' + s.xp : '-'}</td><td>${s.promoted ? `<span class="chip gold">Promoted: ${s.promoted}</span>` : s.rank}</td></tr>`).join('')}
     </tbody></table></div></div>
     ${d.words?.length ? `<div class="card"><h3>Words that stayed</h3><div class="words">${d.words.map((w) => `<div><span class="muted">${w.when} · ${esc(w.name)}</span><q>${esc(w.text)}</q><small>${esc(w.reveal)}</small></div>`).join('')}</div></div>` : ''}
     <div class="card split"><div><h3>Gear lost</h3>${list(d.lost, 'Nothing lost.')}</div><div><h3>Gear gained</h3>${list(d.gained, 'Nothing recovered.')}</div>${d.notes.length ? `<div><h3>Notes</h3>${list(d.notes, '')}</div>` : ''}</div>
@@ -3218,6 +3401,7 @@ function start(data) {
   if (G?.v === 3 && G.mode === 'ops') migrateV3();
   if (!G || G.v !== 4 || G.mode !== 'ops') newCampaign((Math.random() * 2 ** 31) | 0);
   G.nemeses ??= []; G.captives ??= []; // saves from before officer fates
+  for (const s of G.roster) if (!s.face) s.face = freeFace(s); // saves from before portraits
   window.claude?.hot?.snapshot?.(() => ({ save: JSON.stringify(G) }));
   refresh();
 }
