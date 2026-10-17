@@ -419,8 +419,6 @@ main { flex: 1; min-height: 0; padding-block: 20px; padding-left: max(20px, env(
 
 /* debrief */
 .debrief { max-width: 980px; margin: 0 auto; display: grid; gap: 18px; }
-.verdict { display: inline-flex; align-items: center; gap: 8px; margin: 10px 0; padding: 8px 16px; border-radius: var(--r-sm); font: 700 20px/1 var(--display); text-transform: uppercase; letter-spacing: 0.08em; }
-.verdict.ok { background: var(--ok-soft); color: var(--ok); } .verdict.bad { background: var(--bad-soft); color: var(--bad); }
 .obj-results { list-style: none; padding: 0; display: grid; gap: 4px; }
 .obj-results span { display: inline-block; width: 20px; }
 .obj-results .ok span { color: var(--ok); } .obj-results .bad span { color: var(--bad); }
@@ -484,6 +482,99 @@ main { flex: 1; min-height: 0; padding-block: 20px; padding-left: max(20px, env(
 .strip .inj-t { color: #ffbdb6; }
 .bubble b { display: flex; align-items: center; gap: 5px; }
 
+/* ---- art direction: classified dossier ---- */
+:root {
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .045 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+  --grit: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='70'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -3 2.6'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+body { background-image: var(--grain); }
+/* portraits: the mosaic is the style, so keep its blocks crisp and the colour muted like a file photo */
+.face { image-rendering: pixelated; filter: grayscale(0.35) sepia(0.12) contrast(1.06); }
+.rank { display: inline-flex; align-items: center; gap: 4px; }
+.ins { width: 12px; height: 14px; flex: none; }
+.cls { display: inline-flex; align-items: center; gap: 4px; }
+.patch { width: 13px; height: 13px; flex: none; margin: -2px 0; }
+.emblem { width: 100%; height: 100%; }
+.fac { display: flex; align-items: center; gap: 6px; } .fac .emblem { width: 18px; height: 18px; color: var(--bad); }
+.redact { display: inline-block; height: 0.95em; vertical-align: -0.12em; background: #05070a; border-radius: 2px; box-shadow: inset 0 0 0 1px #2a3138; margin-right: 4px; }
+/* rubber stamps: double border, inked unevenly */
+.stamp { --c: var(--bad); display: inline-block; color: var(--c); border: 3px double currentColor; border-radius: 6px; padding: 6px 14px; font: 700 22px/1 var(--display); letter-spacing: 0.14em; text-transform: uppercase; transform: rotate(-4deg); -webkit-mask: var(--grit); mask: var(--grit); }
+.stamp.ok { --c: var(--ok); }
+.stamp.verdict { margin: 14px 0 10px; background: none; }
+.stamp.mini { font-size: 13px; padding: 2px 6px; border-width: 2px; transform: rotate(-6deg); }
+.stamp.classified { position: absolute; top: 16px; right: 18px; z-index: 4; font-size: 16px; transform: rotate(6deg); }
+.brief-head { position: relative; }
+/* art slots: hatched placeholders until the file exists */
+.art { position: relative; margin: 0; overflow: hidden; display: grid; place-items: center; background: repeating-linear-gradient(135deg, #1a2026 0 10px, #1e252c 10px 20px); border: 1px dashed #3a4450; }
+.art:has(img) { border-color: transparent; }
+.art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; }
+.art figcaption { font: 600 11px/1.35 var(--mono); color: var(--dim); text-align: center; padding: 4px; letter-spacing: 0.04em; }
+.art figcaption small { display: block; font-size: 10px; }
+.art-portrait { aspect-ratio: 1; }
+.art.sm { width: 64px; flex: none; border-radius: var(--r-sm); } .art.sm figcaption { font-size: 8px; } .art.sm figcaption small { display: none; }
+.art-dept { aspect-ratio: 4 / 1; border-radius: var(--r); }
+/* location banners: the art, a time-of-day grade, the weather on top */
+.banner { position: relative; aspect-ratio: 5 / 1; min-height: 96px; overflow: hidden; }
+.banner .art { position: absolute; inset: 0; border: 0; }
+.banner::after { content: ""; position: absolute; inset: 0; z-index: 2; pointer-events: none; background: linear-gradient(180deg, transparent 55%, rgba(15, 18, 22, 0.55)); }
+.banner.tod-DUSK::after { background: linear-gradient(180deg, rgba(255, 140, 60, 0.16), rgba(70, 25, 10, 0.35) 70%, rgba(15, 18, 22, 0.6)); }
+.banner.tod-NIGHT::after { background: linear-gradient(180deg, rgba(10, 30, 50, 0.55), rgba(5, 15, 25, 0.7)); }
+.banner canvas, .tmap canvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 3; pointer-events: none; }
+.card > .banner.bleed { margin: -18px -20px 14px; border-radius: var(--r-lg) var(--r-lg) 0 0; }
+.brief-head > .banner.bleed { flex: none; width: calc(100% + 40px); margin-bottom: 0; }
+.offer > .banner.bleed { margin: -16px -16px 4px; border-radius: var(--r) var(--r) 0 0; aspect-ratio: 4 / 1; }
+.transit-card > .banner.bleed { margin: -26px -28px 0; aspect-ratio: 32 / 10; }
+.dept-art { margin-bottom: 4px; }
+/* the hostile file and foes on the stage */
+.hostiles { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.hcard { display: grid; gap: 2px; justify-items: start; width: 110px; font-size: 13.5px; }
+.hcard small { color: var(--muted); font-size: 12px; }
+.hpic { width: 110px; height: 110px; border-radius: var(--r-sm); display: grid; place-items: center; background: var(--panel-2); color: var(--bad); padding: 22px; margin-bottom: 4px; }
+.hpic.art { padding: 0; }
+.hpic.redacted { background: repeating-linear-gradient(45deg, #07090c 0 6px, #0d1014 6px 12px); color: var(--dim); font: 700 34px/1 var(--display); }
+.foe { display: flex; gap: 12px; align-items: flex-start; margin: 0 0 18px; } .foe .sit-text { margin: 0; }
+/* tactical map: day reads like a printed sheet, dusk warm, night through night vision */
+.tmap { --ink: 214, 190, 136; --bg-map: #191b16; --water: rgba(80, 130, 150, 0.35); position: relative; margin-bottom: 12px; border-radius: var(--r); overflow: hidden; background: var(--bg-map); border: 1px solid var(--line-soft); }
+.tmap.tod-DUSK { --ink: 236, 160, 100; --bg-map: #1d1612; --water: rgba(120, 100, 130, 0.35); }
+.tmap.tod-NIGHT { --ink: 120, 235, 150; --bg-map: #07120b; --water: rgba(60, 160, 120, 0.25); }
+.tmap::after { content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 2; background: radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.45)); }
+.tmap svg { display: block; width: 100%; height: auto; }
+.tmap .grid path { stroke: rgba(var(--ink), 0.08); }
+.tmap .grid text, .tmap .scale text, .tmap .compass text { fill: rgba(var(--ink), 0.55); font: 600 10px var(--mono); }
+.tmap .compass text { text-anchor: middle; } .tmap .compass path { fill: rgba(var(--ink), 0.6); }
+.tmap .scale path { stroke: rgba(var(--ink), 0.6); fill: none; stroke-width: 1.5; }
+.tmap .minor { stroke: rgba(var(--ink), 0.2); fill: none; stroke-width: 1; }
+.tmap .major { stroke: rgba(var(--ink), 0.42); fill: none; stroke-width: 1.4; }
+.tmap .sea { fill: var(--water); } .tmap .shore { fill: none; stroke: rgba(var(--ink), 0.5); stroke-width: 1.5; }
+.tmap .river { fill: none; stroke: var(--water); stroke-width: 9; stroke-linecap: round; stroke-linejoin: round; }
+.tmap .field { fill: rgba(var(--ink), 0.03); stroke: rgba(var(--ink), 0.22); stroke-dasharray: 4 3; }
+.tmap .tree { fill: rgba(var(--ink), 0.16); }
+.tmap .block { fill: rgba(var(--ink), 0.1); stroke: rgba(var(--ink), 0.3); }
+.tmap .leg { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-dasharray: 7 6; stroke-linecap: round; }
+.tmap .leg.done { stroke-dasharray: none; opacity: 0.55; }
+.tmap .wp circle { fill: var(--bg-map); stroke: var(--accent); stroke-width: 2; }
+.tmap .wp text { fill: var(--fg); font: 700 13px var(--body); text-anchor: middle; }
+.tmap .wp .lbl { fill: rgba(var(--ink), 0.75); font: 600 10px var(--mono); letter-spacing: 0.06em; }
+.tmap .wp.done circle { fill: var(--accent-soft); opacity: 0.8; }
+.tmap .wp.cur circle { fill: var(--accent); } .tmap .wp.cur text:not(.lbl) { fill: var(--accent-ink); }
+.tmap .wp.skipped { opacity: 0.4; }
+.tmap .ping { fill: none !important; stroke: var(--accent); transform-box: fill-box; transform-origin: center; animation: ping 1.8s ease-out infinite; }
+@keyframes ping { from { transform: scale(1); opacity: 0.9; } to { transform: scale(2.4); opacity: 0; } }
+/* title card */
+.title { position: fixed; inset: 0; z-index: 90; display: grid; align-items: end; background: var(--bg); }
+.title > .art { position: absolute; inset: 0; border: 0; }
+.title::after { content: ""; position: absolute; inset: 0; z-index: 2; background: linear-gradient(90deg, rgba(10, 12, 15, 0.9), rgba(10, 12, 15, 0.2) 70%), linear-gradient(0deg, rgba(10, 12, 15, 0.8), transparent 50%); }
+.title-in { position: relative; z-index: 3; display: grid; gap: 10px; justify-items: start; padding: max(32px, 6vw); }
+.title-logo { font: 700 clamp(56px, 12vw, 128px)/0.9 var(--display); letter-spacing: 0.24em; }
+.title-in p { margin: 0 0 14px; color: var(--muted); font-size: 18px; }
+@media (prefers-reduced-motion: reduce) { .tmap .ping { animation: none; } }
+@media (max-width: 560px) {
+  .card > .banner.bleed { margin: -14px -14px 12px; border-radius: var(--r) var(--r) 0 0; }
+  .brief-head > .banner.bleed { width: calc(100% + 28px); }
+  .transit-card > .banner.bleed { margin: -16px -16px 0; }
+  .hcard, .hpic { width: 96px; } .hpic { height: 96px; }
+  .stamp.classified { font-size: 13px; top: 10px; right: 10px; }
+}
 @media (pointer: coarse) {
   .btn, .tab, .loadout select { min-height: 44px; }
   .op-head input { width: 22px; height: 22px; }
@@ -2845,6 +2936,7 @@ function refresh() {
   else if (G.phase === 'INSERTION' || G.phase === 'EXTRACTION') renderReport();
   else if (G.phase === 'OPERATION') { renderOps(); showBubbles(); }
   else renderDebrief();
+  startWeather();
 }
 // Speech bubbles: barks new since the last render pop up one after another, linger and fade. They stay in the log;
 // nothing is replayed after a reload.
@@ -2868,9 +2960,221 @@ function bubble(e) {
   setTimeout(() => el.remove(), BUBBLE_MS + 500);
 }
 
-const classChip = (cls) => `<span class="cls cls-${cls.toLowerCase()}">${CLASSES[cls].label}</span>`;
+const classChip = (cls) => `<span class="cls cls-${cls.toLowerCase()}">${patch(cls)}${CLASSES[cls].label}</span>`;
 const skillChip = (k) => `<span class="sk sk-${k.toLowerCase()}">${SKILLS[k].label}</span>`;
 const skillLine = (f) => Object.keys(SKILLS).map((k) => `<span>${SKILLS[k].short} <b>${f(k)}</b></span>`).join('');
+
+// ------------------------------------------------------------------ art: slots for drawn art, and the art drawn in code
+/* Art slots. Real art drops into img/art/<ID>.jpg; until then a hatched placeholder names the asset and its size
+   (docs/art-guide.md lists every slot with its prompt). A missing file is remembered, so it is asked for once. */
+const ART_SIZE = { banner: [1600, 500], key: [1920, 1080], portrait: [400, 400], dept: [1200, 300] };
+const artMissing = new Set();
+addEventListener('error', (e) => { const img = e.target; if (img?.matches?.('.art img')) { artMissing.add(img.dataset.id); img.remove(); } }, true);
+function artSlot(id, kind, cls = '') {
+  const [w, h] = ART_SIZE[kind];
+  return `<figure class="art art-${kind} ${cls}" aria-hidden="true">${artMissing.has(id) ? '' : `<img src="img/art/${id}.jpg" data-id="${id}" alt="">`}<figcaption>${id}<small>${w}×${h}</small></figcaption></figure>`;
+}
+/** A location banner: the place, tinted for the time of day, with the weather drawn over it. */
+const bannerHtml = (m, wx, cls = '') => `<div class="banner tod-${m.env.time} ${cls}">${artSlot(`LOC-${m.loc}`, 'banner')}${WX_KIND[wx] ? `<canvas class="wx" data-wx="${wx}"></canvas>` : ''}</div>`;
+
+/** Rank insignia: chevrons for the enlisted ranks (a rocker under PFC and SSG), a bar for the lieutenant. */
+function insignia(i) {
+  const n = [1, 1, 2, 3, 3][i];
+  const body = i === 5 ? '<rect x="3" y="7" width="10" height="4" rx="1" fill="currentColor"/>'
+    : Array.from({ length: n }, (_, k) => `<path d="M2 ${5 + k * 4}l6-3 6 3"/>`).join('') + ([1, 4].includes(i) ? `<path d="M2 ${n * 4 + 3}q6 4 12 0"/>` : '');
+  return `<svg class="ins" viewBox="0 0 16 18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
+}
+const rankHtml = (xp) => { const i = rankIdx(xp); return `<span class="rank" title="${RANKS[i][1]}">${insignia(i)}${RANKS[i][0]}</span>`; };
+
+/** Class patches: a shield with the trade on it. */
+const PATCH = {
+  HEAVY: '<path d="M8.5 7v6M12 7v6M15.5 7v6"/>',
+  SCOUT: '<path d="M6 10.5s2.5-3.5 6-3.5 6 3.5 6 3.5-2.5 3.5-6 3.5-6-3.5-6-3.5z"/><circle cx="12" cy="10.5" r="1.5"/>',
+  MEDIC: '<path d="M12 6.5v8M8 10.5h8"/>',
+  DRONE: '<path d="M8.5 7.5l7 6M15.5 7.5l-7 6"/><circle cx="8" cy="7" r="1.6"/><circle cx="16" cy="7" r="1.6"/><circle cx="8" cy="14" r="1.6"/><circle cx="16" cy="14" r="1.6"/>',
+};
+const patch = (cls) => `<svg class="patch" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 3h16v9c0 5-4 8-8 9-4-1-8-4-8-9z"/>${PATCH[cls] || ''}</svg>`;
+
+/** Faction emblems: crossed rifles for the militia, a chevroned shield for the regulars, a crosshair hexagon for the contractors. */
+const EMBLEM = {
+  MILITIA: '<circle cx="20" cy="20" r="15"/><path d="M11 29L29 11M11 11l18 18M26 11h3v3M14 11h-3v3"/>',
+  REGULARS: '<path d="M20 5l12 5v9c0 8-6 13-12 15-6-2-12-7-12-15v-9z"/><path d="M13 17l7 4 7-4M13 23l7 4 7-4"/>',
+  PMC: '<path d="M20 5l13 7.5v15L20 35 7 27.5v-15z"/><circle cx="20" cy="20" r="5"/><path d="M20 10v5M20 25v5M10 20h5M25 20h5"/>',
+};
+const emblem = (f) => `<svg class="emblem" viewBox="0 0 40 40" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round">${EMBLEM[f]}</svg>`;
+
+/** Unknown intel is a redaction bar; the reason is spelled out on hover and for screen readers. */
+const redact = (len, why) => `<span class="redact" style="width:${len}ch" role="img" aria-label="Redacted: ${esc(why)}" title="${esc(why)}"></span>`;
+
+// ------------------------------------------------------------------ tactical map: contour lines from seeded noise, the route on top
+const hash32 = (s) => { let h = 2166136261; for (const c of s) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return h >>> 0; };
+const prng = (seed) => () => { seed = (seed + 0x6d2b79f5) >>> 0; let t = seed; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+/** How each location reads on the map: hill frequency (across, down), contour count, and the features it draws. */
+const MAP_LOOK = {
+  FARMLAND: { fx: 2, fy: 1.6, levels: 6, fields: true }, HIGHLANDS: { fx: 3, fy: 2.4, levels: 11 }, COAST: { fx: 2.2, fy: 1.8, levels: 6, sea: true },
+  RIVER: { fx: 2.2, fy: 1.8, levels: 6, river: true }, DESERT: { fx: 1.2, fy: 4, levels: 6 }, FOREST: { fx: 2.4, fy: 2, levels: 7, trees: true },
+  URBAN: { fx: 1.4, fy: 1.2, levels: 3, blocks: true },
+};
+// Marching squares: which cell edges (top, right, bottom, left) a contour crosses, by corner pattern.
+const MS = ['', 'lb', 'br', 'lr', 'tr', 'lt br', 'tb', 'lt', 'lt', 'tb', 'tr lb', 'tr', 'lr', 'br', 'lb', ''];
+const mapCache = new Map();
+function terrain(m, W, H) {
+  const key = `${m.codename}:${m.n}:${m.loc}:${W}x${H}`;
+  if (mapCache.has(key)) return mapCache.get(key);
+  const look = MAP_LOOK[m.loc] || MAP_LOOK.FARMLAND, r = prng(hash32(`${m.codename}:${m.n}`)), f1 = (n) => +n.toFixed(1);
+  const lattice = (gx, gy) => { const g = Array.from({ length: (gy + 1) * (gx + 1) }, r); return (u, v) => {
+    const x = u * gx, y = v * gy, i = Math.min(gx - 1, x | 0), j = Math.min(gy - 1, y | 0), s = (t) => t * t * (3 - 2 * t), a = s(x - i), b = s(y - j), at = (p, q) => g[q * (gx + 1) + p];
+    return (at(i, j) * (1 - a) + at(i + 1, j) * a) * (1 - b) + (at(i, j + 1) * (1 - a) + at(i + 1, j + 1) * a) * b; }; };
+  const gx = Math.max(2, Math.round(look.fx * W / 300)), gy = Math.max(2, Math.round(look.fy * H / 300));
+  const n1 = lattice(gx, gy), n2 = lattice(gx * 2, gy * 2), n3 = lattice(3, 2);
+  const step = 14, cols = Math.ceil(W / step) + 1, rows = Math.ceil(H / step) + 1, field = [];
+  for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) { const u = i / (cols - 1), v = j / (rows - 1); field.push(n1(u, v) + 0.4 * n2(u, v)); }
+  const lo = Math.min(...field), hi = Math.max(...field), at = (i, j) => (field[j * cols + i] - lo) / (hi - lo);
+  let minor = '', major = '';
+  for (let l = 1; l <= look.levels; l++) {
+    const L = l / (look.levels + 1);
+    let d = '';
+    for (let j = 0; j < rows - 1; j++) for (let i = 0; i < cols - 1; i++) {
+      const a = at(i, j), b = at(i + 1, j), c = at(i + 1, j + 1), e = at(i, j + 1);
+      const segs = MS[(a > L) << 3 | (b > L) << 2 | (c > L) << 1 | (e > L)];
+      if (!segs) continue;
+      const x = i * step, y = j * step, t = (p, q) => (L - p) / (q - p);
+      const pt = { t: [x + step * t(a, b), y], r: [x + step, y + step * t(b, c)], b: [x + step * t(e, c), y + step], l: [x, y + step * t(a, e)] };
+      for (const s of segs.split(' ')) { const [p, q] = [pt[s[0]], pt[s[1]]]; d += `M${f1(p[0])} ${f1(p[1])}L${f1(q[0])} ${f1(q[1])}`; }
+    }
+    if (l % 3 === 0) major += d; else minor += d;
+  }
+  let feat = '', x0 = W * 0.08;
+  if (look.sea) { // a coastline down the left edge; the route comes in from the water
+    const pts = Array.from({ length: 9 }, (_, k) => [f1(W * (0.07 + 0.08 * n3(0.2, k / 8))), f1(k * H / 8)]);
+    feat += `<path class="sea" d="M0 0L${pts.map((p) => p.join(' ')).join('L')}L0 ${H}Z"/><path class="shore" d="M${pts.map((p) => p.join(' ')).join('L')}"/>`;
+    x0 = W * 0.2;
+  }
+  if (look.river) { // a river winding across the map
+    const pts = Array.from({ length: 13 }, (_, k) => [f1(k * W / 12), f1(H * (0.2 + 0.6 * n3(k / 12, 0.5)))]);
+    feat += `<path class="river" d="M${pts.map((p) => p.join(' ')).join('L')}"/>`;
+  }
+  if (look.fields) for (let k = 0; k < 16; k++) { // a patchwork of fields
+    const w = 50 + r() * 90, h = 30 + r() * 50;
+    feat += `<rect class="field" x="${f1(r() * (W - w))}" y="${f1(r() * (H - h))}" width="${f1(w)}" height="${f1(h)}" transform="rotate(${f1(r() * 16 - 8)} ${W / 2} ${H / 2})"/>`;
+  }
+  if (look.trees) for (let k = 0; k < 220; k++) { // tree cover on the middle slopes
+    const x = r() * W, y = r() * H, v = at(Math.round(x / step), Math.round(y / step));
+    if (v > 0.25 && v < 0.75) feat += `<circle class="tree" cx="${f1(x)}" cy="${f1(y)}" r="${f1(2 + r() * 2.5)}"/>`;
+  }
+  if (look.blocks) for (let y = 12; y < H - 30; y += 46) for (let x = 12; x < W - 40; x += 62) { // city blocks between streets
+    if (r() < 0.2) continue;
+    feat += `<rect class="block" x="${f1(x + r() * 6)}" y="${f1(y + r() * 6)}" width="${f1(36 + r() * 14)}" height="${f1(24 + r() * 10)}"/>`;
+  }
+  const t = { minor, major, feat, x0, ys: Array.from({ length: 8 }, () => H * (0.3 + 0.38 * r())) };
+  mapCache.set(key, t);
+  return t;
+}
+/** The tactical map: terrain for the location, tinted for the time of day, the route and its stages, the weather over it. */
+function mapHtml(m, stages, curIdx, wx, wide = 1000, H = 250) {
+  const phone = innerWidth < 640, W = phone ? 440 : wide, t = terrain(m, W, H), n = stages.length, x1 = W * 0.93;
+  const p = stages.map((_, i) => [Math.round(t.x0 + (x1 - t.x0) * i / Math.max(1, n - 1)), Math.round(t.ys[i])]);
+  const leg = (i) => { const [a, b] = [p[i], p[i + 1]], mx = (a[0] + b[0]) / 2; return `M${a[0]} ${a[1]}C${mx} ${a[1]} ${mx} ${b[1]} ${b[0]} ${b[1]}`; };
+  const grid = Array.from({ length: Math.floor(W / 100) }, (_, k) => `<path d="M${(k + 1) * 100} 0V${H}"/><text x="${(k + 1) * 100 + 4}" y="12">${String(31 + k).padStart(2, '0')}</text>`).join('')
+    + [1, 2].map((k) => `<path d="M0 ${k * 100}H${W}"/><text x="4" y="${k * 100 - 4}">${['K', 'L'][k - 1]}</text>`).join('');
+  const nodes = stages.map((st, i) => {
+    const [x, y] = p[i], state = st.skipped ? 'skipped' : i < curIdx ? 'done' : i === curIdx ? 'cur' : '';
+    return `<g class="wp ${state}" transform="translate(${x} ${y})">${state === 'cur' ? '<circle class="ping" r="13"/>' : ''}<circle r="13"/><text dy="4.5">${st.skipped ? "×" : i + 1}</text>${phone ? "" : `<text class="lbl" dy="31">${KIND[st.kind].toUpperCase()}</text>`}</g>`;
+  }).join('');
+  return `<div class="tmap tod-${m.env.time}">
+    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Tactical map: ${n} stages${curIdx >= 0 ? `, now at stage ${curIdx + 1}` : ''}, ${LOCATIONS[m.loc].label.toLowerCase()}, ${{ DAY: 'day', DUSK: 'dusk', NIGHT: 'night' }[m.env.time]}">
+      <g class="grid">${grid}</g>${t.feat}<path class="minor" d="${t.minor}"/><path class="major" d="${t.major}"/>
+      ${p.slice(0, -1).map((_, i) => `<path class="leg ${i < curIdx ? 'done' : ''}" d="${leg(i)}"/>`).join('')}${nodes}
+      <g class="compass" transform="translate(${W - 28} 30)"><path d="M0-14L5 6 0 2-5 6Z"/><text y="18">N</text></g>
+      <g class="scale" transform="translate(16 ${H - 16})"><path d="M0 0H80M0-4V0M40-3V0M80-4V0"/><text x="86" y="3">1 km</text></g>
+    </svg>${WX_KIND[wx] ? `<canvas class="wx" data-wx="${wx}"></canvas>` : ''}</div>`;
+}
+
+// ------------------------------------------------------------------ weather over the map and the banners
+/* Rain and storms (with lightning), drizzle, drifting fog and smoke, blowing dust, heat haze. Purely visual, so it
+   uses Math.random, never the game's seeded dice. One animation loop serves every canvas and stops when none is left. */
+const WX_KIND = { RAIN: 'rain', STORM: 'storm', FLOOD: 'rain', MUD: 'drizzle', FOG: 'fog', SMOKE: 'smoke', DUST: 'dust', HEAT: 'heat' };
+let wxRunning = false;
+function wxSpawn(kind, w, h, any) {
+  const R = Math.random;
+  if (kind === 'fog' || kind === 'smoke') return { x: R() * w * 1.4 - w * 0.2, y: R() * h, r: h * (0.35 + R() * 0.5), vx: 0.08 + R() * 0.25, vy: kind === 'smoke' ? -0.06 - R() * 0.08 : 0 };
+  if (kind === 'dust') return { x: any ? R() * w : -10, y: R() * h, s: 0.6 + R() * 1.6, vx: 2 + R() * 3, ph: R() * 6 };
+  if (kind === 'heat') return { x: R() * w, y: any ? R() * h : h + 10, s: 0.5 + R(), vy: -0.2 - R() * 0.4, ph: R() * 6 };
+  const fast = kind === 'storm' ? 1.5 : 1;
+  return { x: R() * (w + 60), y: any ? R() * h : -20, len: (kind === 'drizzle' ? 5 : 10 + R() * 9) * fast, v: (kind === 'drizzle' ? 5 : 9 + R() * 5) * fast };
+}
+function wxInit(c) {
+  const box = c.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1), w = box.width, h = box.height;
+  c.width = Math.max(1, Math.round(w * dpr)); c.height = Math.max(1, Math.round(h * dpr));
+  const kind = WX_KIND[c.dataset.wx], area = w * h;
+  const count = { rain: area / 1500, storm: area / 900, drizzle: area / 4000, fog: 8, smoke: 9, dust: area / 1100, heat: 40 }[kind];
+  c.wx = { kind, w, h, dpr, flash: 0, parts: Array.from({ length: Math.min(600, Math.round(count)) }, () => wxSpawn(kind, w, h, true)) };
+}
+function wxDraw(c, t) {
+  const s = c.wx, g = c.getContext('2d'), { w, h, kind } = s;
+  g.setTransform(s.dpr, 0, 0, s.dpr, 0, 0);
+  g.clearRect(0, 0, w, h);
+  if (kind === 'fog' || kind === 'smoke') {
+    for (const p of s.parts) {
+      p.x += p.vx; p.y += p.vy;
+      if (p.x - p.r > w) { p.x = -p.r; } if (p.y + p.r < 0) p.y = h + p.r;
+      const grad = g.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r);
+      grad.addColorStop(0, kind === 'fog' ? 'rgba(220,228,232,0.16)' : 'rgba(120,108,96,0.2)'); grad.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = grad; g.fillRect(p.x - p.r, p.y - p.r, p.r * 2, p.r * 2);
+    }
+    return;
+  }
+  if (kind === 'dust' || kind === 'heat') {
+    g.fillStyle = kind === 'dust' ? 'rgba(200,160,100,0.10)' : `rgba(255,150,60,${0.05 + 0.02 * Math.sin(t / 900)})`;
+    g.fillRect(0, 0, w, h);
+    g.fillStyle = kind === 'dust' ? 'rgba(225,190,130,0.55)' : 'rgba(255,200,140,0.3)';
+    for (const p of s.parts) {
+      if (kind === 'dust') { p.x += p.vx; p.y += Math.sin(t / 300 + p.ph) * 0.4; if (p.x > w + 10) Object.assign(p, wxSpawn(kind, w, h, false)); }
+      else { p.y += p.vy; p.x += Math.sin(t / 500 + p.ph) * 0.3; if (p.y < -10) Object.assign(p, wxSpawn(kind, w, h, false)); }
+      g.fillRect(p.x, p.y, p.s * 1.6, p.s);
+    }
+    return;
+  }
+  g.strokeStyle = kind === 'drizzle' ? 'rgba(190,210,225,0.35)' : 'rgba(190,210,225,0.42)';
+  g.lineWidth = 1;
+  g.beginPath();
+  for (const p of s.parts) {
+    p.y += p.v; p.x -= p.v * 0.25;
+    if (p.y > h + 20) Object.assign(p, wxSpawn(kind, w, h, false));
+    g.moveTo(p.x, p.y); g.lineTo(p.x + p.len * 0.25, p.y - p.len);
+  }
+  g.stroke();
+  if (kind === 'storm') {
+    if (Math.random() < 0.004) s.flash = 1;
+    if (s.flash > 0.02) { g.fillStyle = `rgba(230,240,255,${s.flash * 0.3})`; g.fillRect(0, 0, w, h); s.flash *= 0.86; }
+  }
+}
+function startWeather() {
+  const list = [...document.querySelectorAll('canvas.wx')];
+  for (const c of list) if (!c.wx) wxInit(c);
+  if (calm()) { list.forEach((c) => wxDraw(c, 0)); return; } // reduced motion: one still frame
+  if (wxRunning || !list.length) return;
+  wxRunning = true;
+  const tick = (t) => {
+    const live = [...document.querySelectorAll('canvas.wx')];
+    if (!live.length) { wxRunning = false; return; }
+    for (const c of live) { if (!c.wx) wxInit(c); wxDraw(c, t); }
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+
+/** Title card on load: the key art, the name, and the way in. The test hook skips it. */
+function showTitle() {
+  const el = document.createElement('div');
+  el.className = 'title'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'SKIRM');
+  el.innerHTML = `${artSlot('KEYART', 'key')}<div class="title-in"><div class="title-logo">SKIRM</div><p>Special operations, one decision at a time.</p>
+    <button class="btn primary big" type="button">${G.flown || G.phase !== 'BASE' ? 'Continue campaign' : 'Start campaign'}</button></div>`;
+  document.body.append(el);
+  const go = el.querySelector('button');
+  go.addEventListener('click', () => { sfx('select'); el.remove(); });
+  go.focus();
+}
 
 // ------------------------------------------------------------------ route track (shared by briefing and operation)
 /** What the player knows about a stage: names (types) and enemy numbers (nums). */
@@ -2893,9 +3197,9 @@ function nodeHtml(st, i, curIdx) {
     const named = st.kind === 'OBJECTIVE' || (st.kind === 'OPTIONAL' && sits[0] !== SIT.CACHE) || kn.types;
     title = named ? sits.map((s) => s.label).join(' / ') : st.kind === 'OPTIONAL' ? 'Target of opportunity?' : `${sits.length} unscouted entry point${sits.length > 1 ? 's' : ''}`;
     if (kn.nums) detail = sits.map((s) => { const f = G.battle && G.phase === 'OPERATION' ? foesOf(st, s) : s.foes; return `${f} hostile${f === 1 ? '' : 's'}`; }).join(' / ');
-    else detail = 'Strength unknown';
+    else detail = null; // redacted below
   }
-  return `<li class="node ${state}"><span class="k">${i + 1} · ${KIND[st.kind]}</span><b>${esc(title)}</b><small>${esc(detail)}</small></li>`;
+  return `<li class="node ${state}"><span class="k">${i + 1} · ${KIND[st.kind]}</span><b>${esc(title)}</b><small>${detail == null ? redact(9, 'Strength unknown') : esc(detail)}</small></li>`;
 }
 const routeHtml = (stages, curIdx) => `<ol class="route">${stages.map((st, i) => nodeHtml(st, i, curIdx)).join('')}</ol>`;
 
@@ -2913,13 +3217,26 @@ function forecastText(m) {
   const turn = sure && e.turnTo ? ` Turning to ${WEATHER[e.turnTo].label.toLowerCase()} during the mission.` : '';
   return `${WEATHER[e.forecast].label}${sure ? ' (certain).' + turn : ` (forecast, ${e.rel}% reliable).`}`;
 }
+/** The hostile file: the force's emblem, the officer and the target, each a redacted card until intel names them. */
+function hostilesHtml(m) {
+  const k = enemyKnown(m), card = (pic, name, role) => `<div class="hcard">${pic}<b>${name}</b><small>${role}</small></div>`;
+  const hidden = (why) => `<span class="hpic redacted" role="img" aria-label="Redacted: ${why}">?</span>`;
+  const cards = [k.faction ? card(`<span class="hpic">${emblem(m.faction)}</span>`, FACTIONS[m.faction].label, 'Force') : card(hidden('force unconfirmed'), redact(8, 'Force unconfirmed'), 'Force')];
+  if (m.officer && k.officer) cards.push(card(artSlot(`OFF-${m.officer.trait}`, 'portrait', 'hpic'), esc(m.officer.name), `Officer · ${OFFICER_TRAITS[m.officer.trait].label}`));
+  else if (!k.officer) cards.push(card(hidden('officer unknown'), redact(9, 'Officer unknown'), 'Officer'));
+  if (m.target) cards.push(k.target ? card(artSlot(`TGT-${m.target}`, 'portrait', 'hpic'), TARGETS[m.target].label, 'Target') : card(hidden('target unknown'), redact(8, 'Identity unconfirmed'), 'Target'));
+  return `<div class="hostiles">${cards.join('')}</div>`;
+}
+/** A portrait beside the officer or target line on the stage they hold. */
+const foeRow = (id, html) => `<div class="foe">${artSlot(id, 'portrait', 'sm')}<p class="sit-text">${html}</p></div>`;
+/** What intel says about the enemy, as HTML: what is unknown is redacted. */
 function enemyFacts(m) {
   const k = enemyKnown(m), out = [];
-  out.push(['Enemy', k.faction ? `${FACTIONS[m.faction].label}. ${FACTIONS[m.faction].desc}` : 'Force unconfirmed. An informant network would tell you who.']);
+  out.push(['Enemy', k.faction ? esc(`${FACTIONS[m.faction].label}. ${FACTIONS[m.faction].desc}`) : `${redact(16, 'Force unconfirmed')} An informant network would tell you who.`]);
   const back = m.officer?.returning ? ` They got away from you on ${m.officer.returning}.` : '';
-  if (k.officer) out.push(['Officer', m.officer ? `${m.officer.name} (${OFFICER_TRAITS[m.officer.trait].label}), holding stage ${m.officer.stage + 1}. ${OFFICER_TRAITS[m.officer.trait].desc}${back}` : 'No officer on the radio net.']);
-  else if (back) out.push(['Officer', `Chatter says ${m.officer.name} has resurfaced here.${back} Signals intercept would tell you where they stand.`]);
-  if (m.target) out.push(['Target', k.target ? `${TARGETS[m.target].label}. ${TARGETS[m.target].desc}` : 'Identity unconfirmed.']);
+  if (k.officer) out.push(['Officer', esc(m.officer ? `${m.officer.name} (${OFFICER_TRAITS[m.officer.trait].label}), holding stage ${m.officer.stage + 1}. ${OFFICER_TRAITS[m.officer.trait].desc}${back}` : 'No officer on the radio net.')]);
+  else if (back) out.push(['Officer', esc(`Chatter says ${m.officer.name} has resurfaced here.${back} Signals intercept would tell you where they stand.`)]);
+  if (m.target) out.push(['Target', k.target ? esc(`${TARGETS[m.target].label}. ${TARGETS[m.target].desc}`) : `${redact(12, 'Identity unconfirmed')} An informant network would name them.`]);
   return out;
 }
 
@@ -2927,23 +3244,23 @@ function enemyFacts(m) {
 const BASE_TABS = ['BARRACKS', 'MED', 'ENG', 'INTEL', 'LOG', 'CMD'];
 function offerHtml(m, i) {
   const k = enemyKnown(m);
-  return `<div class="offer"><div class="offer-head"><span class="chip">${LOCATIONS[m.loc].label}</span><span class="chip">${{ DAY: 'Day', DUSK: 'Dusk', NIGHT: 'Night' }[m.env.time]}</span>
+  return `<div class="offer">${bannerHtml(m, m.env.forecast, "bleed")}<div class="offer-head"><span class="chip">${LOCATIONS[m.loc].label}</span><span class="chip">${{ DAY: 'Day', DUSK: 'Dusk', NIGHT: 'Night' }[m.env.time]}</span>
       <span class="chip ${WEATHER[m.env.forecast].tire || Object.values(WEATHER[m.env.forecast].veh).some((v) => typeof v === 'string') ? 'warn' : ''}">${WEATHER[m.env.forecast].label} · ${m.env.rel}%</span></div>
     <h2>${esc(m.codename)}</h2><p class="area">${esc(m.area)}</p>
     <ul class="objectives"><li><span class="tag primary">Primary</span><b>${OBJ[m.primary].label}</b></li><li><span class="tag">Secondary</span><b>${OBJ[m.secondary].label}</b></li></ul>
-    <dl class="facts"><dt>Threat</dt><dd>${threat(m)}</dd>${k.faction ? `<dt>Enemy</dt><dd>${FACTIONS[m.faction].label}</dd>` : ''}${m.officer?.returning ? `<dt>Officer</dt><dd><span class="chip bad">${esc(m.officer.name)} has resurfaced</span></dd>` : ''}<dt>Reward</dt><dd>${m.reward.rp} RP · ${m.reward.bp} BP on success</dd></dl>
+    <dl class="facts"><dt>Threat</dt><dd>${threat(m)}</dd>${k.faction ? `<dt>Enemy</dt><dd class="fac">${emblem(m.faction)}${FACTIONS[m.faction].label}</dd>` : ''}${m.officer?.returning ? `<dt>Officer</dt><dd><span class="chip bad">${esc(m.officer.name)} has resurfaced</span></dd>` : ''}<dt>Reward</dt><dd>${m.reward.rp} RP · ${m.reward.bp} BP on success</dd></dl>
     <button class="btn primary" type="button" data-mission="${i}">Plan this mission</button></div>`;
 }
 function deptHtml(d) {
   const bs = G.base, lv = bs.lv[d], D = DEPTS[d], next = lv < 3 ? UPGRADE_BP[lv + 1] : null;
-  const head = `<div class="dept-head"><div><h2>${D.label}</h2><p class="muted" style="margin:0">${D.desc}</p></div>
+  const head = `${artSlot(`DEPT-${d}`, "dept", "dept-art")}<div class="dept-head"><div><h2>${D.label}</h2><p class="muted" style="margin:0">${D.desc}</p></div>
       <div class="dept-lv">${[1, 2, 3].map((n) => `<i class="${n <= lv ? 'on' : ''}"></i>`).join('')}<span>Level ${lv}</span></div></div>
     <ol class="lv-list">${D.lv.map((t, n) => `<li class="${n + 1 <= lv ? 'have' : ''}"><b>L${n + 1}</b> ${t}</li>`).join('')}</ol>
     ${next != null ? `<button class="btn" type="button" data-upgrade="${d}" ${G.bp < next ? 'disabled' : ''}>Upgrade to level ${lv + 1} · ${next} BP</button>` : '<span class="chip ok">Fully upgraded</span>'}`;
   let body = '';
   if (d === 'BARRACKS') {
     const alive = G.roster.filter((s) => s.alive);
-    body = `<div class="roster-list">${alive.map((s) => `<div class="rrow">${faceImg(s, 'f40')}<span class="rank">${RANKS[rankIdx(s.xp)][0]}</span><b>${esc(s.name)}</b>${classChip(s.cls)}${specChip(s)}
+    body = `<div class="roster-list">${alive.map((s) => `<div class="rrow">${faceImg(s, 'f40')}${rankHtml(s.xp)}<b>${esc(s.name)}</b>${classChip(s.cls)}${specChip(s)}
         <span class="muted">${PERSONAS[s.persona].label}</span>${traitChips(s)}<span class="grow"></span>${fatChip(soldierFat(s))}${s.recovery ? `<span class="chip warn">Recovering · ${s.recovery}</span>` : ''}</div>`).join('')}</div>
       ${alive.length < rosterMax() ? `<div class="recruit"><span>Recruit an operator · ${recruitCost()} RP · roster ${alive.length}/${rosterMax()}</span><div class="recruit-btns">${Object.entries(CLASSES).map(([id, c]) =>
         `<button class="btn" type="button" data-enlist="${id}" ${G.rp < recruitCost() ? 'disabled' : ''}>${c.label}</button>`).join('')}</div></div>` : `<p class="muted">Roster full (${rosterMax()}).</p>`}
@@ -2985,6 +3302,7 @@ function renderBase() {
       <div class="tabs" role="tablist">${BASE_TABS.map((d) => `<button class="tab ${d === tab ? 'on' : ''}" type="button" role="tab" aria-selected="${d === tab}" data-tab="${d}">${DEPTS[d].label}<small>L${bs.lv[d]}</small></button>`).join('')}</div>
       ${deptHtml(tab)}</div></div></section>`;
   const v = $('#view');
+  startWeather();
   v.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => { ui.baseTab = b.dataset.tab; saveUi(); sfx('click'); renderBase(); }));
   v.querySelectorAll('[data-mission]').forEach((b) => b.addEventListener('click', () => { sfx('select'); run(() => chooseMission(+b.dataset.mission)); }));
   v.querySelectorAll('[data-upgrade]').forEach((b) => b.addEventListener('click', () => { run(() => upgradeDept(b.dataset.upgrade)); sfx('success'); }));
@@ -3050,7 +3368,7 @@ function renderBriefing() {
     const on = draft.team.includes(s.id), l = draft.loadouts[s.id], nx = nextXp(s.xp), pct = nx > 0 ? Math.min(100, Math.round((s.xp / nx) * 100)) : 100, ok = available(s);
     return `<div class="op ${on ? 'on' : ''} ${ok ? '' : 'off'}">${faceImg(s, 'f90')}
       <label class="op-head"><input type="checkbox" id="pick-${s.id}" data-pick="${s.id}" ${on ? 'checked' : ''} ${ok ? '' : 'disabled'}>
-        <span class="rank">${RANKS[rankIdx(s.xp)][0]}</span><span class="name">${esc(s.name)}</span>${fatChip(soldierFat(s))}
+        ${rankHtml(s.xp)}<span class="name">${esc(s.name)}</span>${fatChip(soldierFat(s))}
         <span class="meta">${s.missions} ops · ${s.kills} kills</span>${ok ? '' : `<span class="chip warn">Recovering · ${s.recovery} mission${s.recovery > 1 ? 's' : ''}</span>`}</label>
       ${!ok && s.healing?.length ? `<div class="healing">${s.healing.map(esc).join(', ')}</div>` : ''}
       <div class="persona-line">${classChip(s.cls)}${specChip(s)}<span>${PERSONAS[s.persona].label}</span>${traitChips(s)}</div>
@@ -3068,12 +3386,12 @@ function renderBriefing() {
   const tot = `<dt>Time on target</dt><dd>${BASE_TIME + VEH[draft.insertion].time} (base ${BASE_TIME}, +${VEH[draft.insertion].time} from insertion)</dd><dt>Reward</dt><dd>${m.reward.rp} RP · ${m.reward.bp} BP on success</dd>`;
 
   const body = [
-    () => `<div class="brief-grid"><div class="col"><div class="card"><h3>Situation</h3>
+    () => `<div class="brief-grid"><div class="col"><div class="card"><h3>Situation</h3>${hostilesHtml(m)}
         <dl class="facts"><dt>Weather</dt><dd>${forecastText(m)} ${envSummary({ time: m.env.time, weather: m.env.forecast })}</dd>
-          ${enemyFacts(m).map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}<dt>Threat</dt><dd>${threat(m)}</dd>${tot}</dl>
+          ${enemyFacts(m).map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}<dt>Threat</dt><dd>${threat(m)}</dd>${tot}</dl>
         <ul class="objectives"><li><span class="tag primary">Primary</span><b>${OBJ[m.primary].label}</b>${OBJ[m.primary].desc}</li>
           <li><span class="tag">Secondary</span><b>${OBJ[m.secondary].label}</b>${OBJ[m.secondary].desc}</li></ul></div></div>
-      <div class="col"><div class="card"><h3>Operation plan</h3>${routeHtml(m.route, -1)}
+      <div class="col"><div class="card"><h3>Operation plan</h3>${mapHtml(m, m.route, -1, m.env.forecast, 720, 250)}${routeHtml(m.route, -1)}
         ${m.intel.some((i) => ['SATELLITE', 'HUMINT', 'UAV'].includes(i)) ? '' : '<p class="muted" style="margin:8px 0 0">Entry points are unscouted. Buy intel to see what is waiting.</p>'}</div>
         <div class="card"><h3>Intelligence</h3>${intelRows}${humint}</div></div></div>`,
     () => `<div class="card"><h3>Team <span class="count">${draft.team.length}/${MAX_TEAM}</span></h3>
@@ -3086,7 +3404,7 @@ function renderBriefing() {
   ][step]();
 
   $('#view').innerHTML = `<section class="brief">
-    <div class="card brief-head"><div><div class="eyebrow">Mission ${m.n} · Briefing · ${LOCATIONS[m.loc].label}</div><h1>${esc(m.codename)}</h1><p class="area">${esc(m.area)}</p></div>
+    <div class="card brief-head">${bannerHtml(m, m.env.forecast, 'bleed')}<span class="stamp classified" aria-hidden="true">Classified</span><div><div class="eyebrow">Mission ${m.n} · Briefing · ${LOCATIONS[m.loc].label}</div><h1>${esc(m.codename)}</h1><p class="area">${esc(m.area)}</p></div>
       <ol class="steps" aria-label="Briefing steps">${BRIEF_STEPS.map((l, i) => `<li><button type="button" data-step="${i}" class="${i < step ? 'done' : ''}" ${i === step ? 'aria-current="step"' : ''}><i>${i < step ? '✓' : i + 1}</i>${l}</button></li>`).join('')}</ol></div>
     ${body}
     <div class="brief-bar"><div class="budget"><span>Team <b>${draft.team.length}/${MAX_TEAM}</b></span><span>Transport <b>${cost} RP</b></span><span class="${okBudget ? '' : 'bad'}">RP left <b>${G.rp - cost}</b></span></div>
@@ -3095,7 +3413,7 @@ function renderBriefing() {
           : `<button class="btn primary big" type="button" id="launch" ${why ? 'disabled' : ''}>Launch mission</button>`}</div>
       ${why ? `<span class="why" role="status">${ico('warn')} ${why}</span>` : ''}</div>
   </section>`;
-  fadeRoutes();
+  fadeRoutes(); startWeather();
 
   const v = $('#view');
   v.querySelectorAll('[data-step]').forEach((b) => b.addEventListener('click', () => { draft.step = +b.dataset.step; sfx('click'); renderBriefing(); window.scrollTo(0, 0); }));
@@ -3143,13 +3461,13 @@ function renderTransit() {
   const cards = it.opts.map((o, i) => {
     const u = unitById(o.uid), s = soldier(u.sid), on = it.pick === i;
     return `<button class="line ${on ? 'on' : ''} ${picked && !on ? 'faded' : ''}" type="button" data-line="${i}" ${picked ? 'disabled' : ''} aria-pressed="${on}">
-      <span class="idn">${faceImg(s, 'f56')}<span class="idn-name"><span class="rank">${RANKS[rankIdx(s.xp)][0]}</span><b>${esc(u.name)}</b></span><span class="idn-chips">${classChip(u.cls)}${specChip(s)}</span></span>
+      <span class="idn">${faceImg(s, 'f56')}<span class="idn-name">${rankHtml(s.xp)}<b>${esc(u.name)}</b></span><span class="idn-chips">${classChip(u.cls)}${specChip(s)}</span></span>
       <span class="persona">${PERSONAS[s.persona].label}${u.inj.length ? ` · ${esc(conditionOf(u))}` : ''}</span>
       <q>${esc(o.text)}</q><span class="hint">${TOPICS[o.topic].hint}</span></button>`;
   }).join('');
   const chosen = picked ? unitById(it.opts[it.pick].uid) : null;
   const events = (title, lines, base) => `<div class="events"><h3>${ico('radio')}${title}</h3><ol class="narrative">${lines.map((l, i) => narrLine(l, i, base)).join('')}</ol></div>`;
-  $('#view').innerHTML = `<section class="transit"><div class="card transit-card">
+  $('#view').innerHTML = `<section class="transit"><div class="card transit-card">${bannerHtml(m, m.env.weather, 'bleed')}
     <div><div class="eyebrow">Mission ${m.n} · ${inbound ? 'En route' : 'Heading home'}</div><h1>${esc(m.codename)}</h1></div>
     ${inbound ? '' : events('Extraction', m.extReport, 0)}
     <p class="scene">${scene}</p><h3 class="prompt">${prompt}</h3>
@@ -3219,7 +3537,7 @@ function statusHtml() {
     ${reinf}${b.drone.up ? `<span class="chip ok">Drone up${b.drone.strike ? ' · strike ready' : ''}</span>` : ''}
     <span class="grow"></span>
     <button class="btn ghost" type="button" data-act="drawer" aria-pressed="${ui.drawer}">${ico('log')}${ui.drawer ? 'Hide log' : 'Log & objectives'}</button>
-  </div>${routeHtml(b.stages, b.stage)}</div>`;
+  </div>${mapHtml(m, b.stages, b.stage, m.env.weather, 1150, 190)}${routeHtml(b.stages, b.stage)}</div>`;
 }
 function tagsOf(opt, foes) {
   const t = [];
@@ -3261,7 +3579,7 @@ function forkHtml(st) {
           <span class="tags">${sat ? `<span>${fx ? 'Perimeter: ' + fx : 'No perimeter effect'}</span>` : '<span>Effect unknown without satellite imagery</span>'}${r.reveal ? '<span class="good">Reveals 2 stages</span>' : ''}</span></button>`; }).join('')}</div>`;
   }
   return `<div class="eyebrow">Stage ${b.stage + 1} · ${KIND[st.kind]}</div><h2>Choose your way in</h2><p class="sit-text">Two entry points. You can see both from here.</p>
-    ${officerAt(st) ? `<p class="sit-text">${officerHtml(officerAt(st))}</p>` : ''}
+    ${officerAt(st) ? foeRow(`OFF-${officerAt(st).trait}`, officerHtml(officerAt(st))) : ''}
     <div class="tiles">${st.choices.map((c, i) => { const s = SIT[c], f = foesOf(st, s);
       return `<button class="tile" type="button" data-act="fork" data-i="${i}"><span class="row"><b>${s.label}</b>${hostiles(f)}</span><small>${s.text}</small>
         ${s.hazard ? '<span class="tags"><span class="loud">Hazard</span></span>' : ''}<ul>${s.opts.map((o) => `<li>${SKILLS[o.skill].label} ${o.diff}: ${o.label}${o.need ? ` (${SPECS[o.need].label.toLowerCase()})` : ''}</li>`).join('')}</ul></button>`; }).join('')}</div>`;
@@ -3281,9 +3599,9 @@ function planSceneHtml(st, sit) {
       <b>${o.label}</b><small>${o.desc}</small><span class="tags">${o.need ? `<span class="spec-tag">${SPECS[o.need].label}</span>` : ''}${tagsOf(o, q.foes)}</span>
       <span class="foot">Difficulty ${q.diff.value} · ${q.pool.value} dice</span></button>`; }).join('');
   const m = G.mission, off = officerAt(st);
-  const who = sit === SIT.HVT && m.target ? `<p class="sit-text"><span class="chip ${m.target === 'WARLORD' ? 'bad' : ''}">Target: ${TARGETS[m.target].label}</span> ${TARGETS[m.target].desc}</p>` : '';
+  const who = sit === SIT.HVT && m.target ? foeRow(`TGT-${m.target}`, `<span class="chip ${m.target === 'WARLORD' ? 'bad' : ''}">Target: ${TARGETS[m.target].label}</span> ${TARGETS[m.target].desc}`) : '';
   return `${resultHtml()}<div class="scene-head"><div class="eyebrow">Stage ${b.stage + 1} · ${KIND[st.kind]}</div>${hostiles(foes)}</div>
-    <h2>${esc(sit.label)}</h2><p class="sit-text">${esc(sit.text)}</p>${off ? `<p class="sit-text">${officerHtml(off)}</p>` : ''}${who}<div class="tiles">${tiles}</div>`;
+    <h2>${esc(sit.label)}</h2><p class="sit-text">${esc(sit.text)}</p>${off ? foeRow(`OFF-${off.trait}`, officerHtml(off)) : ''}${who}<div class="tiles">${tiles}</div>`;
 }
 function rollSceneHtml(st, sit) {
   const b = B(), r = b.roll, opt = sit.opts[r.opt], out = outcomeOf(r), s = successes(r), lead = unitById(r.lead);
@@ -3377,7 +3695,7 @@ function renderOps() {
   $('#view').innerHTML = `<section class="ops">${statusHtml()}
     <div class="ops-body ${ui.drawer ? 'with-drawer' : ''}"><div class="stage-col"><div class="card scene-card">${scene}</div>${rolled ? rollTeamHtml() : trayHtml(st, sit)}</div>
     ${ui.drawer ? drawerHtml() : ''}</div></section>`;
-  fadeRoutes();
+  fadeRoutes(); startWeather();
   if (rolled) animateRoll();
 }
 /** While the dice are out, the fireteam on the roll stays in sight, wounds and all. */
@@ -3469,11 +3787,11 @@ function renderDebrief() {
   const list = (a, empty) => (a.length ? `<ul>${a.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : `<p class="muted">${empty}</p>`);
   $('#view').innerHTML = `<section class="debrief">
     <div class="card"><div class="eyebrow">Mission ${m.n} · Debrief</div><h1>${esc(m.codename)}</h1>
-      <div class="verdict ${d.success ? 'ok' : 'bad'}">${d.success ? 'Mission success' : 'Mission failed'}</div>
+      <div class="stamp verdict ${d.success ? 'ok' : 'bad'}">${d.success ? 'Mission success' : 'Mission failed'}</div>
       <ul class="obj-results">${d.objectives.map((o) => `<li class="${o.ok ? 'ok' : 'bad'}"><span>${o.ok ? '✓' : '✗'}</span>${o.primary ? 'Primary' : 'Secondary'}: <b>${o.label}</b></li>`).join('')}</ul>
       <p>Requisition awarded: <b>+${d.rp} RP</b> · Base points: <b>+${d.bp ?? 0} BP</b></p></div>
     <div class="card"><h3>Personnel</h3><div class="table-wrap"><table class="personnel"><thead><tr><th>Operator</th><th>Status</th><th>Injuries</th><th>Kills</th><th>XP</th><th>Rank</th></tr></thead><tbody>
-      ${d.soldiers.map((s) => `<tr class="${/KIA|MIA/.test(s.status) ? 'lost' : ''}"><td><span class="idn">${s.face ? faceImg(s, 'f40') : ''}<span class="idn-name"><b>${esc(s.name)}</b></span><span class="idn-chips">${classChip(s.cls)}${s.spec ? specChip(s) : ''}</span></span></td><td>${s.status}</td><td>${s.injuries.length ? s.injuries.map(esc).join(', ') : '<span class="muted">None</span>'}</td><td>${s.kills}</td><td>${s.xp ? '+' + s.xp : '-'}</td><td>${s.promoted ? `<span class="chip gold">Promoted: ${s.promoted}</span>` : s.rank}</td></tr>`).join('')}
+      ${d.soldiers.map((s) => `<tr class="${/KIA|MIA/.test(s.status) ? 'lost' : ''}"><td><span class="idn">${s.face ? faceImg(s, 'f40') : ''}<span class="idn-name"><b>${esc(s.name)}</b></span><span class="idn-chips">${classChip(s.cls)}${s.spec ? specChip(s) : ''}</span></span></td><td>${s.status.replace(/\b(KIA|MIA)\b/, '<span class="stamp mini">$1</span>')}</td><td>${s.injuries.length ? s.injuries.map(esc).join(', ') : '<span class="muted">None</span>'}</td><td>${s.kills}</td><td>${s.xp ? '+' + s.xp : '-'}</td><td>${s.promoted ? `<span class="chip gold">Promoted: ${s.promoted}</span>` : s.rank}</td></tr>`).join('')}
     </tbody></table></div></div>
     ${d.words?.length ? `<div class="card"><h3>Words that stayed</h3><div class="words">${d.words.map((w) => `<div><span class="muted">${w.when} · ${esc(w.name)}</span><q>${esc(w.text)}</q><small>${esc(w.reveal)}</small></div>`).join('')}</div></div>` : ''}
     <div class="card split"><div><h3>Gear lost</h3>${list(d.lost, 'Nothing lost.')}</div><div><h3>Gear gained</h3>${list(d.gained, 'Nothing recovered.')}</div>${d.notes.length ? `<div><h3>Notes</h3>${list(d.notes, '')}</div>` : ''}</div>
@@ -3590,6 +3908,7 @@ function start(data) {
   for (const s of G.roster) if (!s.face) s.face = freeFace(s); // saves from before portraits
   window.claude?.hot?.snapshot?.(() => ({ save: JSON.stringify(G) }));
   refresh();
+  if (!/[?&]test\b/.test(location.search)) showTitle(); // the test hook plays without the title card
 }
 // Test hook: index.html?test exposes the rules API to automated play-throughs.
 if (/[?&]test\b/.test(location.search)) {

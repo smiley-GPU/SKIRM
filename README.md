@@ -25,6 +25,8 @@ A campaign of small special-operations missions, played as an **ops board**: eac
 
 Every screen has a **?** button (how to play, how a stage works, and a glossary of RP, BP, alert, fatigue and the rest) and a **⋯** menu (sound and vibration, new campaign; restarting asks twice).
 
+Art direction is a classified dossier: tactical maps, weather, insignia, patches, emblems, stamps and redaction are drawn in code. Pictures (location banners, key art, hostile portraits, department vignettes) drop into `img/art/` and show as labelled placeholders until then; `docs/art-guide.md` lists every slot with its size and prompt.
+
 Design notes and balance numbers: `docs/abstract-mission-design.md`.
 
 ## Code layout
