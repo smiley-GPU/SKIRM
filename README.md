@@ -1,80 +1,38 @@
 # SKIRM: modern tactical skirmish (proof of concept)
 
-A minimal, playable version of the whole loop in `todo.md`:
+A campaign of small special-operations missions, played as an **ops board**: each mission is a route of decision stages resolved with dice and visible odds.
 
-**Briefing → Insertion → Tactical (turn-based isometric hex) → Extraction → Debrief → next Briefing**
+**Briefing → Interlude → Insertion → Operation → Extraction → Interlude → Debrief → next Briefing**
 
-**Play in the browser:** https://smiley-gpu.github.io/SKIRM/. This is `index.html`, a standalone build where the rules engine and AI are ported to JavaScript. It needs no server, works on phones, and saves in browser storage.
+**Play in the browser:** https://smiley-gpu.github.io/SKIRM/. The whole game is one file, `index.html`. It needs no server or build step, works on phones, and saves in browser storage. Open the file directly or serve the folder with any static server.
 
-**Alternative mode: Ops board** (`ops.html`). Missions resolve as a route of decision stages: pick an approach, pick a lead and supporters, spend gear, and roll dice with the odds shown. It replaces the hex battle and keeps the same briefing, classes and debrief. See `docs/abstract-mission-design.md`. The hex version is saved as tag `hex-v1`.
-
-In the Java version below, the server owns the game and the browser only displays it.
-
-## Run
-
-Needs JDK 17+ only. There are no other dependencies and no build tool.
-
-```powershell
-.\run.ps1                # http://localhost:8080
-.\run.ps1 -Seed 42       # reproducible campaign
-.\run.ps1 -Test          # headless smoke test (bot plays 120 missions)
-```
-```sh
-./run.sh  |  ./run.sh --seed 42  |  ./run.sh test
-```
-`pom.xml` is there only so IDEs can import the project.
-
-## What's in the proof
+## What's in it
 
 | Stage | Implemented |
 |---|---|
-| **Briefing** | Generated operation: codename, area, time and weather (affect vision and accuracy), primary and secondary objectives, a vague threat estimate. Buy **Satellite** imagery (reveals terrain) and **Deep intel** (enemy count, positions, reinforcement timing). Pick a team of up to 4, weapon, armor and utility per operator from a limited **armory**, and insertion/extraction transport (helicopter / convoy / on foot), all paid from **requisition points**. |
-| **Insertion** | Dice-driven complications by vehicle, scaled by darkness: hot LZ (alerted), hard landing or IED (injury), roadblock or bad terrain (fewer turns). |
-| **Tactical** | Procedural 18×12 hex map: a walled compound, cover, brush, water and ruins, with a connectivity check. 4 AP per operator. Movement over terrain costs, line of sight, fog of war with last-seen markers, cover and concealment, itemised hit chances, frag grenades with friendly fire, medkits, an intel pickup that drops if its carrier dies. Stealth: enemies start unaware, and a silent kill on an unaware target doesn't raise the alarm. Enemy AI has two states (patrol, or engage by scoring positions). Reinforcements, and a turn limit tied to the extraction window. |
-| **Extraction** | Hot extraction if alerted hostiles are near the zone. Operators left behind try to get out on foot, and some become MIA. |
-| **Debrief** | Wounds (light, or heavy = sits out the next mission), KIA/MIA, XP leading to **promotions** (+accuracy), gear lost (dead operators' kit, used consumables), gear gained (captured weapons, caches), requisition reward, replacement recruits. |
+| **Briefing** | Generated operation: codename, area, time and weather, primary and secondary objectives, a threat estimate and the route ahead. Buy **Satellite** imagery and **Deep intel**. Pick up to 4 operators from the roster, each with a class (Heavy, Scout, Medic, Drone Operator), and a weapon, armour and utility from a limited **armory**. Choose insertion and extraction transport (helicopter, convoy, on foot). Everything is paid from **requisition points**. |
+| **Interlude (before)** | Each operator comments on the coming mission in the voice of their personality (20 personalities). The statement you keep becomes a one-mission effect. |
+| **Insertion** | Complications by vehicle, scaled by darkness: hot LZ, hard landing or IED (injury), roadblock or flooded gully (lost time). |
+| **Operation** | A route of 5–6 stages: approach, perimeter, objective, optional target, exfil. At each stage pick an approach (Assault, Stealth, Recon, Tech), a lead and supporters, and gear to spend, then roll with the odds itemised. Success, success at a cost you choose, or failure. Push to re-roll at +1 alert. Two clocks: time and alert. |
+| **Injuries** | No HP. Operators carry named injuries ("Broken finger: Assault −1, Tech −1"). Minor injuries pile up until a hit turns serious; a critical injury stops an operator leading and knocks them out unless treated; the unconscious die unless treated. Medkits and medics treat. |
+| **Extraction** | Hot extraction if the area is alerted. Operators left behind try to get out on foot, and some become MIA. |
+| **Interlude (after)** | Survivors reflect on what actually happened. The statement you keep becomes permanent: a trait, a bond between two operators, or a signature weapon. |
+| **Debrief** | Injuries and recovery time, KIA/MIA, XP and promotions, gear lost and gained, requisition reward, replacement recruits. |
 
-## Architecture
+Design notes and balance numbers: `docs/abstract-mission-design.md`.
 
-```
-src/main/java/skirm/
-  core/      Hex (axial coords, distance, lines), Rng (seeded), Json, RuleException
-  model/     Data and balance tables: Item, Terrain, Vehicle, Environment, Rank, Soldier, Armory, TacticalMap
-  mission/   MissionGenerator, MapGenerator, Transit (insertion/extraction), Debrief
-  tactical/  Battle (rules), Pathing (Dijkstra), Combat (hit math), EnemyAi, Unit, BattleEvent
-  game/      Game (phase state machine facade), Campaign, StateView (view model + fog boundary)
-  server/    GameServer (JDK HttpServer: JSON commands + static files)
-web/
-  index.html, style.css
-  js/render.js   isometric hex renderer (pure view: scene in, pixels out)
-  js/app.js      phase screens, input → commands, event playback
-```
+## Code layout
 
-Main design decisions:
+`index.html` holds styles, rules and UI in one script:
 
-- **The server is authoritative.** The client sends *intents* (`MOVE unit→hex`, `SHOOT unit→target`). Every rule check lives in `Battle`, and a command is fully validated before anything changes.
-- **Fog of war is enforced on the server.** `StateView` is the only place that serialises game state, and it never sends hidden enemies or unexplored terrain. Events are filtered when they are created. For example, a shot from an unseen enemy arrives without a `from` position. The smoke test checks that nothing leaks.
-- **Deterministic.** All randomness comes from seeded `Rng` instances (campaign → mission → battle). The same seed plus the same commands gives the same game, which makes replays, bug reports and future multiplayer lockstep easy.
-- **Results come back as events.** Each command returns a snapshot plus the events it caused. The client animates the events (paths, tracers, damage numbers) and renders the snapshot. Animation timing never affects game logic.
-- **The client precomputes nothing.** The server sends each operator's reachable hexes (with path parents), valid targets with hit chance and modifier breakdown, and the available actions. The UI can't drift from the rules.
-- **Balance lives in enums.** Weapons, armor, vehicles, intel and ranks are each one table, so tuning means editing one file.
-- **Generated content is checked.** Maps are rejected and regenerated unless the insertion zone, objective and every extraction zone are connected.
-- **The tests play the game.** `SmokeTest` plays 40 seeded campaigns × 3 missions through the public `Game` API. It checks invariants (no shared hexes, HP and AP bounds, units only on passable tiles), round-trips every snapshot through JSON, and checks that illegal commands are rejected.
+- **Rules data** at the top: skills, items, vehicles, intel, situations, injuries, classes, personalities and their lines. Every balance number lives in these tables.
+- **Engine**: mission generation, the operation rules, injuries, interludes and phases. Every command validates before it changes anything and throws `Rule` with a player-facing message on a bad input.
+- **UI**: one render function per phase, re-rendered from the save state after each command.
+- **Deterministic**: all randomness comes from a seeded generator whose state is in the save, so a reload continues the same game.
+- **Test hook**: `index.html?test` exposes the rules API as `window.SKIRM`, for automated play-throughs (a bot soak test plays 120 missions through it).
 
-### HTTP API
-`GET /api/state` · `POST /api/campaign/new` · `POST /api/briefing/intel {intel}` ·
-`POST /api/briefing/launch {team, loadouts, insertion, extraction}` · `POST /api/continue` ·
-`POST /api/battle/action {unit, type, q?, r?, target?}` · `POST /api/battle/end-turn` · `POST /api/battle/abort`
-Every call responds with `{phase, campaign, catalog, mission, battle|report|debrief, events}`. A rule violation returns `400 {error}`.
+`ops.html` only redirects to `index.html`, for old links.
 
-## Controls (tactical)
-Click an operator to select it. Click a highlighted hex to move (hover shows path and AP). Click a dashed-ring hostile to fire (hover shows hit % and modifiers).
-`Tab` cycles operators · `G` grenade · `H` medkit · `I` secure intel · `X` exfiltrate · `E` end turn · `Esc` or right-click cancels.
+## Archive
 
-## Deliberately out of scope (next steps)
-1. **Persistence**: the campaign lives in memory, one session per server. Next: save the campaign as JSON plus a command log for replays.
-2. **Reaction fire / overwatch**, suppression, crouch and prone, elevation, destructible cover.
-3. **A richer AI**: flanking, squad coordination, retreat, the HVT fleeing, and no "radio cheat" (alerted enemies currently know all player positions).
-4. **Content**: more objective types, map templates, events (civilians, weather changing mid-mission), traits and skills on promotion.
-5. **Rendering**: sprites instead of primitives, camera pan and zoom for bigger maps, a cutaway view for walls in front of units.
-6. **Tests**: move SmokeTest to JUnit, add golden-seed regression tests (seed + commands → expected log hash).
+The original hex-battle version (browser build and Java server build) is archived in `OLD_HEX/` with its own README. Nothing in the live game depends on it.

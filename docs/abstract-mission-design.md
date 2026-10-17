@@ -1,6 +1,6 @@
 # Abstract mission resolution: design note
 
-The hex isometric tactical layer is saved as tag `hex-v1` and branch `hex-isometric`, and is still playable at `index.html`. This note explores ways to resolve a mission more abstractly while keeping meaningful player choices. The chosen prototype is playable at `ops.html`.
+The original hex isometric tactical layer is archived in `OLD_HEX/` (also tag `hex-v1` and branch `hex-isometric`). This note explores ways to resolve a mission more abstractly while keeping meaningful player choices. The chosen design is now the whole game, in `index.html`.
 
 ## Why look for an alternative
 
@@ -23,7 +23,7 @@ The hex battle is where most of the game's cost sits: map generation, pathing, l
 
 **Recommendation: A.** It gives the most decisions per minute at the lowest cost, and it is the easiest to test and tune with numbers. B is worth revisiting if playtests show that players miss space and positioning.
 
-## Rules of the prototype (`ops.html`)
+## Rules of the ops board (`index.html`)
 
 - **Two clocks.** *Time* (8, plus 2 for a helicopter or 1 for a convoy) is spent by every action. When it runs out, the extraction window closes and everyone left escapes on foot. *Alert* (0–6): at 3 the enemy is awake, which makes Stealth and Assault +1 harder and adds an extra return-fire die. At 6 a QRF forces you straight to exfil.
 - **Stage resolution.** Pick an approach (Assault, Stealth, Recon, Tech) and form a fireteam: a **lead**, who rolls their full skill dice and takes the first hit, and up to 2 **supporters**, who add 1 die each. Spend gear: a frag adds +2 Assault dice, a breaching charge adds +2 Tech or Assault dice but is loud, and the drone strike adds +2. Roll d6; each 5 or 6 is a success.
@@ -42,7 +42,7 @@ The hex battle is where most of the game's cost sits: map generation, pathing, l
   Rank adds +1 die at CPL and +2 at SSG. Weapons and armour modify dice: LMG Assault +1 and Stealth −1, Plate Stealth −1 (but less damage taken), and so on.
 - **Intel.** Satellite reveals what the entry points and targets are, and how each route affects the perimeter. Deep Intel reveals enemy numbers and reinforcement timing, and makes objective tests 1 easier.
 - **Environment.** Day makes Stealth +1 harder. Night, rain and fog make Stealth easier and Recon harder.
-- **Injuries (no HP).** The player only sees named injuries and what they do ("Broken finger: Assault −1, Tech −1"); penalties apply to an operator's dice when they lead. Behind the screen each hit rolls 2d6 + modifiers − armour for a hidden tier: minor (cut hand, bruised knee; 3 allowed, Heavy 4), serious (broken finger, cracked ribs; 1 allowed), critical (broken arm, concussion, heavy bleeding; 1 allowed, can't lead, passes out after 2 stages untreated) or knocked out. A hit on a full tier escalates to the next; the unconscious die after 2 stages unless treated. A medkit fixes the worst problem (wakes, splints, straps or cleans up cuts); a medic gives free field care once per stage for the unconscious and critical, and with a kit also clears every minor injury. Debrief: minor injuries heal, serious = 1 mission out, critical = 2, knocked out = 3. Tuning lives in `INJURIES`, `SERIOUS_AT`/`CRITICAL_AT`/`LETHAL_AT`, `CRIT_STAGES` and `RECOVERY`. Promotions, gear and recruiting are the same as in the hex game.
+- **Injuries (no HP).** The player only sees named injuries and what they do ("Broken finger: Assault −1, Tech −1"); penalties apply to an operator's dice when they lead. Behind the screen each hit rolls 2d6 + modifiers − armour for a hidden tier: minor (cut hand, bruised knee; 3 allowed, Heavy 4), serious (broken finger, cracked ribs; 1 allowed), critical (broken arm, concussion, heavy bleeding; 1 allowed, can't lead, passes out after 2 stages untreated) or knocked out. A hit on a full tier escalates to the next; the unconscious die after 2 stages unless treated. A medkit fixes the worst problem (wakes, splints, straps or cleans up cuts); a medic gives free field care once per stage for the unconscious and critical, and with a kit also clears every minor injury. Debrief: minor injuries heal, serious = 1 mission out, critical = 2, knocked out = 3. Tuning lives in `INJURIES`, `SERIOUS_AT`/`CRITICAL_AT`/`LETHAL_AT`, `CRIT_STAGES` and `RECOVERY`. Promotions, gear and recruiting work as in the original version.
 
 ## Interludes and personalities
 
