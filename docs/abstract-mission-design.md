@@ -52,7 +52,23 @@ Every operator has one of 20 personalities (stoic professional, joker, fatalist,
 - **After the mission** (after the extraction report, before the debrief) each survivor reflects on something that actually happened to them: a remarkable kill, an explosion, helping or being helped by a teammate, a fallen friend, a weapon that performed, coming back from unconscious, a ghost run, the feared adversary. The kept statement becomes permanent: a trait (Deadeye, Demolitions, Grit, Survivor, Shadow; max 3), a bond (+1 die when both are in the fireteam; max 2, and it turns into Grit if the partner dies) or a signature weapon (+1 die when leading with it). Operators with nothing remarkable reflect generally (+10 XP to everyone if kept).
 - Lines are templates in `LINES` (personality × topic, 380 lines), filled with mission details (weapon, threat, teammate, vehicle, weather). Effects live in `applyOmen` / `applyLasting` and the dice and difficulty breakdowns.
 
-## Bot soak test (120 missions, bot always takes the best odds)
+## Base, world and operators
+
+- **Base mode.** Between missions the team is at base. The mission board offers 2–3 operations in different locations. Six departments, each with three levels bought with Base Points (BP, earned per mission: 3 for success, more for the secondary, an officer kill, a beaten nemesis or a warlord): Operations, Intelligence, Medical, Engineering, Logistics and Barracks. Requisition (RP) still pays for intel, transport, recruits, treatment, fabrication and repairs. Design intent: BP is the long arc (what kind of unit you build), RP the short one (what this mission costs).
+- **Enemies.** Each mission has a faction that moves the return-fire threshold (militia +1, contractors −1) and sets what kills can yield. An officer (more likely later in the campaign) holds one stage with a trait: Sharpshooter (return fire hits more often), Tactician (+1 difficulty), Brute (hits there are more serious) or Commander (failures raise more alert). Killing them, which needs an approach that kills, drops a good item; sneaking past leaves them alive. The HVT is a Financier (−1 difficulty, fewer guards), a Bomb-maker, or a Warlord: the real enemy, +1 difficulty, more guards, gets back up once, more reward. Signals intercept reveals the officer; an informant names the faction and the target.
+- **Weather.** Seven location types (farmland, highlands, coast, river delta, desert, forest, town) each weight their weather, encounters and routes. Nine weather states include the climate hazards: heat wave and wildfire smoke tire the team every stage; storms and dust ground helicopters; flash floods block road vehicles; mudslides slow them. The forecast is right with the Intelligence level's reliability (60/75/90%); otherwise the real weather is one of its neighbours. 35% of operations see the weather turn at a later stage, which can strand an extraction ride. Weather recon makes the forecast, and any turn, certain.
+- **Vehicles.** On foot, convoy and helicopter, then light strike vehicle and boat (Logistics 2; boats only where there is water), then HALO jump (insertion only) and MRAP (Logistics 3; IEDs damage the truck, not the team). IEDs, rough ground and hot extractions can damage vehicles, which then need repairs at base.
+- **Specialties and gear.** Dice come from class, rank and gear: weapon, armour and a new kit slot (suppressor, optic, breacher toolkit, ghillie suit, thermal sight). Specialties and earned traits never add dice. They open approaches that only a specialist can lead (a sniper pair at the sentry post, a free climb, a swim under the boom, talking through a checkpoint) or bend a rule (no Stealth noise, no return fire on a CQB objective, the first alarm jammed, tiring later).
+- **Fatigue.** 0–6 per operator. +1 for leading a test, +1 to everyone committed when it fails, +1 for long approach routes, walking in, heat or smoke each stage, and carrying the wounded. Tired (3+) leads roll 1 die fewer, Exhausted (5+) 2. Resting costs 1 time and takes 2 fatigue off everyone. Fatigue carries over between missions (−3 when the team gets home, more for those who stayed); a treatment bed clears it.
+
+### Soak test after these changes (30 campaigns × 5 missions, bot plays the base too)
+
+- Missions won: 124 of 150. KIA 1, MIA 17 (mostly from running out of time; base time went from 8 to 9 to pay for fatigue and rests).
+- Officers met in 72 missions and killed in 18; specialist approaches used 122 times; weather turned in 42 operations and grounded a ride in 17.
+- BP earned: 568 (about 3.8 per mission). The bot bought 99 department upgrades.
+- No errors over 150 missions and about 3,000 screen renders.
+
+## Original bot soak test (120 missions, before injuries, interludes and the base)
 
 - Missions won: 105 of 120 (88%).
 - Operators lost: 20.

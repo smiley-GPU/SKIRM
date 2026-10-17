@@ -50,14 +50,22 @@ In the base you can
 When you choose the mission you move the ops-mode.
 
 ## ENEMIES
-Enemies: create different enemy types: mooks/officers/BBEG. Mooks should be the standard adversary usually in teams or (easy) lone guardsmen, officers are harder single enemues, BBEG is the main target (HVT should not always be BBEG, unless they have vast combat experience or similar)
+Enemies: create different enemy types: mooks/officers/BBEG. Mooks should be the standard adversary usually in teams or (easy) lone guardsmen, officers are harder single enemies (interlude adversaries) with better lootable gear etc, BBEG is the main target (HVT should not always be BBEG, unless they have vast combat experience or similar)
 
 ## GAME FEATURES
 Create more intel options. Some of them should be available via upgrades or character traits.
 
-Create full environmental / weather system. Weather caould be forecasted, but something could change fast.
+Create full environmental / weather system. Weather could be forecasted, but something could change fast.
 
-Revise the whole system so that gear gives you more dice, operator traits give you other benefits: new areas to move (mountaineering, scuba), alternative options (sniper, demolition expert) or other benefits. 
+Focus on weather effects that could be result of climate crisis: heat waves, wild fires, storms, rain, flash floods, mud floods, etc. Consider the effects on transportation options.
+
+Add more vehicles.
+
+Create more variety to mission locations and encounters.
 
 ## OPERATORS
 Operators should each have a starting trait that describes their skills os specialties. Marksman training, demolition expert, CQB expert, infiltrator, etc. Something that gives them little extra. Check MOS trainings in moden special forces and compare to game traits. Try to keep these high level rather than too specific. 
+
+Revise the whole system so that gear gives you more dice, operator traits give you other benefits: new areas to move (mountaineering, scuba), alternative options (sniper, demolition expert) or other benefits. 
+
+Create fatigue system. Weather, combat and action affect this.
