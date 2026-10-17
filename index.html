@@ -3131,7 +3131,7 @@ function wxSpawn(kind, w, h, any) {
   if (kind === 'dust') return { x: any ? R() * w : -10, y: R() * h, s: 0.6 + R() * 1.6, vx: 2 + R() * 3, ph: R() * 6 };
   if (kind === 'heat') return { x: R() * w, y: any ? R() * h : h + 10, s: 0.5 + R(), vy: -0.2 - R() * 0.4, ph: R() * 6 };
   const fast = kind === "storm" ? 1.3 : 1; // a steady fall, slow enough to read as rain rather than streaks
-  return { x: R() * (w + 60), y: any ? R() * h : -20, len: (kind === 'drizzle' ? 5 : 10 + R() * 9) * fast, v: (kind === "drizzle" ? 2.5 : 4 + R() * 2.5) * fast };
+  return { x: R() * (w + 60), y: any ? R() * h : -20, len: (kind === 'drizzle' ? 4 : 7 + R() * 6) * fast, v: (kind === "drizzle" ? 1.5 : 2.2 + R() * 1.4) * fast };
 }
 function wxInit(c) {
   const box = c.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1), w = box.width, h = box.height;
