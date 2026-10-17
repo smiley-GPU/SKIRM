@@ -227,6 +227,27 @@ main { flex: 1; min-height: 0; padding-block: 16px; padding-left: max(16px, env(
 .unhurt { font-size: 13px; color: var(--ok); }
 .inj-short { font-size: 12px; color: #ffb6ae; }
 .healing { margin: 2px 0 0 28px; font-size: 12px; color: var(--warn); }
+.persona-line { margin: 4px 0 0 28px; font-size: 12px; color: var(--muted); display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.trait { font: 600 11px/1 var(--display); text-transform: uppercase; letter-spacing: 0.08em; color: var(--gold); border: 1px solid #5a4a24; border-radius: 3px; padding: 3px 5px; }
+.trait.bond { color: var(--accent); border-color: #1f4a4f; }
+/* interludes */
+.interlude { max-width: 900px; margin: 0 auto; }
+.interlude .scene { color: var(--muted); font-style: italic; margin: 0 0 16px; }
+.lines { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.line { display: grid; gap: 6px; align-content: start; text-align: left; background: var(--panel-2); border: 1px solid var(--line); color: var(--fg); border-radius: 5px; padding: 12px; cursor: pointer; font: inherit; touch-action: manipulation; }
+.line:hover:not(:disabled) { border-color: var(--accent); }
+.line.on { border-color: var(--gold); background: #2a2414; }
+.line.faded { opacity: 0.45; }
+.line:disabled { cursor: default; }
+.line .who { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.line .persona { font-size: 12px; color: var(--muted); }
+.line q, .words q { font-size: 15px; line-height: 1.45; quotes: '\201C' '\201D'; }
+.line .hint { justify-self: start; font: 600 11px/1 var(--display); text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); border: 1px solid var(--line); border-radius: 3px; padding: 3px 6px; }
+.reveal { display: grid; gap: 4px; border: 1px solid var(--gold); border-radius: 5px; padding: 10px 12px; margin-bottom: 14px; animation: reveal 0.35s both; }
+.reveal b { color: var(--gold); } .reveal span { color: var(--fg); font-size: 14px; }
+.words { display: grid; gap: 10px; }
+.words div { display: grid; gap: 3px; }
+.words small { color: var(--gold); }
 .unit .skills { font: 12px var(--mono); color: var(--muted); display: flex; gap: 8px; flex-wrap: wrap; }
 .unit .skills b { color: var(--fg); font-weight: 600; }
 .unit .care { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -476,6 +497,487 @@ function diceFor(cls, xp, weapon, armor, skill) {
 }
 
 // =====================================================================================
+// INTERLUDES: personalities, what they talk about, and what the chosen words do.
+// Before the mission each operator raises one topic; the player keeps one statement, which becomes a
+// one-mission omen. After it, survivors reflect on what happened; the kept statement becomes a lasting trait,
+// bond or signature weapon. Personality only decides which topics someone favours and how they say it.
+// =====================================================================================
+const PERSONAS = {
+  STOIC: { label: 'Stoic professional', likes: ['OBJECTIVE', 'INTEL', 'REFLECT'] },
+  JOKER: { label: 'Joker', likes: ['MATE', 'RIDE', 'BOOM'] },
+  FATALIST: { label: 'Fatalist', likes: ['FATE', 'THREAT', 'LOST'] },
+  ROOKIE: { label: 'Wide-eyed rookie', likes: ['GEAR', 'MATE', 'SURVIVOR', 'HELPED_BY'] },
+  GEARHEAD: { label: 'Gearhead', likes: ['GEAR', 'SIGNATURE', 'BOOM'] },
+  GLORY: { label: 'Glory hound', likes: ['OBJECTIVE', 'KILL', 'THREAT'] },
+  GUARDIAN: { label: 'Guardian', likes: ['MATE', 'HELPED', 'LOST'] },
+  SUPERSTITIOUS: { label: 'Superstitious', likes: ['ENV', 'FATE', 'SURVIVOR'] },
+  MERC: { label: 'Mercenary', likes: ['RIDE', 'OBJECTIVE', 'KILL'] },
+  PLANNER: { label: 'Planner', likes: ['INTEL', 'BLIND', 'GHOST'] },
+  LONER: { label: 'Lone wolf', likes: ['BLIND', 'THREAT', 'GHOST'] },
+  JUNKIE: { label: 'Adrenaline junkie', likes: ['THREAT', 'BOOM', 'SURVIVOR'] },
+  HOMESICK: { label: 'Homesick', likes: ['FATE', 'RIDE', 'LOST'] },
+  PHILOSOPHER: { label: 'Philosopher', likes: ['ENV', 'FATE', 'REFLECT'] },
+  AVENGER: { label: 'Avenger', likes: ['THREAT', 'KILL', 'NEMESIS'] },
+  PERFECTIONIST: { label: 'Perfectionist', likes: ['GEAR', 'INTEL', 'SIGNATURE'] },
+  OPTIMIST: { label: 'Optimist', likes: ['ENV', 'MATE', 'HELPED_BY'] },
+  VETERAN: { label: 'Old hand', likes: ['INTEL', 'MATE', 'REFLECT'] },
+  BELIEVER: { label: 'True believer', likes: ['OBJECTIVE', 'FATE', 'NEMESIS'] },
+  QUIET: { label: 'Quiet one', likes: ['GEAR', 'ENV', 'GHOST'] },
+};
+// Topics. hint = what the player sees before choosing. IN = before the mission, OUT = after it.
+const TOPICS = {
+  GEAR: { at: 'IN', hint: 'Gear' }, THREAT: { at: 'IN', hint: 'Adversary' }, INTEL: { at: 'IN', hint: 'Intel' }, BLIND: { at: 'IN', hint: 'Instinct' },
+  ENV: { at: 'IN', hint: 'Conditions' }, MATE: { at: 'IN', hint: 'Teammate' }, OBJECTIVE: { at: 'IN', hint: 'Objective' }, FATE: { at: 'IN', hint: 'Fate' },
+  RIDE: { at: 'IN', hint: 'The way out' },
+  KILL: { at: 'OUT', hint: 'Marksmanship' }, BOOM: { at: 'OUT', hint: 'Explosives' }, HELPED: { at: 'OUT', hint: 'Bond' }, HELPED_BY: { at: 'OUT', hint: 'Bond' },
+  LOST: { at: 'OUT', hint: 'Loss' }, SIGNATURE: { at: 'OUT', hint: 'Weapon' }, SURVIVOR: { at: 'OUT', hint: 'Survival' }, GHOST: { at: 'OUT', hint: 'Stealth' },
+  NEMESIS: { at: 'OUT', hint: 'Adversary' }, REFLECT: { at: 'OUT', hint: 'Reflection' },
+};
+// Lasting traits from extraction interludes (max TRAIT_CAP each).
+const TRAITS = {
+  DEADEYE: { label: 'Deadeye', desc: '+1 Assault die when leading' },
+  DEMOLITIONS: { label: 'Demolitions', desc: '+1 die from frags, breaching charges and drone strikes' },
+  GRIT: { label: 'Grit', desc: 'takes one more cut or bruise before a hit turns serious' },
+  SURVIVOR: { label: 'Survivor', desc: 'once per mission, shrugs off a hit that would knock them out' },
+  SHADOW: { label: 'Shadow', desc: '+1 Stealth die when leading' },
+};
+const TRAIT_CAP = 3, BOND_CAP = 2, NEMESIS_XP = 15, GRUDGE_XP = 20, REFLECT_XP = 10;
+const WEAPON_NAME = { CARBINE: 'carbine', SMG: 'SMG', DMR: 'marksman rifle', LMG: 'LMG', AK: 'AK' };
+const THREAT_NAME = { SENTRY: 'the sentries', PATROL: 'that patrol', TOWER: 'the watchtower', MINES: 'the tripwires', DOGS: 'the dogs', INTEL: 'the guards on the cache', HVT: 'the HVT', CACHE: 'the cache guard' };
+const SCENES = {
+  IN: { HELO: ['The helicopter lifts off and banks toward the hills. Through the open door, the lights of the base shrink to nothing.', 'When the rotor noise swallows the talk, whose words stay with you?'],
+    GROUND: ['The convoy pulls out of the gate onto the dark road. The trucks rattle; someone checks a radio for the third time.', 'When the talk dies down to engine noise, whose words stay with you?'],
+    FOOT: ['The team moves out past the last checkpoint. One last huddle in the treeline before the walk.', 'When the column goes silent, whose words stay with you?'] },
+  OUT: { HELO: ['The helicopter claws away from the clearing. Nobody speaks until the ground falls far behind.', 'On the long flight back, whose words stay with you?'],
+    GROUND: ['The trucks roar back onto the road. The adrenaline drains out, and the talking starts.', 'On the drive back, whose words stay with you?'],
+    FOOT: ['The team pushes through the treeline toward friendly lines. Once it is safe, someone breaks the silence.', 'On the long walk home, whose words stay with you?'] },
+};
+// Slots: {weapon} {threat} {intel} {env} {mate} {objective} {ride} (IN); {feat} {boom} {mate} {fallen} {weapon} {threat} (OUT).
+// Operator names are unisex, so lines use names, never pronouns, for other operators.
+const LINES = {
+  STOIC: {
+    GEAR: 'Cleaned the {weapon}, checked it twice. It will do its job. So will I.',
+    THREAT: 'Only thing on this op I do not like is {threat}. Does not change the plan.',
+    INTEL: 'Read {intel} cover to cover. Good work. We stick to it until it stops being true.',
+    BLIND: 'No intel. Fine. Eyes open, mouths shut, we find out the old-fashioned way.',
+    ENV: 'Weather is weather. Work with {env}, not against it.',
+    MATE: 'Stay on my left, {mate}. Same as always.',
+    OBJECTIVE: 'We go in, we get {objective}, we come home. Nothing else matters tonight.',
+    FATE: "If it's my turn, it's my turn. Until then I've got work to do.",
+    RIDE: "Check your watches. If we're late getting to {ride}, nobody waits.",
+    KILL: "Clean work tonight, {feat}. Doesn't need talking about. But it was clean.",
+    BOOM: 'Textbook use of {boom}. That is all it was.',
+    HELPED: "I did what anyone would for {mate}. Don't make it a thing.",
+    HELPED_BY: "I owe {mate}. I don't forget debts.",
+    LOST: "We lost {fallen}. We grieve at home. Not here.",
+    SIGNATURE: "The {weapon} didn't miss a beat all night. I'm keeping it.",
+    SURVIVOR: "Went dark for a while back there. I'm back. Moving on.",
+    GHOST: "In and out and nobody knew. That's how it's supposed to go.",
+    NEMESIS: "Said {threat} would be trouble. Was. Isn't anymore.",
+    REFLECT: "Debrief me later. Right now I'm going over every step we took.",
+  },
+  JOKER: {
+    GEAR: "If the {weapon} jams, I'm throwing it at them. Worked in a movie once.",
+    THREAT: "Fun fact: I've been having nightmares about {threat}. Unfun fact: they were documentaries.",
+    INTEL: "According to {intel}, it's a quiet night. So naturally I wore my running shoes.",
+    BLIND: 'No intel, huh? Love a surprise party. Hate it when the party has guns.',
+    ENV: 'Ah, {env}. Perfect for romance. Or ambushes. Mostly ambushes.',
+    MATE: "{mate}, if I die you can have my snacks. If you die, I'm taking your boots.",
+    OBJECTIVE: "Grab {objective}, home by breakfast. I've already ordered the pancakes.",
+    FATE: "My horoscope said 'avoid confrontation'. Wrong job for that, I guess.",
+    RIDE: 'Five stars for the ride in. Let us hope the trip to {ride} gets better reviews.',
+    KILL: 'Did everyone see me {feat}? I need witnesses. For the memoir.',
+    BOOM: 'Was {boom} strictly necessary? No. Was it beautiful? Also no. It was spectacular.',
+    HELPED: 'Patched up {mate} with tape and bad jokes. Mostly the jokes did it.',
+    HELPED_BY: '{mate} saved my life. Now I have to be nice forever. Worst part of the night.',
+    LOST: "{fallen} would've had a joke for this. I can't think of one.",
+    SIGNATURE: "Me and the {weapon} are official now. I'm naming it. Don't laugh.",
+    SURVIVOR: "Blacked out, saw a bright light. Turned out to be a medic's flashlight. Disappointing afterlife.",
+    GHOST: 'Nobody saw us. Honestly, a little insulting.',
+    NEMESIS: 'Remember {threat}? Me neither. Not anymore.',
+    REFLECT: 'Long night. Somebody say something stupid so I can stop thinking.',
+  },
+  FATALIST: {
+    GEAR: 'Nice {weapon}. Shame whoever inherits it will not appreciate the tuning.',
+    THREAT: "It'll be {threat}. Mark my words. It's always the thing you worry about.",
+    INTEL: "Pretty pictures in {intel}. The dead don't care how good the pictures were.",
+    BLIND: 'Going in blind. At least nothing can disappoint me.',
+    ENV: "Fine night to die in {env}. Not that I'm planning on it. Not that plans matter.",
+    MATE: '{mate}, if this goes bad, tell them I saw it coming.',
+    OBJECTIVE: "We'll get {objective}. The question is what it costs.",
+    FATE: "Wrote my letter last night. Feels lighter now. Let's go.",
+    RIDE: "I never count on making it to {ride}. That way I'm never let down.",
+    KILL: "Somebody's mother gets a call tonight. That's what {feat} means.",
+    BOOM: "One day I'll be on the wrong side of something like {boom}. Not today.",
+    HELPED: "Couldn't let {mate} go. Not like that. Not on my watch.",
+    HELPED_BY: "Should've been my turn. {mate} said no. I'm still deciding how I feel.",
+    LOST: "I knew one of us wasn't coming back. I'm sorry it was {fallen}.",
+    SIGNATURE: "The {weapon} kept me breathing tonight. I'll trust it until it doesn't.",
+    SURVIVOR: 'I was gone. I felt it. Something sent me back. Must be unfinished business.',
+    GHOST: 'Nobody saw us. Usually means they see us next time.',
+    NEMESIS: 'Told you it would be {threat}. And we still walked out. Huh.',
+    REFLECT: 'Counting heads. Then counting again. Habit.',
+  },
+  ROOKIE: {
+    GEAR: "Is the {weapon} supposed to rattle like that? I mean, it's fine. It's totally fine.",
+    THREAT: "Sorry, what's the plan for {threat} again? Just checking. Just... checking.",
+    INTEL: 'I read {intel} three times. Is it normal to be this scared after reading it?',
+    BLIND: "We really don't know what's in there? Cool. Cool cool cool.",
+    ENV: 'Does {env} help us or them? Asking for a friend. The friend is me.',
+    MATE: "{mate}, I'm sticking to you like glue. Tell me if I'm doing something wrong.",
+    OBJECTIVE: 'Getting {objective} is the whole point, right? I can do that. I trained for this.',
+    FATE: "My family thinks I work in logistics. Let's keep it that way.",
+    RIDE: 'If I miss the run to {ride}, somebody come back for me. Please.',
+    KILL: 'Was that me? I keep seeing it. Me, {feat}.',
+    BOOM: 'I set off {boom}! On purpose. Mostly on purpose.',
+    HELPED: 'I patched up {mate}. My hands were shaking the whole time. It held!',
+    HELPED_BY: "{mate} saved me back there. I'll never forget it. Ever.",
+    LOST: "{fallen} taught me to tie a tourniquet last week. I don't... I don't get it.",
+    SIGNATURE: 'The {weapon} worked every single time. I think we are friends now.',
+    SURVIVOR: 'I thought that was it. I really thought that was it.',
+    GHOST: "We didn't fire a shot? Is it always like this? It's never like this, is it.",
+    NEMESIS: 'I was so scared of {threat}. And we beat it. We actually beat it!',
+    REFLECT: "Can we do that again? No. Never. Maybe. I don't know.",
+  },
+  GEARHEAD: {
+    GEAR: "Zeroed the {weapon} twice last night. If it jams, I'm filing a complaint with God.",
+    THREAT: 'Packed a load-out just for {threat}. Hope it is enough. Hope I am wrong to worry.',
+    INTEL: "Ran the numbers off {intel}: range, angles, cover. We're good. Mostly.",
+    BLIND: 'No intel means you bring a bit of everything. My back hates me.',
+    ENV: 'Checked every seal against {env}. Kit is ready. Not sure about the people.',
+    MATE: '{mate}, your sling is twisted. Fix it before I fix it for you.',
+    OBJECTIVE: 'Got the right tools for {objective}. Tools never let you down. People do.',
+    FATE: 'If I do not make it, my torque wrench goes to whoever earns it.',
+    RIDE: 'Somebody better have triple-checked the plan for {ride}. I did. Still worried.',
+    KILL: "Proper kit, proper result. That's how you end up {feat}.",
+    BOOM: 'Did you hear {boom}? Perfect pressure wave. I want to frame it.',
+    HELPED: 'Rigged a splint for {mate} out of a rail cover and zip ties. Engineering.',
+    HELPED_BY: "{mate} fixed me up better than I fix rifles. That's saying something.",
+    LOST: "{fallen}'s kit is coming home with me. All of it. Clean.",
+    SIGNATURE: 'The {weapon} and I have an understanding now. Nobody else touches it.',
+    SURVIVOR: "Plate stopped what it could. I'll be writing to the manufacturer. Nicely.",
+    GHOST: 'Suppressors earned their keep tonight. Not one shot heard.',
+    NEMESIS: 'Built a whole kit around {threat}. Worth every gram.',
+    REFLECT: 'Everything worked tonight. Even me. Mostly.',
+  },
+  GLORY: {
+    GEAR: 'Watch me with the {weapon} tonight. Somebody film it.',
+    THREAT: 'Let them bring {threat}. Bigger the problem, better the story.',
+    INTEL: 'Saw {intel}. Plenty of targets. Plenty of chances to shine.',
+    BLIND: "Nobody knows what's in there? Then nobody knows what I'll do about it.",
+    ENV: 'Heroes do not care about {env}. Watch.',
+    MATE: '{mate}, stay behind me tonight. Best seat in the house.',
+    OBJECTIVE: 'When they write this one up, my name goes next to {objective}.',
+    FATE: "If I go out, it'll be the kind they name a building after.",
+    RIDE: "I'll be the last one to reach {ride}. Somebody has to cover the exit.",
+    KILL: "Tell me somebody saw me {feat}. Tell me.",
+    BOOM: 'Everyone felt {boom}. That was me.',
+    HELPED: 'Dragged {mate} out under fire. Yeah. That happened.',
+    HELPED_BY: "{mate} got me out. I'll admit it. Once. Here. Never again.",
+    LOST: "{fallen} deserved the medal tonight. Not me. I'll make sure they hear it.",
+    SIGNATURE: "The {weapon} made me look good tonight. We're a team now.",
+    SURVIVOR: "Went down, got up. That's the part they'll remember.",
+    GHOST: 'Nobody even knew we were there. Feels wrong. Feels kind of great.',
+    NEMESIS: 'Everyone worried about {threat}. I handled it.',
+    REFLECT: 'Good night. Could have been legendary. Next time.',
+  },
+  GUARDIAN: {
+    GEAR: "The {weapon} is for keeping you lot alive. That's all it's for.",
+    THREAT: "I don't like {threat}. Everyone stays close when we get there.",
+    INTEL: "If {intel} is right, we all walk out. Let's make sure it's right.",
+    BLIND: 'No intel. Then we move slow, and nobody gets ahead of me.',
+    ENV: 'Stay in sight of each other in {env}. Nobody wanders.',
+    MATE: "{mate}, I've got your back. Whatever happens in there.",
+    OBJECTIVE: "We'll get {objective}, but not at any price. Everyone comes home.",
+    FATE: "If somebody's taking a hit tonight, let it be me.",
+    RIDE: "I'm counting heads at {ride}. Nobody gets left.",
+    KILL: "Didn't enjoy {feat}. Did it so nobody else had to.",
+    BOOM: 'Used {boom} so nobody had to go through that door first.',
+    HELPED: "{mate} was down. I wasn't leaving. Simple as that.",
+    HELPED_BY: "Usually I'm the one doing the carrying. Thanks, {mate}.",
+    LOST: "I was supposed to keep {fallen} safe. I'll carry that.",
+    SIGNATURE: 'The {weapon} kept them off us. It stays with me.',
+    SURVIVOR: "Went down covering the team. I'd do it again.",
+    GHOST: 'No shots fired means nobody got hurt. Best kind of night.',
+    NEMESIS: "Worried about {threat} all the way in. Everyone's still here. Good.",
+    REFLECT: 'Everybody check yourselves. Then check each other.',
+  },
+  SUPERSTITIOUS: {
+    GEAR: "Kissed the {weapon} for luck. Don't look at me like that.",
+    THREAT: "Dreamt about {threat} last night. Dreams like that don't come for nothing.",
+    INTEL: "Good pictures in {intel}. Cameras don't see ghosts, though.",
+    BLIND: 'Going in without intel on a night like this. Somebody touch wood.',
+    ENV: "An op in {env}. That's a sign. Good or bad, we'll find out.",
+    MATE: "{mate}, you're wearing the lucky socks, right? Tell me you are.",
+    OBJECTIVE: "Knocked three times before we left. We'll get {objective}.",
+    FATE: 'Same boots, same breakfast, same seat. Nothing changes, nothing goes wrong.',
+    RIDE: "Nobody says the words 'easy pickup' until we're at {ride}. Nobody.",
+    KILL: 'Felt it in my bones before {feat}. Something was guiding me.',
+    BOOM: 'Saw a crow right before {boom}. Told you. Signs.',
+    HELPED: 'Gave {mate} my charm while I patched them up. It stays with them now.',
+    HELPED_BY: '{mate} pulled me back. Somebody up there is working overtime.',
+    LOST: "I saw the signs and didn't say anything. I'm sorry, {fallen}.",
+    SIGNATURE: "The {weapon} is blessed. I'm sure of it now.",
+    SURVIVOR: "Went somewhere dark and something sent me back. I'm not asking questions.",
+    GHOST: 'Like smoke. Nobody saw a thing. Good omens all night.',
+    NEMESIS: 'The dream about {threat} came true, but we came out on top. Curse broken.',
+    REFLECT: 'Salt over the shoulder, all of you. Just in case.',
+  },
+  MERC: {
+    GEAR: 'The {weapon} cost me a month of pay. It better earn it back.',
+    THREAT: "Nobody's paying me enough for {threat}. Put it on the invoice.",
+    INTEL: "Somebody paid good money for {intel}. Let's see if it comes with a refund policy.",
+    BLIND: 'No intel. So danger pay doubles, right? Right?',
+    ENV: "Working in {env} costs extra. I'll remind accounting.",
+    MATE: '{mate}, cover me and I split my bonus with you. Ten percent. Fine, fifteen.',
+    OBJECTIVE: 'Get {objective}, get paid. Everything else is unbillable.',
+    FATE: "Dead people don't cash checks. So I don't plan on it.",
+    RIDE: "Whatever happens, I'm getting to {ride}. That part of the contract I read twice.",
+    KILL: "That's a bonus line right there, {feat}. Somebody write it down.",
+    BOOM: "Hope they're not charging us for {boom}.",
+    HELPED: 'Patched up {mate}. On the house. Just this once.',
+    HELPED_BY: "{mate} saved my hide. I'll buy the drinks. All of them. Once.",
+    LOST: "{fallen} was the only one here not in it for the money. Figures.",
+    SIGNATURE: 'The {weapon} paid for itself tonight. Best investment I ever made.',
+    SURVIVOR: 'Nearly checked out without collecting. Not happening again.',
+    GHOST: 'No ammo spent, full fee. My favourite kind of job.',
+    NEMESIS: 'We took care of {threat}. I want that hazard pay.',
+    REFLECT: 'Same as always. Add it up, see if it was worth it.',
+  },
+  PLANNER: {
+    GEAR: 'The {weapon} fits the plan. Everything tonight fits the plan.',
+    THREAT: "There's one thing the plan doesn't cover well: {threat}.",
+    INTEL: 'I built three contingencies off {intel}. We use the first one.',
+    BLIND: 'No intel. So the plan is: observe, then plan. I hate this.',
+    ENV: 'Factored {env} into every timing. Stick to the timings.',
+    MATE: '{mate}, you are on phase two. Know your cue.',
+    OBJECTIVE: "Twelve steps to {objective}. I've walked them a hundred times in my head.",
+    FATE: "The odds are fine. I've run them. Mostly fine.",
+    RIDE: "Our timing at {ride} has a four-minute margin. Don't eat into it.",
+    KILL: 'That went exactly as drawn up: {feat}.',
+    BOOM: 'Timed {boom} to the second. Satisfying.',
+    HELPED: "Treating {mate} wasn't in the plan. Should have been. It will be.",
+    HELPED_BY: "{mate} improvised and saved me. I'm adding that to the plan.",
+    LOST: "Somewhere in the plan there was a mistake that cost us {fallen}. I'll find it.",
+    SIGNATURE: 'The {weapon} was the one variable I never had to worry about.',
+    SURVIVOR: "Going unconscious wasn't in my plan. Revised.",
+    GHOST: "Undetected. Every step on schedule. That's what planning buys you.",
+    NEMESIS: 'Flagged {threat} as the risk. Risk managed.',
+    REFLECT: 'Debrief notes are already forming. Somebody give me a pen.',
+  },
+  LONER: {
+    GEAR: "Me and the {weapon}. That's all I need tonight.",
+    THREAT: "I'll deal with {threat} myself. Stay out of my way.",
+    INTEL: "Don't trust {intel}. Trust what I see.",
+    BLIND: "No intel. Good. I work better without someone else's guesses.",
+    ENV: "I know how to move in {env}. Don't follow too close.",
+    MATE: "{mate}. Just... don't slow me down.",
+    OBJECTIVE: "I'll get {objective}. You lot keep the noise down.",
+    FATE: "If I don't come back, don't come looking.",
+    RIDE: "I'll get to {ride}. My own way.",
+    KILL: "Didn't need anyone for {feat}. Never do.",
+    BOOM: 'Set {boom} myself. Easier than explaining it.',
+    HELPED: "Stayed with {mate}. Don't make it weird.",
+    HELPED_BY: "Didn't ask for help. {mate} helped anyway. ...Thanks.",
+    LOST: "Shouldn't have let {fallen} get close. To me, I mean. Now look.",
+    SIGNATURE: "The {weapon} doesn't talk and doesn't let me down. I'll keep it.",
+    SURVIVOR: 'Woke up on my own. Always do.',
+    GHOST: "Nobody saw us. That's how I like everything.",
+    NEMESIS: 'Said I would handle {threat}. Did.',
+    REFLECT: "Leave me alone for a bit. I'm fine.",
+  },
+  JUNKIE: {
+    GEAR: "Can't wait to open up with the {weapon}. Seriously, I can't wait.",
+    THREAT: "Everyone's worried about {threat}? Good. Means it'll be fun.",
+    INTEL: 'Read {intel}. Skipped to the part with the most guards.',
+    BLIND: "No intel? That's the best kind. Pure surprise.",
+    ENV: "An op in {env}! My heart's already going.",
+    MATE: '{mate}, race you to the objective. Loser buys.',
+    OBJECTIVE: "Let's hit {objective} hard and fast. Hard and fast is the only speed.",
+    FATE: 'Only time I feel alive is when I almost do not.',
+    RIDE: 'The sprint to {ride} at the end. Best part of the night.',
+    KILL: 'My hands are still buzzing from {feat}.',
+    BOOM: 'Did you feel {boom}? Can we do it again? Can we?',
+    HELPED: 'Hauled {mate} out with rounds snapping overhead. What a rush. Sorry, {mate}.',
+    HELPED_BY: '{mate} pulled me out of that mess. Best night of my life, honestly.',
+    LOST: "Doesn't feel fun anymore. {fallen} should be here.",
+    SIGNATURE: "The {weapon} sings. I'm never giving it back.",
+    SURVIVOR: 'Went all the way down and came back. Nothing beats that. Nothing.',
+    GHOST: "Nobody saw us? Kind of boring. Kind of thrilling. I'm confused.",
+    NEMESIS: "Took on {threat} and won. When's the next one?",
+    REFLECT: "Can't sleep. Won't sleep. What a night.",
+  },
+  HOMESICK: {
+    GEAR: "Taped a photo from home under the {weapon}'s grip. Silly, I know.",
+    THREAT: 'Just want to get past {threat} and go home.',
+    INTEL: "If {intel} is right, I'll be home for the weekend.",
+    BLIND: 'No intel. Promised I would be careful. Guess I have to mean it.',
+    ENV: 'Same {env} back home tonight, maybe. Wonder if they are looking at it too.',
+    MATE: "{mate}, if anything happens, you've got the letter. Right pocket.",
+    OBJECTIVE: 'Get {objective}, get out, get home. In that order.',
+    FATE: 'Promised someone I would come back. I keep my promises.',
+    RIDE: "I keep thinking about the moment we reach {ride}. That's the one I'm living for.",
+    KILL: "They'll ask me what I did tonight. I won't tell them about {feat}.",
+    BOOM: 'Felt {boom} in my chest. Glad nobody back home will ever hear that sound.',
+    HELPED: 'Kept {mate} talking about home while I worked. Kept us both going.',
+    HELPED_BY: "Thanks to {mate}, nobody back home gets a knock on the door tonight.",
+    LOST: "Someone's waiting at home for {fallen}. I can't stop thinking about that.",
+    SIGNATURE: "The {weapon} got me home tonight. That's all I asked of it.",
+    SURVIVOR: "When I was out, I was home. Then I woke up here. I'll get back.",
+    GHOST: 'Quiet night. Wish they were all like this. Wish I was home.',
+    NEMESIS: 'Got past {threat}. One step closer to home.',
+    REFLECT: 'Need to call home. Just to hear a voice.',
+  },
+  PHILOSOPHER: {
+    GEAR: "Funny thing, the {weapon}. Just a tool. It's the hand that decides.",
+    THREAT: 'Our fear of {threat} says more about us than about them.',
+    INTEL: 'We trust {intel} the way sailors once trusted maps of the edge of the world.',
+    BLIND: 'Not knowing is the honest state of things. Tonight we just admit it.',
+    ENV: "There's something old about {env}. Soldiers have been waiting in it forever.",
+    MATE: '{mate}, ever wonder why we keep doing this? Ask me afterwards.',
+    OBJECTIVE: "Is {objective} worth what it'll cost? We'll know afterwards. We always do.",
+    FATE: "Whatever happens, it'll be what it was always going to be.",
+    RIDE: 'Every road in leads to the road out. Ours ends at {ride}.',
+    KILL: 'There is a silence after {feat}. I keep listening to it.',
+    BOOM: 'Strange how {boom} undid in a second what took someone years to build.',
+    HELPED: 'Helping {mate} was the only clear thing tonight.',
+    HELPED_BY: "{mate} chose to come back for me. I've been thinking about that choice.",
+    LOST: "{fallen} is a story now. Let's tell it properly.",
+    SIGNATURE: 'The {weapon} and I understood each other tonight. Strange thing to say about a tool.',
+    SURVIVOR: 'I was nowhere for a while. It was quieter than I expected.',
+    GHOST: "We passed through like a rumour. Maybe that's the best we can be.",
+    NEMESIS: 'Our fear of {threat} was bigger than the thing itself turned out to be.',
+    REFLECT: "What we did tonight and what it meant aren't the same question.",
+  },
+  AVENGER: {
+    GEAR: 'The {weapon} has a job tonight. Settling accounts.',
+    THREAT: "If it's {threat} waiting for us, good. I've got a score to settle.",
+    INTEL: 'Read {intel} looking for one thing. Faces.',
+    BLIND: "Don't need intel to know who the enemy is.",
+    ENV: "Doesn't matter if it's {env}. They'll see me coming either way.",
+    MATE: "{mate}, stay close. I've lost enough people.",
+    OBJECTIVE: 'This is about more than {objective}. For me, anyway.',
+    FATE: "I'll go when they're paid back. Not before.",
+    RIDE: "I'll get to {ride} when I'm done. Not before.",
+    KILL: 'I thought {feat} would feel like more.',
+    BOOM: 'Hope they heard {boom} all the way up to their bosses.',
+    HELPED: 'Not losing anyone else. Not {mate}. Not tonight.',
+    HELPED_BY: '{mate} pulled me back from the edge. In more ways than one.',
+    LOST: "They'll pay for {fallen}. Every one of them.",
+    SIGNATURE: "The {weapon} delivered tonight. It'll keep delivering.",
+    SURVIVOR: "They tried to put me down. That's one more debt.",
+    GHOST: 'They never saw us. Next time, I want them to.',
+    NEMESIS: "Told you {threat} would come for us. Now it's done.",
+    REFLECT: "Doesn't feel finished. It never does.",
+  },
+  PERFECTIONIST: {
+    GEAR: "Stripped and rebuilt the {weapon} four times. It's perfect. Ish.",
+    THREAT: 'Everything is accounted for except {threat}. That bothers me.',
+    INTEL: "Found two errors in {intel}. Corrected them. You're welcome.",
+    BLIND: 'Going in without intel is sloppy. Not our fault. Still sloppy.',
+    ENV: "Recalculated every movement for {env}. Don't improvise.",
+    MATE: "{mate}, your spacing was off in training. Tonight, it isn't.",
+    OBJECTIVE: 'Getting {objective} is the minimum. Doing it cleanly is the job.',
+    FATE: "Mistakes get people killed. I don't make mistakes. Usually.",
+    RIDE: 'Arrival at {ride} on the minute. Not early. Not late.',
+    KILL: 'Textbook. Every angle right, {feat}.',
+    BOOM: 'Placement on {boom} was millimetre-perfect. I measured.',
+    HELPED: "Dressed {mate}'s wound properly. Hospital grade. Nearly.",
+    HELPED_BY: "{mate}'s field dressing was... adequate. More than adequate. Thank you.",
+    LOST: "Losing {fallen} wasn't a mistake anyone made. That's what I can't stand.",
+    SIGNATURE: "The {weapon} performed flawlessly. I don't say that about anything.",
+    SURVIVOR: 'Getting knocked out was below my standards. Noted.',
+    GHOST: "Zero detection. Zero rounds. That's a perfect score.",
+    NEMESIS: 'The one variable was {threat}. Eliminated.',
+    REFLECT: "Three things we could have done better. I'll list them later.",
+  },
+  OPTIMIST: {
+    GEAR: 'The {weapon} feels great tonight. Good sign!',
+    THREAT: "Sure, there's {threat}. But there's also us!",
+    INTEL: "Look how much {intel} tells us. We're in great shape.",
+    BLIND: 'No intel? Means no bad news either!',
+    ENV: 'Love {env}. Honestly, perfect for this.',
+    MATE: "{mate}, this is going to go great. I can feel it.",
+    OBJECTIVE: "We'll get {objective} and be back before the coffee's cold.",
+    FATE: "Nobody's dying tonight. I've decided.",
+    RIDE: 'Picture us at {ride}, laughing about all this. Hold that picture.',
+    KILL: 'Honestly, {feat} might have saved the whole mission.',
+    BOOM: 'Well, {boom} certainly opened things up!',
+    HELPED: "Patched up {mate}, and there's a smile already. Told you!",
+    HELPED_BY: '{mate} saved me! I knew it. I always knew.',
+    LOST: "I said nobody would die. I was wrong about {fallen}. I'm so sorry.",
+    SIGNATURE: 'The {weapon} was amazing tonight. Lucky gun. Lucky me.',
+    SURVIVOR: 'Down and out, and back up! See? Things work out.',
+    GHOST: 'Nobody saw us! Not even a little! Best night ever.',
+    NEMESIS: 'Everyone worried about {threat}, and look! We are fine!',
+    REFLECT: "Rough in places, but we're going home. That's a win.",
+  },
+  VETERAN: {
+    GEAR: 'Carried a {weapon} like that on my first tour. Treat it right, it treats you right.',
+    THREAT: "Seen {threat} go wrong before. Keep your heads down when we get there.",
+    INTEL: 'Good work on {intel}. Still, trust your eyes over paper.',
+    BLIND: "Did this for years without satellites. You'll be fine. Probably.",
+    ENV: 'Done a dozen ops in {env}. Slow is smooth, smooth is fast.',
+    MATE: '{mate}, watch how I move tonight. Learn something.',
+    OBJECTIVE: "Seen people die for less than {objective}. Let's not join them.",
+    FATE: "Twenty years of this. Still here. Means nothing tonight, but still here.",
+    RIDE: 'Golden rule: always know your way to {ride}. Always.',
+    KILL: 'Twenty years, and {feat} still makes my hands shake afterwards.',
+    BOOM: 'Old school, {boom}. Some things never change.',
+    HELPED: 'Patched up {mate}. Done it a hundred times. Never gets easier.',
+    HELPED_BY: "Getting old. {mate} pulled me out. I won't forget it.",
+    LOST: 'Buried a lot of friends. {fallen} goes on the list. It never gets shorter.',
+    SIGNATURE: 'The {weapon} reminded me of the old days. Keeping it.',
+    SURVIVOR: 'Went down. Not the first time. Hopefully not the last either.',
+    GHOST: 'That is how we did it back in the day. Nobody the wiser.',
+    NEMESIS: 'Knew {threat} would bite. Bit back harder.',
+    REFLECT: "Sleep when you can. Talk when you're ready. Not before.",
+  },
+  BELIEVER: {
+    GEAR: 'The {weapon} serves something bigger than any of us.',
+    THREAT: "Let {threat} come. We're on the right side of this.",
+    INTEL: 'Someone risked their life for {intel}. We honour that by getting it right.',
+    BLIND: "No intel. Doesn't matter. We know why we're here.",
+    ENV: 'Even {env} is on our side tonight.',
+    MATE: '{mate}, what we do tonight matters. Never forget that.',
+    OBJECTIVE: 'Getting {objective} could save lives. Hundreds, maybe.',
+    FATE: "If I fall, I fall for something. That's enough.",
+    RIDE: "Whatever happens, we all reach {ride} together. That's the promise.",
+    KILL: 'History will remember {feat}, even if nobody ever knows our names.',
+    BOOM: 'With {boom}, we sent a message tonight.',
+    HELPED: 'Saving {mate} was the most important thing I did tonight.',
+    HELPED_BY: "{mate} believed in me enough to come back. I won't waste that.",
+    LOST: '{fallen} died for something real. We make sure it counts.',
+    SIGNATURE: "The {weapon} served well tonight. And it'll serve again.",
+    SURVIVOR: "I was given another chance. I won't waste it.",
+    GHOST: "Unseen, unheard, and the job is done. That's service.",
+    NEMESIS: "We faced {threat} and didn't flinch. That's faith.",
+    REFLECT: 'Whatever it cost, it mattered. Hold on to that.',
+  },
+  QUIET: {
+    GEAR: 'Checked the {weapon}. Ready.',
+    THREAT: "Watch out for {threat}. That's all.",
+    INTEL: 'Read {intel}. Good enough.',
+    BLIND: 'No intel. Fine.',
+    ENV: 'Pay attention to {env}. It talks.',
+    MATE: '{mate}. With me.',
+    OBJECTIVE: 'Get {objective}. Get out.',
+    FATE: 'Not worried.',
+    RIDE: 'See you at {ride}.',
+    KILL: "Didn't miss.",
+    BOOM: 'That was loud. Worked, though.',
+    HELPED: "{mate}'s fine now. That's all.",
+    HELPED_BY: 'Thanks, {mate}. Mean it.',
+    LOST: 'For {fallen}.',
+    SIGNATURE: 'Good {weapon}. Keeping it.',
+    SURVIVOR: 'Still here.',
+    GHOST: 'Nobody saw. Good.',
+    NEMESIS: 'Called {threat}. Handled.',
+    REFLECT: 'Long night.',
+  },
+};
+
+// =====================================================================================
 // SEEDED RNG + small helpers
 // =====================================================================================
 let G = null; // the whole save game: plain JSON
@@ -514,7 +1016,7 @@ const fail = (m) => { throw new Rule(m); };
 // CAMPAIGN + MISSION GENERATION
 // =====================================================================================
 function newCampaign(seed) {
-  G = { v: 2, mode: 'ops', rs: seed | 0, phase: 'BRIEFING', rp: 12, flown: 0, nextSid: 1, roster: [], used: {}, recruits: 0,
+  G = { v: 3, mode: 'ops', rs: seed | 0, phase: 'BRIEFING', rp: 12, flown: 0, nextSid: 1, roster: [], used: {}, recruits: 0,
     armory: { CARBINE: 4, SMG: 2, DMR: 1, LMG: 2, AK: 0, VEST: 4, PLATE: 2, MEDKIT: 3, FRAG: 4, BREACH: 3, DRONE: 2 },
     mission: null, battle: null, debrief: null };
   [[60, 'HEAVY'], [25, 'MEDIC'], [25, 'SCOUT'], [0, 'DRONE'], [0, 'HEAVY'], [0, 'SCOUT']].forEach(([xp, cls]) => recruit(xp, cls));
@@ -524,11 +1026,17 @@ function recruit(xp, cls) {
   let name;
   do name = pick(FIRST) + ' ' + pick(LAST); while (G.used[name]);
   G.used[name] = 1;
-  const s = { id: G.nextSid++, name, cls, xp, kills: 0, missions: 0, recovery: 0, healing: [], alive: true };
+  const s = { id: G.nextSid++, name, cls, xp, kills: 0, missions: 0, recovery: 0, healing: [], alive: true, persona: freePersona(), traits: [], bonds: [], signature: null };
   G.roster.push(s);
   return s;
 }
+/** A personality nobody alive on the roster has yet (20 personalities, at most 8 operators). */
+function freePersona() {
+  const taken = new Set(G.roster.filter((s) => s.alive).map((s) => s.persona));
+  return pick(Object.keys(PERSONAS).filter((k) => !taken.has(k)));
+}
 const soldier = (id) => G.roster.find((s) => s.id === id);
+const hasTrait = (sid, t) => !!soldier(sid)?.traits?.includes(t);
 const available = (s) => s.alive && s.recovery === 0;
 
 function beginBriefing() {
@@ -556,7 +1064,8 @@ function genMission(n) {
   route.push({ kind: 'EXFIL', choices: ['BREAK'], pick: 0 });
   let rAt = 0, rCount = 0;
   if (chance(55)) { rAt = range(3, 5); rCount = range(1, 2); }
-  return { n, codename, area, env, primary, secondary, route, rAt, rCount, intel: [], team: [], loadouts: {}, ins: null, ext: null, insReport: [], extReport: [] };
+  return { n, codename, area, env, primary, secondary, route, rAt, rCount, intel: [], team: [], loadouts: {}, ins: null, ext: null, insReport: [], extReport: [],
+    interIn: null, interOut: null, bonusXp: {} };
 }
 const hasObj = (m, t) => m.primary === t || m.secondary === t;
 function threat(m) {
@@ -574,7 +1083,22 @@ const unitById = (id) => team().find((u) => u.id === id);
 const dr = (u) => (u.armor ? ITEMS[u.armor].dr : 0);
 /** Dice changes from injuries on one skill, one line per injury that matters. */
 const injuryMods = (u, skill) => u.inj.map((w) => ({ label: INJURIES[w.id].label, v: injFx(w)[skill] || 0 })).filter((x) => x.v);
-const opDice = (u, skill) => Math.max(0, diceFor(u.cls, soldier(u.sid).xp, u.weapon, u.armor, skill) + injuryMods(u, skill).reduce((s, x) => s + x.v, 0));
+const opDice = (u, skill) => Math.max(0, diceFor(u.cls, soldier(u.sid).xp, u.weapon, u.armor, skill) + injuryMods(u, skill).reduce((s, x) => s + x.v, 0))
+  + leadBonuses(u, skill).reduce((s, x) => s + x.v, 0);
+const omenName = (om) => unitById(om.uid)?.name.split(' ')[0] ?? 'Someone';
+/** Extra lead dice from the mission's omen, lasting traits and a signature weapon. omen: true = spent when used. */
+function leadBonuses(u, skill) {
+  const out = [], om = B().omen, s = soldier(u.sid), helps = (ITEMS[u.weapon]?.dice?.[skill] || 0) > 0;
+  if (om?.uid === u.id) {
+    if (om.topic === 'GEAR' && !om.used && helps) out.push({ label: `${ITEMS[u.weapon].label}: proving it`, v: 2, omen: true });
+    if (om.topic === 'BLIND' && skill === 'RECON') out.push({ label: 'Trusting instinct', v: 1 });
+    if (om.topic === 'OBJECTIVE' && cur().kind === 'OBJECTIVE') out.push({ label: 'Determined', v: 1 });
+  }
+  if (s.traits?.includes('DEADEYE') && skill === 'ASSAULT') out.push({ label: 'Deadeye', v: 1 });
+  if (s.traits?.includes('SHADOW') && skill === 'STEALTH') out.push({ label: 'Shadow', v: 1 });
+  if (s.signature && s.signature === u.weapon && helps) out.push({ label: `Signature ${ITEMS[u.weapon].label}`, v: 1 });
+  return out;
+}
 /** An untreated critical injury keeps an operator from leading. */
 const canLead = (u) => active(u) && !u.inj.some((w) => INJURIES[w.id].tier === 3 && !w.t);
 const cur = () => B().stages[B().stage];
@@ -590,12 +1114,13 @@ function log(text, kind = 'info') {
 function makeOp(m, members) {
   G.battle = { units: [], nextId: 1, alert: 0, alerted: false, time: BASE_TIME + VEH[m.ins].time, timeMax: 0, stage: 0,
     stages: JSON.parse(JSON.stringify(m.route)), attempts: 0, reinf: 0, state: 'PLAN', roll: null, revived: [],
-    drone: { up: false, op: null, strike: 0, used: false }, hvtKilled: false, carrier: null, cache: false, kills: 0, over: false, done: false, log: [] };
+    drone: { up: false, op: null, strike: 0, used: false }, hvtKilled: false, carrier: null, cache: false, kills: 0, over: false, done: false, log: [], omen: null };
   const b = G.battle;
   for (const s of members) {
     const l = m.loadouts[s.id];
     // inj: [{ id, t: treated, clock: stages left on an untreated critical }]. downed = unconscious, bleed = stages to live.
-    b.units.push({ id: b.nextId++, sid: s.id, name: s.name, cls: s.cls, inj: [], dead: false, wasOut: false,
+    // cared/caredBy/weaponWins/boom: what happened, for the extraction interlude.
+    b.units.push({ id: b.nextId++, sid: s.id, name: s.name, cls: s.cls, inj: [], dead: false, wasOut: false, cared: [], caredBy: [], weaponWins: 0, boom: null, shrugged: false,
       weapon: l.weapon, armor: l.armor, util: l.utility, consumed: null, kills: 0, killedHvt: false, revives: 0, tests: 0,
       downed: false, bleed: 0, exfil: false, stranded: false, missing: false, droneLost: false });
   }
@@ -607,6 +1132,7 @@ function makeOp(m, members) {
 function foesOf(st, sit) {
   const b = B();
   if (st.kind === 'EXFIL') return (alerted() ? 3 : 1) + b.reinf;
+  if (st.foesCleared) return 0;
   return sit.foes ? sit.foes + (b.reinf ? 1 : 0) : 0;
 }
 /** Difficulty with an itemised breakdown, so the UI never has to guess. */
@@ -626,6 +1152,10 @@ function difficulty(st, sit, opt, ids) {
   if (opt.skill === 'ASSAULT') { add('Enemy dug in (alerted)', alerted() ? 1 : 0); add('Enemy reinforced', b.reinf ? 1 : 0); }
   if (st.kind === 'OBJECTIVE' && m.intel.includes('HUMINT')) add('Deep intel on the layout', -1);
   if (st.kind === 'EXFIL') { const x = VEH[m.ext].exfil; add(`${VEH[m.ext].label} pickup`, (x.all || 0) + (x[opt.skill] || 0)); }
+  const om = b.omen, who = om ? omenName(om) : '';
+  if (om?.topic === 'THREAT' && om.sit !== 'HVT' && !om.beaten && st.pick != null && st.choices[st.pick] === om.sit) add(`${SIT[om.sit].label}, as ${who} feared`, 1);
+  if (om?.topic === 'ENV' && !om.used && opt.skill === om.skill) mods.push({ label: `${who} read the conditions`, v: -1, omen: true });
+  if (om?.topic === 'RIDE' && st.kind === 'EXFIL') add(`${who} planned the way out`, -1);
   return { value: Math.max(1, mods.reduce((s, x) => s + x.v, 0)), mods };
 }
 /** Dice pool with breakdown: the lead rolls their full skill, each supporter adds one die. */
@@ -637,10 +1167,16 @@ function poolOf(opt, ids, gearIds, strike, leadId) {
     let n = diceFor(u.cls, soldier(u.sid).xp, u.weapon, u.armor, opt.skill);
     parts.push({ label: `${u.name} (lead)`, v: n });
     for (const x of injuryMods(u, opt.skill)) { const v = Math.max(x.v, -n); if (v) { parts.push({ label: x.label, v }); n += v; } }
+    for (const x of leadBonuses(u, opt.skill)) parts.push(x);
   }
-  for (const id of gearIds) { const u = unitById(id); parts.push({ label: ITEMS[u.util].label, v: GEAR_USE[u.util].dice }); }
-  if (B().drone.up && opt.skill === 'RECON') parts.push({ label: 'Drone overwatch', v: 1 });
-  if (strike) parts.push({ label: 'Drone strike', v: 2 });
+  const b = B(), om = b.omen;
+  if (om?.topic === 'MATE' && ids.includes(om.uid) && ids.includes(om.mate)) parts.push({ label: `${omenName(om)} has ${unitById(om.mate).name.split(' ')[0]}'s back`, v: 1 });
+  const us = ids.map(unitById);
+  for (let i = 0; i < us.length; i++) for (let k = i + 1; k < us.length; k++)
+    if (soldier(us[i].sid).bonds?.includes(us[k].sid)) parts.push({ label: `Bond: ${us[i].name.split(' ')[0]} & ${us[k].name.split(' ')[0]}`, v: 1 });
+  for (const id of gearIds) { const u = unitById(id); parts.push({ label: ITEMS[u.util].label + (hasTrait(u.sid, 'DEMOLITIONS') ? ' (Demolitions)' : ''), v: GEAR_USE[u.util].dice + (hasTrait(u.sid, 'DEMOLITIONS') ? 1 : 0) }); }
+  if (b.drone.up && opt.skill === 'RECON') parts.push({ label: 'Drone overwatch', v: 1 });
+  if (strike) { const pilot = unitById(b.drone.op), demo = pilot && hasTrait(pilot.sid, 'DEMOLITIONS'); parts.push({ label: 'Drone strike' + (demo ? ' (Demolitions)' : ''), v: demo ? 3 : 2 }); }
   return { value: parts.reduce((s, x) => s + x.v, 0), parts };
 }
 const gearUsable = (u, opt) => !!u && active(u) && !!GEAR_USE[u.util] && GEAR_USE[u.util].skills.includes(opt.skill);
@@ -666,7 +1202,7 @@ function raise(n, text) {
 // ---------------------------------------------------------------- injuries
 const injFx = (w) => (w.t ? INJURIES[w.id].fxT : INJURIES[w.id].fx) || {};
 const tierCount = (u, tier) => u.inj.filter((w) => INJURIES[w.id].tier === tier).length;
-const tierSlots = (u, tier) => (tier === 1 ? CLASSES[u.cls].grit : 1);
+const tierSlots = (u, tier) => (tier === 1 ? CLASSES[u.cls].grit + (hasTrait(u.sid, 'GRIT') ? 1 : 0) : 1);
 const injName = (w) => INJURIES[w.id].label + (w.t ? ` (${INJURIES[w.id].treated})` : '');
 /** What an injury does, in player terms. */
 function injEffect(w) {
@@ -689,7 +1225,15 @@ function landsAt(u, tier) {
 }
 /** All harm goes through here. tier forces the severity (e.g. a chosen cost); otherwise it is rolled. */
 function hurt(u, mod = 0, tier = severity(u, mod), cause = 'is hit') {
-  const at = landsAt(u, tier);
+  const at = landsAt(u, tier), om = B().omen;
+  if (at >= 3 && at < 5 && om?.topic === 'FATE' && om.uid === u.id && !om.used) {
+    om.used = true;
+    return log(`${u.name} ${cause}, a hit that should have been bad. "Not today." Barely a scratch.`, 'good');
+  }
+  if (at === 4 && hasTrait(u.sid, 'SURVIVOR') && !u.shrugged) {
+    u.shrugged = true;
+    return log(`${u.name} ${cause} and staggers, but refuses to go down. Survivor.`, 'good');
+  }
   if (at === 5) return killUnit(u, `${u.name} is hit again while unconscious and is KIA.`);
   if (at === 4) return knockOut(u, `${u.name} ${cause} and goes down, unconscious.`);
   const id = pick(Object.keys(INJURIES).filter((k) => INJURIES[k].tier === at && !u.inj.some((w) => w.id === k)));
@@ -806,6 +1350,9 @@ function execute(o) {
 
   b.time -= cost;
   b.attempts++;
+  if (b.omen && [...pool.parts, ...diff.mods].some((x) => x.omen)) b.omen.used = true;
+  for (const id of gearIds) unitById(id).boom = { FRAG: 'that frag', BREACH: 'that breaching charge' }[unitById(id).util];
+  if (strike && unitById(b.drone.op)) unitById(b.drone.op).boom = 'that drone strike';
   log(`${opt.label}: ${unitById(lead).name} leads${ids.length > 1 ? ` with ${ids.length - 1} in support` : ''}, ${pool.value} dice vs difficulty ${diff.value}.`, 'turn');
   for (const id of gearIds) {
     const u = unitById(id), g = GEAR_USE[u.util];
@@ -856,6 +1403,7 @@ function resolve(cost) {
     else { const t = active(lead) ? lead : members.find(active); if (t) hurt(t, 0, 1, 'takes a knock'); } // same victim the cost preview named
   } else log(`${opt.label}: clean success.`, 'good');
   for (const u of members) u.tests++;
+  if (!lead.dead && (ITEMS[lead.weapon]?.dice?.[opt.skill] || 0) > 0) lead.weaponWins++;
   raise(opt.alert || 0, 'That was loud.');
   if (opt.kills && foes) {
     const alive = members.filter((u) => !u.dead), shooters = (alive.length ? alive : members).sort((a, c) => (c === lead) - (a === lead));
@@ -864,6 +1412,17 @@ function resolve(cost) {
     log(`${foes} hostile${foes > 1 ? 's' : ''} down.`, 'kill');
   }
   if (opt.loud && foes) returnFire(foes, 5, ids, leadId);
+  const om = b.omen, nemesisHere = om?.topic === 'THREAT' && !om.beaten && st.choices[st.pick] === om.sit;
+  if (nemesisHere && opt.hvt && !om.back) { // "I'm not dead yet": the feared HVT gets up once
+    om.back = true;
+    st.foesCleared = true;
+    log(`The HVT goes down... then drags himself out the back door. Not dead yet, just as ${omenName(om)} feared. Finish it.`, 'alert');
+    return settle(false);
+  }
+  if (nemesisHere) {
+    om.beaten = true; om.by = ids.filter((id) => !unitById(id).dead);
+    log(`${SIT[om.sit].label}: beaten, the threat ${omenName(om)} feared. There will be extra XP and spoils for this.`, 'good');
+  }
   if (opt.hvt) { b.hvtKilled = true; lead.killedHvt = true; lead.kills++; b.kills++; log(`${lead.name} confirms the HVT is dead.`, 'intel'); }
   if (opt.intel) { const c = active(lead) ? lead : team().find(active); b.carrier = c ? c.id : null; if (c) log(`${c.name} has the intel.`, 'intel'); }
   if (opt.cache) { b.cache = true; log('Cache secured. The quartermaster will be pleased.', 'intel'); }
@@ -950,6 +1509,7 @@ function fieldCare(medicId, targetId) {
   if (!t || !(active(t) || t.downed) || !fieldCareNeed(t)) fail('Field care is for the unconscious and critical injuries. Use a medkit for the rest.');
   md.revives++;
   b.revived.push(md.id);
+  if (t !== md) { md.cared.push(t.id); t.caredBy.push(md.id); }
   log(`${md.name} works on ${t === md ? 'themself' : t.name}: ${applyCare(t, false)}.`, 'good');
 }
 /** Any medkit: fix the worst problem. In a medic's hands it also cleans up every minor injury. */
@@ -959,6 +1519,7 @@ function treat(holderId, targetId) {
   if (!h || !active(h) || h.util !== 'MEDKIT') fail('No medkit there.');
   if (!t || !(active(t) || t.downed) || !worstNeed(t)) fail('They do not need treatment.');
   h.consumed = 'MEDKIT'; h.util = null;
+  if (t !== h) { h.cared.push(t.id); t.caredBy.push(h.id); }
   log(`${h.name} uses a medkit on ${t === h ? 'themself' : t.name}: ${applyCare(t, h.cls === 'MEDIC')}.`, 'good');
 }
 function launchDrone(uid) {
@@ -969,6 +1530,106 @@ function launchDrone(uid) {
   b.drone = { up: true, op: u.id, strike: 1, used: true };
   for (let k = 1; k <= 2; k++) if (b.stages[b.stage + k]) b.stages[b.stage + k].seen = true;
   log(`${u.name} launches the drone. The next two stages are revealed.`, 'good');
+}
+
+// ---------------------------------------------------------------- interludes
+const firstName = (u) => u.name.split(' ')[0];
+const NUM = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
+const envName = (e) => (e.weather === 'RAIN' ? 'the rain' : e.weather === 'FOG' ? 'this fog' : { DAY: 'broad daylight', DUSK: 'the dusk', NIGHT: 'the dark' }[e.time]);
+const envSkill = (e) => (e.weather !== 'CLEAR' || e.time === 'NIGHT' ? 'STEALTH' : e.time === 'DAY' ? 'RECON' : 'ASSAULT');
+/** Topics an operator could raise right now, with the slot text and effect parameters each needs. */
+function topicsFor(u, phase, speakers) {
+  const m = G.mission, b = B(), s = soldier(u.sid), out = [];
+  const add = (topic, p = {}) => out.push({ topic, ...p });
+  if (phase === 'IN') {
+    add('GEAR', { weapon: WEAPON_NAME[u.weapon] });
+    const threats = [...new Set(b.stages.filter((st) => st.kind !== 'APPROACH' && st.kind !== 'EXFIL').flatMap((st) => st.choices).filter((k) => THREAT_NAME[k]))];
+    if (threats.length) { const k = pick(threats); add('THREAT', { sit: k, threat: THREAT_NAME[k] }); }
+    if (m.intel.length) add('INTEL', { intel: m.intel.length > 1 ? 'the intel' : m.intel[0] === 'SATELLITE' ? 'the satellite pictures' : 'the intel package' });
+    else add('BLIND');
+    add('ENV', { env: envName(m.env), skill: envSkill(m.env) });
+    const others = speakers.filter((x) => x !== u);
+    if (others.length) { const x = pick(others); add('MATE', { mate: firstName(x), mateId: x.id }); }
+    add('OBJECTIVE', { objective: m.primary === 'RETRIEVE_INTEL' ? 'those documents' : 'the target' });
+    add('FATE');
+    add('RIDE', { ride: { HELO: 'the helicopter', GROUND: 'the trucks', FOOT: 'the rally point' }[m.ext] });
+    return out;
+  }
+  const lacks = (t) => s.traits.length < TRAIT_CAP && !s.traits.includes(t);
+  if ((u.killedHvt || u.kills >= 2) && lacks('DEADEYE')) add('KILL', { feat: u.killedHvt ? 'taking down the HVT' : `dropping ${NUM[u.kills] || u.kills} of them` });
+  if (u.boom && lacks('DEMOLITIONS')) add('BOOM', { boom: u.boom });
+  const bondable = (id) => { const x = unitById(id); return !!x && x !== u && speakers.includes(x) && !s.bonds.includes(x.sid) && s.bonds.length < BOND_CAP && soldier(x.sid).bonds.length < BOND_CAP; };
+  for (const [topic, list] of [['HELPED', u.cared], ['HELPED_BY', u.caredBy]]) {
+    const ok = list.filter(bondable);
+    if (ok.length) { const x = unitById(pick(ok)); add(topic, { mate: firstName(x), mateId: x.id }); }
+  }
+  const fallen = team().filter((x) => x.dead || x.missing);
+  if (fallen.length && lacks('GRIT')) add('LOST', { fallen: firstName(pick(fallen)) });
+  if ((u.weaponWins >= 2 || (u.weaponWins && u.kills)) && s.signature !== u.weapon) add('SIGNATURE', { weapon: WEAPON_NAME[u.weapon], weaponId: u.weapon });
+  if (u.wasOut && lacks('SURVIVOR')) add('SURVIVOR');
+  if (!b.alerted && b.done && u.tests > 0 && lacks('SHADOW')) add('GHOST');
+  if (b.omen?.beaten && b.omen.by.includes(u.id)) add('NEMESIS', { threat: THREAT_NAME[b.omen.sit] });
+  if (!out.length) add('REFLECT'); // nothing remarkable happened to them: a general reflection
+  return out;
+}
+/** One statement per speaker: favoured topics weigh 4x, and speakers avoid repeating a topic when they can. */
+function genInterlude(phase) {
+  const m = G.mission, used = new Set(), opts = [];
+  const speakers = phase === 'IN' ? [...team()] : team().filter((u) => u.exfil && !u.dead && !u.missing);
+  for (const u of speakers) {
+    const persona = soldier(u.sid).persona, all = topicsFor(u, phase, speakers);
+    const fresh = all.filter((t) => !used.has(t.topic)), cands = fresh.length ? fresh : all;
+    const w = cands.map((t) => (PERSONAS[persona].likes.includes(t.topic) ? 4 : 1));
+    let r = rnd() * w.reduce((a, c) => a + c, 0), i = 0;
+    while (i < w.length - 1 && r >= w[i]) r -= w[i++];
+    const t = cands[i];
+    used.add(t.topic);
+    opts.push({ uid: u.id, ...t, text: LINES[persona][t.topic].replace(/\{(\w+)\}/g, (_, k) => t[k] ?? '') });
+  }
+  return { phase, veh: phase === 'IN' ? m.ins : m.ext, opts, pick: null, reveal: null };
+}
+const interlude = () => (G.phase === 'INTERLUDE_IN' ? G.mission.interIn : G.phase === 'INTERLUDE_OUT' ? G.mission.interOut : null);
+function chooseLine(i) {
+  const it = interlude();
+  if (!it) fail('There is nothing to choose now.');
+  if (it.pick != null) fail('Those words already stay with you.');
+  const o = it.opts[i];
+  if (!o) fail('Pick one of the statements.');
+  it.pick = i;
+  it.reveal = it.phase === 'IN' ? applyOmen(o) : applyLasting(o);
+}
+/** The kept pre-mission statement: a one-mission effect. Returns the reveal text. */
+function applyOmen(o) {
+  const b = B(), u = unitById(o.uid), n = firstName(u);
+  b.omen = { topic: o.topic, uid: o.uid, used: false, sit: o.sit ?? null, skill: o.skill ?? null, mate: o.mateId ?? null, beaten: false, back: false, by: [] };
+  switch (o.topic) {
+    case 'GEAR': return `${n}'s ${ITEMS[u.weapon].label}: +2 dice the first time ${n} leads a test it helps.`;
+    case 'THREAT': return o.sit === 'HVT' ? 'The HVT will not go down easily. Finish the job for extra XP and spoils.'
+      : `${SIT[o.sit].label}: +1 difficulty if you run into it. Beat it for extra XP and spoils.`;
+    case 'INTEL': for (const st of b.stages) st.seen = true; return 'The whole route is revealed.';
+    case 'BLIND': return `${n}: +1 die on every Recon test ${n} leads.`;
+    case 'ENV': return `The first ${SKILLS[o.skill].label} test this mission is 1 easier.`;
+    case 'MATE': return `${n} and ${o.mate}: +1 die when both are in the fireteam.`;
+    case 'OBJECTIVE': return `${n}: +1 die when leading objective tests.`;
+    case 'FATE': return `${n} shrugs off the first hit that would be critical or worse.`;
+    default: return 'Exfil tests are 1 easier.';
+  }
+}
+/** The kept post-mission statement: a lasting trait, bond, signature weapon or XP. Returns the reveal text. */
+function applyLasting(o) {
+  const m = G.mission, u = unitById(o.uid), s = soldier(u.sid), n = firstName(u);
+  const bonus = (sid, xp) => { m.bonusXp[sid] = (m.bonusXp[sid] || 0) + xp; };
+  const trait = { KILL: 'DEADEYE', BOOM: 'DEMOLITIONS', LOST: 'GRIT', SURVIVOR: 'SURVIVOR', GHOST: 'SHADOW' }[o.topic];
+  if (trait) { s.traits.push(trait); return `${n} gains ${TRAITS[trait].label}: ${TRAITS[trait].desc}.`; }
+  if (o.topic === 'HELPED' || o.topic === 'HELPED_BY') {
+    const x = soldier(unitById(o.mateId).sid);
+    s.bonds.push(x.id); x.bonds.push(s.id);
+    return `${n} and ${o.mate} are bonded: +1 die when both are in the fireteam.`;
+  }
+  if (o.topic === 'SIGNATURE') { s.signature = o.weaponId; return `The ${ITEMS[o.weaponId].label} becomes ${n}'s signature weapon: +1 die when ${n} leads with it.`; }
+  if (o.topic === 'NEMESIS') { bonus(s.id, GRUDGE_XP); return `+${GRUDGE_XP} XP for ${n}.`; }
+  for (const x of m.interOut.opts) bonus(unitById(x.uid).sid, REFLECT_XP);
+  return `+${REFLECT_XP} XP for everyone who came home.`;
 }
 
 // =====================================================================================
@@ -1008,9 +1669,8 @@ function launch(o) {
   m.ins = o.insertion;
   m.ext = o.extraction;
   makeOp(m, members);
-  m.insReport = insertion(m);
-  B().timeMax = B().time;
-  G.phase = 'INSERTION';
+  m.interIn = genInterlude('IN');
+  G.phase = 'INTERLUDE_IN';
 }
 function insertion(m) {
   const b = B(), rep = [{ HELO: 'The helicopter runs in low over the ridgeline toward the drop point.', GROUND: 'The convoy rolls in along the south road, lights off.', FOOT: 'The team moves in on foot through the treeline on the western approach.' }[m.ins]];
@@ -1076,7 +1736,8 @@ function debrief(m) {
       s.alive = false;
       for (const it of [u.weapon, u.armor, u.util]) if (it) lost.push(`${ITEMS[it].label} (${u.name})`);
     } else {
-      xp = 10 + (success ? 10 : 0) + u.kills * 8 + (u.killedHvt ? 25 : 0) + (carrier === u && intelOut ? 15 : 0) + u.revives * 10 + u.tests * 4;
+      xp = 10 + (success ? 10 : 0) + u.kills * 8 + (u.killedHvt ? 25 : 0) + (carrier === u && intelOut ? 15 : 0) + u.revives * 10 + u.tests * 4
+        + (m.bonusXp?.[s.id] || 0) + (b.omen?.beaten && b.omen.by.includes(u.id) ? NEMESIS_XP : 0);
       out = RECOVERY[u.wasOut ? 4 : Math.max(0, ...u.inj.map((w) => INJURIES[w.id].tier))];
       if (out) { s.recovery = out + 1; s.healing = injuries; }
       status = out ? `Out for ${out} mission${out > 1 ? 's' : ''}` : 'Fit for duty';
@@ -1096,17 +1757,37 @@ function debrief(m) {
       const it = pick(['FRAG', 'BREACH', 'MEDKIT']); G.armory[it] += 2; gained.push(`2x ${ITEMS[it].label} (weapons cache)`);
       if (chance(50)) { const w = pick(['DMR', 'LMG']); G.armory[w]++; gained.push(`${ITEMS[w].label} (weapons cache)`); }
     }
+    if (b.omen?.beaten) {
+      const it = pick(['FRAG', 'BREACH', 'MEDKIT']); G.armory[it] += 2;
+      gained.push(`2x ${ITEMS[it].label} (taken from ${THREAT_NAME[b.omen.sit]}, as ${omenName(b.omen)} feared)`);
+      notes.push(`Beating ${THREAT_NAME[b.omen.sit]}: +${NEMESIS_XP} XP for everyone who was there.`);
+    }
   }
+  // A bond with someone who died turns into grit.
+  for (const dead of G.roster.filter((x) => !x.alive)) for (const s of G.roster.filter((x) => x.alive && x.bonds?.includes(dead.id))) {
+    s.bonds = s.bonds.filter((id) => id !== dead.id);
+    dead.bonds = [];
+    if (!s.traits.includes('GRIT') && s.traits.length < TRAIT_CAP) { s.traits.push('GRIT'); notes.push(`${s.name} lost a bonded friend in ${dead.name}, and gains Grit: ${TRAITS.GRIT.desc}.`); }
+    else notes.push(`${s.name} lost a bonded friend in ${dead.name}.`);
+  }
+  const words = [m.interIn, m.interOut].filter((it) => it?.pick != null).map((it) => ({ when: it.phase === 'IN' ? 'Before' : 'After', name: unitById(it.opts[it.pick].uid).name, text: it.opts[it.pick].text, reveal: it.reveal }));
   const weapons = () => Object.keys(ITEMS).filter((k) => ITEMS[k].slot === 'WEAPON').reduce((n, k) => n + (G.armory[k] || 0), 0);
   while (weapons() < 4) { G.armory.CARBINE++; gained.push('Carbine (quartermaster replacement)'); }
   G.recruits = Math.max(0, ROSTER_MIN - G.roster.filter((s) => s.alive).length);
   if (G.recruits) notes.push(`${G.recruits} replacement slot${G.recruits > 1 ? 's' : ''} open. Choose a class for each below.`);
   G.flown++;
-  return { success, objectives: [{ label: OBJ[m.primary].label, primary: true, ok: done(m.primary) }, { label: OBJ[m.secondary].label, primary: false, ok: done(m.secondary) }], soldiers, lost, gained, rp, notes };
+  return { success, objectives: [{ label: OBJ[m.primary].label, primary: true, ok: done(m.primary) }, { label: OBJ[m.secondary].label, primary: false, ok: done(m.secondary) }], soldiers, lost, gained, rp, notes, words };
 }
 function proceed() {
-  if (G.phase === 'INSERTION') G.phase = 'OPERATION';
-  else if (G.phase === 'EXTRACTION') { G.debrief = debrief(G.mission); G.phase = 'DEBRIEF'; }
+  const m = G.mission, it = interlude();
+  if (it && it.pick == null) fail('Choose whose words stay with you first.');
+  if (G.phase === 'INTERLUDE_IN') { m.insReport = insertion(m); B().timeMax = B().time; G.phase = 'INSERTION'; }
+  else if (G.phase === 'INSERTION') G.phase = 'OPERATION';
+  else if (G.phase === 'EXTRACTION') {
+    m.interOut = genInterlude('OUT');
+    if (m.interOut.opts.length) G.phase = 'INTERLUDE_OUT';
+    else { G.debrief = debrief(m); G.phase = 'DEBRIEF'; }
+  } else if (G.phase === 'INTERLUDE_OUT') { G.debrief = debrief(m); G.phase = 'DEBRIEF'; }
   else if (G.phase === 'DEBRIEF') {
     if (G.recruits > 0) fail('Choose a class for each replacement recruit first.');
     beginBriefing();
@@ -1131,7 +1812,7 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 let toastTimer;
 function toast(msg) { const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => (t.hidden = true), 3200); }
 
-const SAVE_KEY = 'skirm-ops-v2'; // separate from the hex game's save; v2 = injuries instead of HP
+const SAVE_KEY = 'skirm-ops-v2'; // separate from the hex game's save; G.v 2 = injuries, 3 = interludes (v2 saves migrate)
 function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(G)); } catch (e) { /* storage unavailable: play continues unsaved */ } }
 
 let mounted = null;
@@ -1151,10 +1832,12 @@ function run(fn) {
 const PHASES = [['BRIEFING', 'Briefing'], ['INSERTION', 'Insertion'], ['OPERATION', 'Operation'], ['EXTRACTION', 'Extraction'], ['DEBRIEF', 'Debrief']];
 function refresh() {
   if (G.phase !== mounted) { mounted = G.phase; window.scrollTo(0, 0); }
-  const idx = PHASES.findIndex(([p]) => p === G.phase);
+  const shown = { INTERLUDE_IN: 'INSERTION', INTERLUDE_OUT: 'EXTRACTION' }[G.phase] || G.phase;
+  const idx = PHASES.findIndex(([p]) => p === shown);
   $('#phases').innerHTML = PHASES.map(([p, l], i) => `<span class="${i === idx ? 'on' : i < idx ? 'done' : ''}">${l}</span>`).join('<i>›</i>');
   $('#stats').innerHTML = `<span><b>Mission</b>${G.flown + 1}</span><span><b>RP</b>${G.rp}</span><span><b>Operators</b>${G.roster.filter((s) => s.alive).length}</span>`;
   if (G.phase === 'BRIEFING') renderBriefing();
+  else if (interlude()) renderInterlude();
   else if (G.phase === 'INSERTION' || G.phase === 'EXTRACTION') renderReport();
   else if (G.phase === 'OPERATION') renderOps();
   else renderDebrief();
@@ -1240,6 +1923,9 @@ function renderBriefing() {
         <span class="rank">${RANKS[rankIdx(s.xp)][0]}</span><span class="name">${esc(s.name)}</span>${classChip(s.cls)}
         <span class="meta">${s.missions} ops · ${s.kills} kills</span>${ok ? '' : `<span class="chip warn">Recovering · ${s.recovery} mission${s.recovery > 1 ? 's' : ''}</span>`}</label>
       ${!ok && s.healing?.length ? `<div class="healing">${s.healing.map(esc).join(', ')}</div>` : ''}
+      <div class="persona-line">${PERSONAS[s.persona].label}${[...s.traits.map((t) => `<span class="trait" title="${TRAITS[t].desc}">${TRAITS[t].label}</span>`),
+        ...(s.signature ? [`<span class="trait" title="+1 die when leading with it">Signature ${ITEMS[s.signature].label}</span>`] : []),
+        ...s.bonds.map((id) => `<span class="trait bond" title="+1 die when both are in the fireteam">Bond: ${esc(soldier(id).name.split(' ')[0])}</span>`)].join('')}</div>
       <div class="skillline">${skillLine((k) => diceFor(s.cls, s.xp, on ? l.weapon : null, on ? l.armor : null, k))}<span class="muted">dice</span></div>
       <div class="ability">${CLASSES[s.cls].ability}</div>
       <div class="xp"><i style="width:${pct}%"></i><small>${s.xp}${nx > 0 ? ' / ' + nx : ''} XP</small></div>
@@ -1300,6 +1986,25 @@ function renderReport() {
   $('#view').innerHTML = `<section class="report card"><div class="eyebrow">Mission ${m.n} · ${ins ? 'Insertion' : 'Extraction'}</div><h1>${esc(m.codename)}</h1>
     <ol class="narrative">${lines.map((l, i) => `<li style="animation-delay:${i * 450}ms" class="${/HOT|IED|spotted|killed|missing|fire|lost/i.test(l) ? 'bad' : ''}">${esc(l)}</li>`).join('')}</ol>
     <button class="btn primary big" type="button" id="continue">${ins ? 'Begin operation' : 'Proceed to debrief'}</button></section>`;
+  $('#continue').addEventListener('click', () => run(proceed));
+}
+
+// ------------------------------------------------------------------ interludes
+function renderInterlude() {
+  const m = G.mission, it = interlude(), [scene, prompt] = SCENES[it.phase][it.veh];
+  const cards = it.opts.map((o, i) => {
+    const u = unitById(o.uid), s = soldier(u.sid), on = it.pick === i;
+    return `<button class="line ${on ? 'on' : ''} ${it.pick != null && !on ? 'faded' : ''}" type="button" data-line="${i}" ${it.pick != null ? 'disabled' : ''} aria-pressed="${on}">
+      <span class="who"><span class="rank">${RANKS[rankIdx(s.xp)][0]}</span><b>${esc(u.name)}</b>${classChip(u.cls)}</span>
+      <span class="persona">${PERSONAS[s.persona].label}${u.inj.length ? ` · ${esc(conditionOf(u))}` : ''}</span>
+      <q>${esc(o.text)}</q><span class="hint">${TOPICS[o.topic].hint}</span></button>`;
+  }).join('');
+  const chosen = it.pick != null ? unitById(it.opts[it.pick].uid) : null;
+  $('#view').innerHTML = `<section class="interlude card"><div class="eyebrow">Mission ${m.n} · ${it.phase === 'IN' ? 'En route' : 'Heading home'}</div><h1>${esc(m.codename)}</h1>
+    <p class="scene">${scene}</p><h3>${prompt}</h3><div class="lines">${cards}</div>
+    ${chosen ? `<div class="reveal"><b>${esc(chosen.name)}'s words stay with you.</b><span>${esc(it.reveal)}</span></div>` : '<p class="muted">The topic of each statement hints at what it will mean. Choose one.</p>'}
+    <button class="btn primary big" type="button" id="continue" ${chosen ? '' : 'disabled'}>${it.phase === 'IN' ? 'Arrive at the drop point' : 'Back to base'}</button></section>`;
+  $('#view').querySelectorAll('[data-line]').forEach((b) => b.addEventListener('click', () => run(() => chooseLine(+b.dataset.line))));
   $('#continue').addEventListener('click', () => run(proceed));
 }
 
@@ -1503,6 +2208,7 @@ function renderDebrief() {
     <div class="card"><h3>Personnel</h3><div class="table-wrap"><table class="personnel"><thead><tr><th>Operator</th><th>Status</th><th>Injuries</th><th>Kills</th><th>XP</th><th>Rank</th></tr></thead><tbody>
       ${d.soldiers.map((s) => `<tr class="${/KIA|MIA/.test(s.status) ? 'lost' : ''}"><td>${esc(s.name)} ${classChip(s.cls)}</td><td>${s.status}</td><td>${s.injuries.length ? s.injuries.map(esc).join(', ') : '<span class="muted">None</span>'}</td><td>${s.kills}</td><td>${s.xp ? '+' + s.xp : '-'}</td><td>${s.promoted ? `<span class="chip gold">Promoted: ${s.promoted}</span>` : s.rank}</td></tr>`).join('')}
     </tbody></table></div></div>
+    ${d.words?.length ? `<div class="card"><h3>Words that stayed</h3><div class="words">${d.words.map((w) => `<div><span class="muted">${w.when} · ${esc(w.name)}</span><q>${esc(w.text)}</q><small>${esc(w.reveal)}</small></div>`).join('')}</div></div>` : ''}
     <div class="card split"><div><h3>Gear lost</h3>${list(d.lost, 'Nothing lost.')}</div><div><h3>Gear gained</h3>${list(d.gained, 'Nothing recovered.')}</div>${d.notes.length ? `<div><h3>Notes</h3>${list(d.notes, '')}</div>` : ''}</div>
     ${G.recruits > 0 ? `<div class="card"><h3>Replacements · ${G.recruits} to assign</h3><p class="muted">Pick the class of each new recruit.</p>
       <div class="class-pick">${Object.entries(CLASSES).map(([id, c]) => `<button class="btn class-card" type="button" data-enlist="${id}">${classChip(id)}<small>${c.ability}</small></button>`).join('')}</div></div>` : ''}
@@ -1525,18 +2231,27 @@ $('#btn-new').addEventListener('click', (e) => {
   setTimeout(() => { delete b.dataset.armed; b.textContent = 'New campaign'; }, 3000);
 });
 
+/** v2 saves (before interludes): give every soldier a personality and empty traits; mid-mission units get event counters. */
+function migrateV2() {
+  for (const s of G.roster) { s.traits ??= []; s.bonds ??= []; s.signature ??= null; if (!s.persona) s.persona = freePersona(); }
+  for (const u of G.battle?.units || []) { u.cared ??= []; u.caredBy ??= []; u.weaponWins ??= 0; u.boom ??= null; u.shrugged ??= false; }
+  if (G.battle) G.battle.omen ??= null;
+  if (G.mission) G.mission.bonusXp ??= {};
+  G.v = 3;
+}
 function start(data) {
   let save = data && data.save;
   if (!save) { try { save = localStorage.getItem(SAVE_KEY); } catch (e) { save = null; } }
   try { G = save ? JSON.parse(save) : null; } catch (e) { G = null; }
-  if (!G || G.v !== 2 || G.mode !== 'ops') newCampaign((Math.random() * 2 ** 31) | 0);
+  if (G?.v === 2 && G.mode === 'ops') migrateV2();
+  if (!G || G.v !== 3 || G.mode !== 'ops') newCampaign((Math.random() * 2 ** 31) | 0);
   window.claude?.hot?.snapshot?.(() => ({ save: JSON.stringify(G) }));
   refresh();
 }
 // Test hook: ops.html?test exposes the rules API to automated play-throughs.
 if (/[?&]test\b/.test(location.search)) {
   window.SKIRM = { get G() { return G; }, newCampaign, buyIntel, launch, proceed, enlist, chooseRoute, chooseFork, execute, push, resolve, skip, abort,
-    fieldCare, treat, launchDrone, canLead, opDice, worstNeed, fieldCareNeed, INJURIES, bestLead, odds, difficulty, poolOf, previewOf, cur, sitOf, active, team, outcomeOf, foesOf, Rule, CLASSES, ITEMS, SIT, available, refresh };
+    fieldCare, treat, launchDrone, canLead, opDice, chooseLine, interlude, PERSONAS, TOPICS, LINES, TRAITS, worstNeed, fieldCareNeed, INJURIES, bestLead, odds, difficulty, poolOf, previewOf, cur, sitOf, active, team, outcomeOf, foesOf, Rule, CLASSES, ITEMS, SIT, available, refresh };
 }
 window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
 })();
