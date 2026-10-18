@@ -3117,81 +3117,47 @@ function mapHtml(m, stages, curIdx, wx, wide = 1000, H = 250) {
       ${p.slice(0, -1).map((_, i) => `<path class="leg ${i < curIdx ? 'done' : ''}" d="${leg(i)}"/>`).join('')}${nodes}
       <g class="compass" transform="translate(${W - 28} 30)"><path d="M0-14L5 6 0 2-5 6Z"/><text y="18">N</text></g>
       <g class="scale" transform="translate(16 ${H - 16})"><path d="M0 0H80M0-4V0M40-3V0M80-4V0"/><text x="86" y="3">1 km</text></g>
-    </svg>${WX_KIND[wx] ? `<canvas class="wx" data-wx="${wx}"></canvas>` : ''}</div>`;
+    </svg>${MAP_WX.includes(WX_KIND[wx]) ? `<canvas class="wx" data-wx="${wx}"></canvas>` : ''}</div>`; // no rain on a map sheet
 }
 
 // ------------------------------------------------------------------ weather over the map and the banners
-/* Rain and storms (with lightning), drizzle, drifting fog and smoke, blowing dust, heat haze. Purely visual, so it
-   uses Math.random, never the game's seeded dice. One animation loop serves every canvas and stops when none is left. */
+/* Weather as a still overlay on the pictures and maps: rain and storm streaks, drizzle, banks of fog and smoke,
+   blown dust, heat haze. Nothing moves. Each canvas is drawn once from a seed of its weather and size, so the same
+   scene looks the same after every re-render. Visual only: never the game's seeded dice. */
+const MAP_WX = ['fog', 'smoke', 'dust', 'heat']; // weather drawn over the maps; rain only falls on the pictures
 const WX_KIND = { RAIN: 'rain', STORM: 'storm', FLOOD: 'rain', MUD: 'drizzle', FOG: 'fog', SMOKE: 'smoke', DUST: 'dust', HEAT: 'heat' };
-let wxRunning = false;
-function wxSpawn(kind, w, h, any) {
-  const R = Math.random;
-  if (kind === 'fog' || kind === 'smoke') return { x: R() * w * 1.4 - w * 0.2, y: R() * h, r: h * (0.35 + R() * 0.5), vx: 0.08 + R() * 0.25, vy: kind === 'smoke' ? -0.06 - R() * 0.08 : 0 };
-  if (kind === 'dust') return { x: any ? R() * w : -10, y: R() * h, s: 0.6 + R() * 1.6, vx: 2 + R() * 3, ph: R() * 6 };
-  if (kind === 'heat') return { x: R() * w, y: any ? R() * h : h + 10, s: 0.5 + R(), vy: -0.2 - R() * 0.4, ph: R() * 6 };
-  const fast = kind === "storm" ? 1.3 : 1; // a steady fall, slow enough to read as rain rather than streaks
-  return { x: R() * (w + 60), y: any ? R() * h : -20, len: (kind === 'drizzle' ? 4 : 7 + R() * 6) * fast, v: (kind === "drizzle" ? 1.5 : 2.2 + R() * 1.4) * fast };
-}
-function wxInit(c) {
+function wxDraw(c) {
   const box = c.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1), w = box.width, h = box.height;
-  c.width = Math.max(1, Math.round(w * dpr)); c.height = Math.max(1, Math.round(h * dpr));
-  const kind = WX_KIND[c.dataset.wx], area = w * h;
-  const count = { rain: area / 1500, storm: area / 900, drizzle: area / 4000, fog: 8, smoke: 9, dust: area / 1100, heat: 40 }[kind];
-  c.wx = { kind, w, h, dpr, flash: 0, parts: Array.from({ length: Math.min(600, Math.round(count)) }, () => wxSpawn(kind, w, h, true)) };
-}
-function wxDraw(c, t) {
-  const s = c.wx, g = c.getContext('2d'), { w, h, kind } = s;
-  g.setTransform(s.dpr, 0, 0, s.dpr, 0, 0);
-  g.clearRect(0, 0, w, h);
+  if (!w || !h) return;
+  c.width = Math.round(w * dpr); c.height = Math.round(h * dpr);
+  const kind = WX_KIND[c.dataset.wx], R = prng(hash32(`${c.dataset.wx}:${Math.round(w)}x${Math.round(h)}`)), g = c.getContext('2d'), area = w * h;
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const n = (k) => Math.min(600, Math.round(k));
   if (kind === 'fog' || kind === 'smoke') {
-    for (const p of s.parts) {
-      p.x += p.vx; p.y += p.vy;
-      if (p.x - p.r > w) { p.x = -p.r; } if (p.y + p.r < 0) p.y = h + p.r;
-      const grad = g.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r);
+    for (let i = 0; i < (kind === 'fog' ? 8 : 9); i++) {
+      const x = R() * w * 1.4 - w * 0.2, y = R() * h, r = h * (0.35 + R() * 0.5), grad = g.createRadialGradient(x, y, 0, x, y, r);
       grad.addColorStop(0, kind === 'fog' ? 'rgba(220,228,232,0.16)' : 'rgba(120,108,96,0.2)'); grad.addColorStop(1, 'rgba(0,0,0,0)');
-      g.fillStyle = grad; g.fillRect(p.x - p.r, p.y - p.r, p.r * 2, p.r * 2);
+      g.fillStyle = grad; g.fillRect(x - r, y - r, r * 2, r * 2);
     }
-    return;
-  }
-  if (kind === 'dust' || kind === 'heat') {
-    g.fillStyle = kind === 'dust' ? 'rgba(200,160,100,0.10)' : `rgba(255,150,60,${0.05 + 0.02 * Math.sin(t / 900)})`;
+  } else if (kind === 'dust' || kind === 'heat') {
+    g.fillStyle = kind === 'dust' ? 'rgba(200,160,100,0.10)' : 'rgba(255,150,60,0.06)';
     g.fillRect(0, 0, w, h);
     g.fillStyle = kind === 'dust' ? 'rgba(225,190,130,0.55)' : 'rgba(255,200,140,0.3)';
-    for (const p of s.parts) {
-      if (kind === 'dust') { p.x += p.vx; p.y += Math.sin(t / 300 + p.ph) * 0.4; if (p.x > w + 10) Object.assign(p, wxSpawn(kind, w, h, false)); }
-      else { p.y += p.vy; p.x += Math.sin(t / 500 + p.ph) * 0.3; if (p.y < -10) Object.assign(p, wxSpawn(kind, w, h, false)); }
-      g.fillRect(p.x, p.y, p.s * 1.6, p.s);
+    for (let i = 0; i < n(kind === 'dust' ? area / 1100 : 40); i++) { const s = 0.6 + R() * 1.6; g.fillRect(R() * w, R() * h, s * 1.6, s); }
+  } else {
+    const storm = kind === 'storm', drizzle = kind === 'drizzle';
+    g.strokeStyle = drizzle ? 'rgba(190,210,225,0.35)' : 'rgba(190,210,225,0.42)';
+    g.lineWidth = 1;
+    g.beginPath();
+    for (let i = 0; i < n(area / (storm ? 900 : drizzle ? 4000 : 1500)); i++) {
+      const x = R() * (w + 60), y = R() * h, len = (drizzle ? 4 : 7 + R() * 6) * (storm ? 1.3 : 1);
+      g.moveTo(x, y); g.lineTo(x + len * 0.25, y - len);
     }
-    return;
-  }
-  g.strokeStyle = kind === 'drizzle' ? 'rgba(190,210,225,0.35)' : 'rgba(190,210,225,0.42)';
-  g.lineWidth = 1;
-  g.beginPath();
-  for (const p of s.parts) {
-    p.y += p.v; p.x -= p.v * 0.25;
-    if (p.y > h + 20) Object.assign(p, wxSpawn(kind, w, h, false));
-    g.moveTo(p.x, p.y); g.lineTo(p.x + p.len * 0.25, p.y - p.len);
-  }
-  g.stroke();
-  if (kind === 'storm') {
-    if (Math.random() < 0.004) s.flash = 1;
-    if (s.flash > 0.02) { g.fillStyle = `rgba(230,240,255,${s.flash * 0.3})`; g.fillRect(0, 0, w, h); s.flash *= 0.86; }
+    g.stroke();
   }
 }
 function startWeather() {
-  const list = [...document.querySelectorAll('canvas.wx')];
-  for (const c of list) if (!c.wx) wxInit(c);
-  if (calm()) { list.forEach((c) => wxDraw(c, 0)); return; } // reduced motion: one still frame
-  if (wxRunning || !list.length) return;
-  wxRunning = true;
-  const tick = (t) => {
-    const live = [...document.querySelectorAll('canvas.wx')];
-    if (!live.length) { wxRunning = false; return; }
-    for (const c of live) { if (!c.wx) wxInit(c); wxDraw(c, t); }
-    requestAnimationFrame(tick);
-  };
-  requestAnimationFrame(tick);
+  for (const c of document.querySelectorAll('canvas.wx')) if (!c.dataset.drawn) { wxDraw(c); c.dataset.drawn = '1'; }
 }
 
 /** Title card on load: the key art, the name, and the way in. The test hook skips it. */

@@ -65,6 +65,6 @@ Interiors of a forward operating base, wide and low, no faces.
 ## Already drawn in code (no art needed)
 
 - **Tactical map:** contour lines from seeded noise, per-location features (fields, sea, river, trees, city blocks), the route and stages, a grid, a compass and a scale. Day reads as a printed sheet, dusk warm, night through night vision.
-- **Weather:** rain, storms with lightning, drizzle, fog, smoke, dust and heat haze, over the map and the banners.
+- **Weather:** a still overlay, nothing animated: rain and storm streaks and drizzle on the pictures; fog, smoke, dust and heat haze on the pictures and the maps.
 - **Photo treatment:** every picture is pixelated into blocks of about 4 screen pixels, mostly desaturated and overlaid with film grain, and darkened under rain, storms and smoke. Deliver clean, full-colour images; the game does the rest.
 - **Dossier details:** rank insignia, class patches, faction emblems, rubber stamps (Classified, Mission success or failed, KIA, MIA), redaction bars for unknown intel, paper grain, and a muted pixel-crisp treatment for the portraits.
