@@ -622,6 +622,35 @@ body { background-image: var(--grain); }
   .hcard, .hpic { width: 96px; } .hpic { height: 96px; }
   .stamp.classified { font-size: 13px; top: 10px; right: 10px; }
 }
+/* ways out of a stopped stage */
+.ways { display: grid; gap: 10px; margin: 0 0 18px; padding: 14px; border: 1px solid rgba(240, 199, 94, 0.45); border-radius: var(--r); background: var(--warn-soft); }
+.ways-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: var(--warn); } .ways-head small { color: var(--muted); font-size: 13.5px; }
+.ways-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
+.way { display: grid; gap: 3px; align-content: start; text-align: left; padding: 10px 12px; background: var(--panel-2); color: var(--fg); border: 1px solid var(--line); border-radius: var(--r-sm); cursor: pointer; font: inherit; touch-action: manipulation; }
+.way:hover { border-color: var(--warn); } .way.on { border-color: var(--warn); box-shadow: inset 0 0 0 1px var(--warn); }
+.way b { font-size: 14.5px; } .way .price { font: 600 12.5px var(--body); color: var(--warn); } .way small { color: var(--muted); font-size: 12.5px; }
+.way.force { border-style: dashed; } .way.force .price { color: var(--bad); }
+.waypick { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding-top: 4px; } .waypick > span { font-weight: 600; margin-right: 4px; }
+.locked-line { display: flex; gap: 8px; align-items: baseline; margin: 12px 0 0; font-size: 13.5px; color: var(--muted); } .locked-line .ico { color: var(--dim); align-self: center; }
+.comp { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 14px; color: #ffbdb6; } .comp li { display: flex; gap: 6px; align-items: center; } .comp .ico { color: var(--bad); }
+/* big events: banners over the scene, and a stamped situation report for the critical ones */
+.evban { display: grid; gap: 6px; margin: 0 0 16px; }
+.evb { display: flex; gap: 10px; align-items: center; padding: 10px 14px; border-radius: var(--r-sm); font-weight: 600; animation: reveal 0.35s both; }
+.evb.major { background: var(--warn-soft); color: var(--warn); border-left: 4px solid var(--warn); }
+.evb.crit { background: var(--bad-soft); color: #ffbdb6; border-left: 4px solid var(--bad); }
+dialog.sitrep { width: min(520px, calc(100vw - 24px)); padding: 0; background: var(--panel); color: var(--fg); border: 1px solid var(--bad); border-radius: var(--r-lg); box-shadow: var(--shadow); }
+dialog.sitrep::backdrop { background: rgba(20, 4, 4, 0.72); }
+.sitrep-in { display: grid; gap: 14px; padding: 24px; } .sitrep-in .stamp { justify-self: start; font-size: 30px; }
+.sitrep-in ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; } .sitrep-in p { margin: 0; }
+.log .ev-crit { color: var(--bad); font-weight: 700; } .log .ev-major { color: var(--warn); font-weight: 600; }
+.node.abandoned { border-color: var(--bad); border-style: dashed; opacity: 0.7; text-decoration: line-through; text-decoration-color: var(--bad); } .node.abandoned small { color: var(--bad); text-decoration: none; }
+.tmap .xmark { stroke: var(--bad); stroke-width: 3; stroke-linecap: round; }
+/* department sheet over the briefing, and its shortcuts */
+dialog.sheet { margin: 0 0 0 auto; width: min(620px, 100vw); height: 100dvh; max-height: 100dvh; border-radius: var(--r-lg) 0 0 var(--r-lg); }
+.team-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; } .team-head h3 { margin: 0; } .team-head .grow { flex: 1; }
+.short { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 12px; font-size: 13.5px; color: var(--warn); } .short > span { display: inline-flex; gap: 6px; align-items: center; }
+.recruit-card { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 90px; border: 1px dashed var(--line) !important; color: var(--muted); cursor: pointer; font: inherit; background: transparent; }
+.recruit-card:hover { border-color: var(--accent) !important; color: var(--fg); } .recruit-card small { display: block; }
 @media (pointer: coarse) {
   .btn, .tab, .loadout select { min-height: 44px; }
   .op-head input { width: 22px; height: 22px; }
@@ -694,6 +723,8 @@ body { background-image: var(--grain); }
   <main id="view"><p class="muted">Loading command terminal…</p></main>
 </div>
 <dialog class="help" id="help" aria-labelledby="help-title"></dialog>
+<dialog class="sitrep" id="sitrep" aria-label="Situation report"></dialog>
+<dialog class="help sheet" id="sheet" aria-labelledby="sheet-title"></dialog>
 <div id="toast" role="status" hidden></div>
 <div id="bubbles" aria-live="polite"></div>
 
@@ -1811,7 +1842,7 @@ function backToBase() {
   G.phase = 'BASE';
 }
 function captive(i) {
-  need('BASE');
+  needBase();
   const c = G.captives[i];
   if (!c) fail('No such prisoner.');
   return c;
@@ -1860,7 +1891,7 @@ function toggleBed(sid) {
 }
 const inBed = (sid) => G.base.beds.includes(sid);
 function fabricate(item) {
-  need('BASE');
+  needBase();
   const f = FAB[item];
   if (!f) fail('The workshop cannot make that.');
   if (G.base.lv.ENG < f[0]) fail(`Needs Engineering level ${f[0]}.`);
@@ -1869,7 +1900,7 @@ function fabricate(item) {
   G.armory[item] = (G.armory[item] || 0) + 1;
 }
 function repair(veh) {
-  need('BASE');
+  needBase();
   if (!G.base.damaged[veh]) fail('Nothing to repair.');
   if (G.rp < REPAIR_COST) fail(`Repairs cost ${REPAIR_COST} RP; you have ${G.rp}.`);
   G.rp -= REPAIR_COST;
@@ -1937,9 +1968,9 @@ const cur = () => B().stages[B().stage];
 const sitOf = (st) => (st.kind === 'APPROACH' || st.pick == null ? null : SIT[st.choices[st.pick]]);
 const alerted = () => B().alert >= ALERT_TIER;
 
-function log(text, kind = 'info') {
-  const l = B().log;
-  l.push({ text, kind });
+function log(text, kind = 'info') { // kinds crit and major are the big events the screen makes unmissable
+  const b = B(), l = b.log;
+  l.push({ text, kind, seq: (b.seq = (b.seq || 0) + 1) });
   if (l.length > 120) l.splice(0, l.length - 120);
   if (!kind.startsWith('say')) B().capture?.push({ text, kind }); // collected while a roll resolves, to tell the result on screen
 }
@@ -2058,6 +2089,7 @@ const bestLead = (opt, ids) => [...ids].filter((id) => canLead(unitById(id)) && 
 const canStrike = (opt) => opt.skill === 'ASSAULT' && B().drone.up && B().drone.strike > 0;
 
 function need(p) { if (G.phase !== p) fail(`Not possible during ${p.toLowerCase()}.`); }
+const needBase = () => need(G.phase === 'BRIEFING' ? 'BRIEFING' : 'BASE'); // engineering and barracks are reachable from the briefing too
 function needPlan() {
   need('OPERATION');
   if (B().over) fail('The operation is over.');
@@ -2119,7 +2151,7 @@ function hurt(u, mod = 0, tier = severity(u, mod), cause = 'is hit') {
 function knockOut(u, text) {
   u.downed = true; u.wasOut = true; u.bleed = BLEED_STAGES;
   cue('DOWN', witness(u), { mate: u });
-  log(`${text} Treat them within ${BLEED_STAGES} stages or they die.`, 'down');
+  log(`${text} Treat them within ${BLEED_STAGES} stages or they die.`, 'major');
 }
 /** What a forced minor hit would turn into, for the cost preview. */
 function hitPreview(u) {
@@ -2148,7 +2180,7 @@ function applyCare(u, minorToo) {
 function killUnit(u, text) {
   const b = B();
   u.downed = false; u.dead = true;
-  log(text, 'kill');
+  log(text, 'crit');
   cue('LOST', witness(u), { mate: u });
   if (b.carrier === u.id) {
     const other = team().find(active);
@@ -2213,6 +2245,7 @@ function execute(o) {
   const ids = [...new Set(o.ids || [])];
   if (!ids.length) fail('Commit at least one operator.');
   for (const id of ids) if (!unitById(id) || !active(unitById(id))) fail('That operator cannot act.');
+  for (const id of ids) if (!ready(unitById(id))) fail(`${unitById(id).name} is in overwatch and sits this stage out.`);
   const gearIds = [...new Set(o.gear || [])];
   for (const id of gearIds) if (!ids.includes(id) || !gearUsable(unitById(id), opt)) fail('That gear cannot be used on this test.');
   const lead = o.lead ?? bestLead(opt, ids);
@@ -2260,7 +2293,36 @@ function push() {
   r.pushed = true;
   r.rerolled = [];
   r.dice = r.dice.map((d, i) => { if (d >= HIT) return d; r.rerolled.push(i); return d6(); });
-  raise(1, 'Pushing it makes noise.');
+  // Pushing is free, but every 1 on the re-rolled dice is something going wrong, drawn from the situation.
+  r.comp = [];
+  const ones = r.rerolled.filter((i) => r.dice[i] === 1).length, key = cur().choices[cur().pick];
+  for (let n = 0; n < ones; n++) {
+    const [kind, text] = COMPLICATIONS[key] && chance(60) ? COMPLICATIONS[key] : pick(COMPLICATIONS._);
+    r.comp.push(complication(kind, text, r));
+  }
+}
+/** What a pushed 1 costs, by situation; _ is anywhere. ALERT +1 alert, TIME -1 time, HIT a minor hit on the lead, GEAR a consumable lost. */
+const COMPLICATIONS = {
+  _: [['ALERT', 'Rushing it makes noise.'], ['GEAR', 'A magazine drops in the dark.'], ['TIME', 'Fumbling it costs time.'], ['HIT', 'Somebody slips.']],
+  SENTRY: ['ALERT', 'A sentry gets a word out on the radio.'], PATROL: ['ALERT', 'The patrol turns back early.'], TOWER: ['ALERT', 'The searchlight swings your way.'],
+  GATE: ['TIME', 'The chain jams.'], MINES: ['HIT', 'A tripwire snaps.'], DOGS: ['HIT', 'A dog gets its teeth in.'], CLIFF: ['HIT', 'A hold breaks away.'],
+  RIVERX: ['GEAR', 'Kit goes into the current.'], DOCKS: ['ALERT', 'A floodlight catches movement.'], CHECKPOINT: ['ALERT', 'Someone shouts for papers.'],
+  ROOFTOP: ['ALERT', 'The spotter sees a shadow move.'], OPENGROUND: ['HIT', 'A round snaps past, and one finds its mark.'], FIRELINE: ['HIT', 'The flames jump the gap.'],
+  INTEL: ['TIME', 'The safe fights back.'], HVT: ['ALERT', 'A bodyguard hears the door.'], CACHE: ['TIME', 'The crates are wired and slow to clear.'], BREAK: ['ALERT', 'They are closing in.'],
+};
+function complication(kind, text, r) {
+  const b = B(), lead = unitById(r.lead), members = r.ids.map(unitById).filter(active);
+  if (kind === 'GEAR') {
+    const c = members.find((u) => ['FRAG', 'BREACH', 'MEDKIT'].includes(u.util));
+    if (c) { const it = c.util; (c.lostGear ||= []).push({ it, why: 'dropped while rushing' }); c.util = null; log(`${text} ${c.name}'s ${ITEMS[it].label.toLowerCase()} is gone.`, 'alert'); return `${text} (${ITEMS[it].label} lost)`; }
+    kind = 'TIME';
+  }
+  if (kind === 'ALERT') { raise(1, text); return `${text} (+1 alert)`; }
+  if (kind === 'TIME') { b.time = Math.max(0, b.time - 1); log(`${text} (-1 time)`, 'alert'); return `${text} (-1 time)`; }
+  const u = active(lead) ? lead : members[0] || lead;
+  log(text, 'alert');
+  hurt(u, 0, 1, 'takes it');
+  return `${text} (${u.name} is hurt)`;
 }
 /** Apply the roll, keeping what happened (b.lastResult) so the screen can tell it. */
 function resolve(cost) {
@@ -2282,6 +2344,8 @@ function applyRoll(cost) {
   b.roll = null;
   b.state = 'PLAN';
   if (out === 'FAIL') {
+    st.failed = (st.failed || 0) + 1; // a failure here opens the ways out
+    st.lastLead = leadId;
     log(`${opt.label} fails.`, 'alert');
     cue('FAIL', lead);
     tire(members);
@@ -2331,18 +2395,389 @@ function applyRoll(cost) {
     om.beaten = true; om.by = ids.filter((id) => !unitById(id).dead);
     log(`${om.officer ? off.name : SIT[om.sit].label}: beaten, the threat ${omenName(om)} feared. There will be extra XP and spoils for this.`, 'good');
   }
+  takeObjective(opt, lead);
+  if (st.kind === 'EXFIL') reachExfil();
+  settle(true);
+}
+/** What taking the stage achieves: the target dead, the intel in hand, the cache secured. */
+function takeObjective(opt, lead) {
+  const b = B(), m = G.mission;
   if (opt.hvt) { b.hvtKilled = true; lead.killedHvt = true; lead.kills++; b.kills++; log(`${lead.name} confirms the ${m.target === 'WARLORD' ? 'warlord' : 'target'} is dead.`, 'intel'); }
   if (opt.intel) { const c = active(lead) ? lead : team().find(active); b.carrier = c ? c.id : null; if (c) log(`${c.name} has the intel.`, 'intel'); }
   if (opt.cache) { b.cache = true; log('Cache secured. The quartermaster will be pleased.', 'intel'); }
-  if (st.kind === 'EXFIL') {
-    for (const u of team()) {
-      if (active(u)) u.exfil = true;
-      else if (u.downed) { u.downed = false; u.bleed = 0; u.exfil = true; log(`${u.name} is carried out.`, 'good'); }
-    }
-    b.done = true;
-    log('The team reaches the extraction point.', 'good');
+}
+function reachExfil() {
+  const b = B();
+  for (const u of team()) {
+    if (active(u)) u.exfil = true;
+    else if (u.downed) { u.downed = false; u.bleed = 0; u.exfil = true; log(`${u.name} is carried out.`, 'good'); }
   }
+  b.done = true;
+  log('The team reaches the extraction point.', 'good');
+}
+/** A stage passed without a roll (a way out): its hostiles fall or are bypassed, and an objective is taken. */
+function passStage(u, kills) {
+  const b = B(), st = cur(), sit = sitOf(st), foes = foesOf(st, sit), off = officerAt(st);
+  if (kills && foes) { u.kills += foes; b.kills += foes; log(`${foes} hostile${foes > 1 ? 's' : ''} down.`, 'kill'); }
+  if (off) { if (kills) officerFalls(off, [u], u, false); else log(`You slip past ${off.name}. They live to fight another day.`, 'info'); }
+  const goal = sit.opts.find((o) => o.hvt || o.intel || o.cache);
+  if (goal) takeObjective(goal, u);
+  if (st.kind === 'EXFIL') reachExfil();
   settle(true);
+}
+
+// ---------------------------------------------------------------- ways out of a stage that has stopped the team
+/* After a failure at a stage the team can go round it, blow a way through, use a specialist's trick, or force it.
+   Nothing gets easier: every way has a price in time, fatigue, wounds or gear, and lost gear is lost for good. */
+const WATER_SITS = ['RIVERX', 'DOCKS'], CLIMB_SITS = ['CLIFF', 'TOWER'], HAUL_SITS = ['MINES', 'CLIFF', 'GATE', 'OPENGROUND', 'FIRELINE'];
+const WET_GEAR = ['DRONE', 'MEDKIT', 'THERMAL'];
+/** Who can still act this stage: a marksman in overwatch sits the next stage out. */
+const ready = (u) => active(u) && u.away !== B().stage;
+/** Gear a way out could cost: anything the team carries, or only what water ruins. */
+function gearChoices(kind) {
+  const out = [];
+  for (const u of team().filter(ready)) for (const slot of ['weapon', 'armor', 'kit', 'util']) {
+    const it = u[slot];
+    if (it && (kind === 'ANY' || WET_GEAR.includes(it))) out.push({ uid: u.id, slot, it });
+  }
+  return out;
+}
+function waysOut() {
+  const b = B(), st = cur(), sit = sitOf(st);
+  if (b.over || b.state !== 'PLAN' || !sit || !st.failed) return [];
+  const loc = G.mission.loc, key = st.choices[st.pick], foes = foesOf(st, sit), out = [];
+  const fit = team().filter((u) => ready(u) && canLead(u)), spec = (k) => fit.find((u) => hasSpec(u.sid, k));
+  const carrier = (its) => team().filter(ready).sort((a, c) => hasSpec(c.sid, 'DEMOLITIONS') - hasSpec(a.sid, 'DEMOLITIONS')).find((u) => its.includes(u.util));
+  const way = (id, u, label, price, desc, pick = null) => { if (u) out.push({ id, uid: u.id, label, price, desc, pick }); };
+  if (st.kind === 'PERIMETER' && st.choices.length > 1 && !st.detoured && b.time > 1)
+    out.push({ id: 'DETOUR', label: `Detour to the ${SIT[st.choices[1 - st.pick]].label.toLowerCase()}`, price: '+1 time', desc: 'Pull back and work round to the other way in. You still have to get past it.' });
+  const ch = carrier(['BREACH']);
+  way('BLAST', ch, 'Blast a way through', `${firstName(ch || { name: '' })}'s breaching charge${ch && hasSpec(ch.sid, 'DEMOLITIONS') ? '' : ', +1 alert'}`, 'A new hole where there was no door.');
+  const bang = carrier(['FRAG', 'BREACH']), demo = spec('DEMOLITIONS');
+  if (bang) way('DEMOLITIONS', demo, 'Blow a new way in', `${firstName(bang)}'s ${ITEMS[bang.util].label.toLowerCase()}, and a minor hit`, 'Shaped and placed by someone who knows how: no alarm.');
+  const mk = spec('MARKSMAN');
+  if (foes) way('MARKSMAN', mk, 'Clear it from overwatch', `Sits out the next stage${mk?.kit === 'SUPPRESSOR' ? '' : ', +1 alert'}`, 'One shot at a time from a hide. The guards go down.');
+  if (foes) way('CQB', spec('CQB'), 'Room by room', 'A serious hit', 'Straight in, first through every door. The guards go down.');
+  if (['COAST', 'RIVER'].includes(loc) || WATER_SITS.includes(key)) way('DIVER', spec('DIVER'), 'Go round through the water', `${gearChoices('WET').length ? 'Water ruins a drone, medkit or thermal sight (you pick); ' : ''}the others +1 fatigue`, 'Under the surface and out where nobody is looking.', 'WET');
+  if ((['HIGHLANDS', 'COAST'].includes(loc) || CLIMB_SITS.includes(key)) && b.time > 1) way('MOUNTAINEER', spec('MOUNTAINEER'), 'Climb round', '+1 time, the others +2 fatigue', 'Up and over where nobody thinks anyone can go.');
+  const inf = spec('INFILTRATOR');
+  way('INFILTRATOR', inf, 'Slip in alone and open the way', `${inf?.weapon ? `Leaves the ${ITEMS[inf.weapon].label.toLowerCase()} behind (lost), ` : ''}a minor hit`, 'Alone, light, silent. Then a door opens from the inside.');
+  if (foes) way('SIGNALS', spec('SIGNALS'), 'Spoof their radio net', '+1 alert at the next stage', 'Fake orders pull the guards away. They will work it out.');
+  if (foes) way('LINGUIST', spec('LINGUIST'), 'Talk your way through', 'A piece of gear as the bribe (you pick, lost)', 'The right words, the right accent, and something for their trouble.', 'ANY');
+  if (loc !== 'URBAN' && b.time > 2) way('PATHFINDER', spec('PATHFINDER'), 'Find a way that is not on the map', '+2 time, everyone +1 fatigue', 'The long way round, but a way.');
+  if (HAUL_SITS.includes(key)) way('ENDURANCE', spec('ENDURANCE'), 'Haul everyone over', '+3 fatigue and a minor hit', 'Brute strength, one teammate at a time.');
+  const forcer = fit.find((u) => u.id === st.lastLead) || fit[0] || team().find(ready);
+  way('FORCE', forcer, 'Force the way through', 'A hit, and a piece of gear (you pick, lost)', 'No finesse left. Through, whatever it takes.', 'ANY');
+  return out;
+}
+const LOSS_TEXT = {
+  weapon: (u, l) => `${u.name} empties the ${l} getting through. Dry and jammed, it is dumped.`,
+  armor: (u, l) => `${u.name}'s ${l} is torn off and left behind.`,
+  kit: (u, l) => `${u.name}'s ${l} is smashed on the way through.`,
+  util: (u, l) => `${u.name}'s ${l} is used up getting through.`,
+};
+/** Take a way out. item names the gear it costs ({ uid, slot }) when the way asks for a pick. */
+function wayOut(id, item = null) {
+  needPlan();
+  const w = waysOut().find((x) => x.id === id);
+  if (!w) fail('That way out is not open.');
+  const b = B(), st = cur(), u = w.uid != null ? unitById(w.uid) : null;
+  const choices = w.pick ? gearChoices(w.pick) : [];
+  const lost = choices.find((c) => c.uid === item?.uid && c.slot === item?.slot);
+  if (choices.length && !lost) fail('Choose which piece of gear it costs.');
+  const lose = (c, why, text) => { const v = unitById(c.uid), it = v[c.slot]; (v.lostGear ||= []).push({ it, why }); v[c.slot] = null; log(text ?? LOSS_TEXT[c.slot](v, ITEMS[it].label.toLowerCase()), 'alert'); };
+  b.lastResult = null;
+  const others = () => team().filter((v) => ready(v) && v !== u);
+  if (SPECS[id] && u) saySave(u); // the specialist says it as they do it
+  switch (id) {
+    case 'DETOUR':
+      st.pick = 1 - st.pick; st.detoured = true; st.failed = 0; b.time -= 1;
+      log(`The team pulls back and works round to the ${SIT[st.choices[st.pick]].label.toLowerCase()} (-1 time).`, 'info');
+      return settle(false);
+    case 'BLAST':
+      lose({ uid: u.id, slot: 'util' }, 'expended', `${u.name} sets a breaching charge where there was no door. The wall comes in.`);
+      raise(hasSpec(u.sid, 'DEMOLITIONS') ? 0 : 1, 'The blast carries.');
+      return passStage(u, false);
+    case 'DEMOLITIONS': {
+      const c = team().filter(ready).sort((a, v) => (v.util === 'FRAG') - (a.util === 'FRAG')).find((v) => ['FRAG', 'BREACH'].includes(v.util));
+      lose({ uid: c.id, slot: 'util' }, 'expended', `${u.name} shapes ${c === u ? 'their' : `${firstName(c)}'s`} ${ITEMS[c.util].label.toLowerCase()} into a quiet hole in the wall.`);
+      hurt(u, 0, 1, 'is caught by the edge of the blast');
+      return passStage(u, false);
+    }
+    case 'MARKSMAN':
+      u.away = b.stage + 1;
+      log(`${u.name} settles into a hide and takes them one at a time.`, 'good');
+      raise(u.kit === 'SUPPRESSOR' ? 0 : 1, 'The shots echo.');
+      return passStage(u, true);
+    case 'CQB':
+      log(`${u.name} goes in first, room by room.`, 'good');
+      hurt(u, 0, 2, 'takes the last room the hard way');
+      return passStage(u, true);
+    case 'DIVER':
+      if (lost) lose(lost, 'ruined by water', `The water gets into ${unitById(lost.uid).name}'s ${ITEMS[lost.it].label.toLowerCase()}. It is finished.`);
+      tire(others());
+      log(`${u.name} leads the team round through the water.`, 'good');
+      return passStage(u, false);
+    case 'MOUNTAINEER':
+      b.time -= 1; tire(others(), 2);
+      log(`${u.name} ropes the team up and over where nobody expects anyone (-1 time).`, 'good');
+      return passStage(u, false);
+    case 'INFILTRATOR':
+      if (u.weapon) lose({ uid: u.id, slot: 'weapon' }, 'left behind to move silently', `${u.name} leaves the ${ITEMS[u.weapon].label.toLowerCase()} behind to move silently.`);
+      log(`${u.name} slips in alone and opens the way from the inside.`, 'good');
+      hurt(u, 0, 1, 'is cut on the wire going in');
+      return passStage(u, false);
+    case 'SIGNALS':
+      b.lateAlert = (b.lateAlert || 0) + 1;
+      log(`${u.name} fakes orders on their net and the guards pull out. They will work it out soon.`, 'good');
+      return passStage(u, false);
+    case 'LINGUIST':
+      lose(lost, 'given away as a bribe', `${u.name} talks them round. ${unitById(lost.uid).name}'s ${ITEMS[lost.it].label.toLowerCase()} changes hands.`);
+      return passStage(u, false);
+    case 'PATHFINDER':
+      b.time -= 2; tire(team().filter(ready));
+      log(`${u.name} finds a way that is on no map (-2 time).`, 'good');
+      return passStage(u, false);
+    case 'ENDURANCE':
+      tire([u], 3);
+      log(`${u.name} hauls everyone over, one at a time.`, 'good');
+      hurt(u, 0, 1, 'strains something doing it');
+      return passStage(u, false);
+    default: // FORCE
+      lose(lost, 'lost forcing the way through');
+      hurt(u, 0, 1, 'forces the way through');
+      return passStage(u, false);
+  }
+}
+/** What a specialist says when their way out saves a stopped stage, in their personality's voice. Always spoken. */
+const SAVE_LINES = {
+  DEMOLITIONS: {
+    STOIC: 'Charge placed, wall gone. Log it as a door.',
+    JOKER: 'Knock knock. Nobody gets to answer anymore.',
+    FATALIST: 'Every wall comes down eventually. I just keep the schedule.',
+    ROOKIE: 'I did the math in my head. Twice. Okay, three times.',
+    GEARHEAD: 'Forty grams, shaped right. Physics does not negotiate.',
+    GLORY: 'Somebody tell the satellites to look this way.',
+    GUARDIAN: 'Everyone behind me. The wall takes the hit, not you.',
+    SUPERSTITIOUS: 'Touched the det cord three times. The wall never stood a chance.',
+    MERC: 'That hole cost more than this village earns in a year. Bill it.',
+    PLANNER: 'Plan B was always a hole in the wall. Plan B is now.',
+    LONER: 'Stay back. The quiet ones are the ones who walk away from blasts.',
+    JUNKIE: 'Feel that in your teeth? That is the good part.',
+    HOMESICK: 'My father built walls. I just take them apart.',
+    PHILOSOPHER: 'A door is just a wall someone argued with.',
+    AVENGER: 'They built it to keep us out. Let them count the bricks.',
+    PERFECTIONIST: 'Clean cut. No scorch past the line. That is how it is done.',
+    OPTIMIST: 'See? A brand new door. Things are looking up.',
+    VETERAN: 'Same wall, different country. Same smoke in the lungs.',
+    BELIEVER: 'Nothing stands between us and the job. Nothing.',
+    QUIET: 'Door.',
+  },
+  MARKSMAN: {
+    STOIC: 'Seven hundred metres, no wind. Moving on.',
+    JOKER: 'Tell them it was a power cut. A very precise power cut.',
+    FATALIST: 'They were dead the moment I got the high ground. They just did not know.',
+    ROOKIE: 'My hands were shaking. The scope was not.',
+    GEARHEAD: 'Thermal does not lie. Body heat in the rain, every time.',
+    GLORY: 'Count them. I will wait. I will still be up here.',
+    GUARDIAN: 'Go. I am watching every window you pass.',
+    SUPERSTITIOUS: 'Same round I kissed this morning. Same luck.',
+    MERC: 'One cartridge, one problem solved. Cheapest work there is.',
+    PLANNER: 'I mapped every lane of fire before you woke up.',
+    LONER: 'Leave me up here. It is quieter with just the scope.',
+    JUNKIE: 'Breathe out, squeeze, and the world goes silent. God, I love that.',
+    HOMESICK: 'Up here the wind sounds like the coast back home.',
+    PHILOSOPHER: 'Through the glass they are just heat signatures. That is the trouble with distance.',
+    AVENGER: 'That one was for the convoy.',
+    PERFECTIONIST: 'Centre mass, centre mass, centre mass. No second shots.',
+    OPTIMIST: 'Lane is clear below. Lovely night for a walk.',
+    VETERAN: 'Glass, wind, breath. The rest is paperwork.',
+    BELIEVER: 'Every shot is a promise kept.',
+    QUIET: 'Clear.',
+  },
+  CQB: {
+    STOIC: 'Six rooms. Six seconds each. Next door.',
+    JOKER: 'Room service. Sorry about the mess.',
+    FATALIST: 'One of these doors has my name behind it. Not tonight.',
+    ROOKIE: 'I did not think. I just went. Is that how it works?',
+    GEARHEAD: 'Short barrel, good light, bad night for them.',
+    GLORY: 'First through the door. Always. Put that on the stone.',
+    GUARDIAN: 'I take the doors so you do not have to.',
+    SUPERSTITIOUS: 'Left foot first through every door. Still breathing.',
+    MERC: 'Close work costs extra. Somebody is paying for this blood.',
+    PLANNER: 'Corners, angles, fatal funnel. I drew it on my hand.',
+    LONER: 'Do not follow me in. You will slow me down.',
+    JUNKIE: 'Two metres from them. That is where I live.',
+    HOMESICK: 'Same hallway as my old flat. Different smell.',
+    PHILOSOPHER: 'Rooms are just boxes we decide to die in.',
+    AVENGER: 'They hid in the dark. I brought it in with me.',
+    PERFECTIONIST: 'Clean entry, clean exit. The blood is not mine. Mostly.',
+    OPTIMIST: 'Hurts. But we are through, are we not?',
+    VETERAN: 'Hallways never change. Only the wallpaper.',
+    BELIEVER: 'For the ones who never made it to a door like this.',
+    QUIET: 'Done. Next.',
+  },
+  DIVER: {
+    STOIC: 'Cold water, steady breath. Nobody watches the river.',
+    JOKER: 'Free spa treatment. Bring your own leeches.',
+    FATALIST: 'The water does not care who drowns. Tonight it picked them.',
+    ROOKIE: 'I could not see my own hands down there.',
+    GEARHEAD: 'Rebreather, no bubbles. Ghosts under their floodlights.',
+    GLORY: 'Swam right under their noses. Somebody film it next time.',
+    GUARDIAN: 'Hold my line. I lose nobody in black water.',
+    SUPERSTITIOUS: 'Rivers take one a year. Not one of ours.',
+    MERC: 'Hazard pay doubles below the waterline. Read the contract.',
+    PLANNER: 'Two knots of current, exit under the pier. On the clock.',
+    LONER: 'Down there it is just me and the static in my ears.',
+    JUNKIE: 'Lungs on fire, heart in my throat. Best part of the job.',
+    HOMESICK: 'Smells like the harbour at home. Oil and rain.',
+    PHILOSOPHER: 'Black water hides everything. Even what we are.',
+    AVENGER: 'They poisoned this river. Now it carries us to them.',
+    PERFECTIONIST: 'Surfaced on the marker. Not a ripple seen.',
+    OPTIMIST: 'Wet, freezing, alive. I will take it.',
+    VETERAN: 'Third river this year. They all taste of diesel.',
+    BELIEVER: 'Even the water is on our side tonight.',
+    QUIET: 'Wet. Through.',
+  },
+  MOUNTAINEER: {
+    STOIC: 'Rope is fixed. Clip in. Do not look down.',
+    JOKER: 'Nobody guards a cliff. Their mistake. Falling would be ours.',
+    FATALIST: 'Rock breaks, rope holds or it does not. Climb anyway.',
+    ROOKIE: 'I did not look down. I swear I did not look down.',
+    GEARHEAD: 'Cams, nuts, eleven mil dynamic. Trust the gear, not the rock.',
+    GLORY: 'Free-soloed the last pitch. You are welcome.',
+    GUARDIAN: 'I am at the top. Nobody falls while I hold the line.',
+    SUPERSTITIOUS: 'Never climb on a dead man\'s rope. This one is mine.',
+    MERC: 'Vertical metres are billable metres.',
+    PLANNER: 'Route picked off the satellite stills. Every hold was on it.',
+    LONER: 'Up here there is no comms and no voices. Just stone.',
+    JUNKIE: 'Two hundred metres of nothing under my boots. Perfect.',
+    HOMESICK: 'Mountains here are colder than at home. Everything is.',
+    PHILOSOPHER: 'The mountain does not know there is a war. Lucky mountain.',
+    AVENGER: 'They thought the cliff protected them. It works for me now.',
+    PERFECTIONIST: 'Clean placements all the way. Not one loose rock dropped.',
+    OPTIMIST: 'What a view. Shame about the people down there.',
+    VETERAN: 'My knees remember every peak. They complain about all of them.',
+    BELIEVER: 'Higher ground, higher purpose.',
+    QUIET: 'Up. Over.',
+  },
+  INFILTRATOR: {
+    STOIC: 'Left the rifle. I am the quieter weapon.',
+    JOKER: 'Walked in like I owned the place. Turns out I do now.',
+    FATALIST: 'Alone and unarmed in their house. Seemed fitting.',
+    ROOKIE: 'Nobody looked twice. Why did nobody look twice?',
+    GEARHEAD: 'Camera blind spot every eleven seconds. I counted the loop.',
+    GLORY: 'One operator, one door, one legend.',
+    GUARDIAN: 'I go in alone so the rest of you do not have to.',
+    SUPERSTITIOUS: 'Moved only on even counts. The shadows like that.',
+    MERC: 'That rifle goes on your tab. Worth every round it never fired.',
+    PLANNER: 'Ninety seconds to the latch. I had four to spare.',
+    LONER: 'Finally, a job where nobody talks to me.',
+    JUNKIE: 'No weapon, no backup. That is not fear, that is flavour.',
+    HOMESICK: 'Used to sneak home past curfew. Same feet, same silence.',
+    PHILOSOPHER: 'To be unseen is to stop existing for a while. Restful.',
+    AVENGER: 'I was inside their walls. They will never sleep sound again.',
+    PERFECTIONIST: 'Not one footprint. The door opens from inside, as planned.',
+    OPTIMIST: 'Bit of a scratch. Door is open, though.',
+    VETERAN: 'Shadows have not changed since my first tour. Neither have guards.',
+    BELIEVER: 'Faith walks where rifles cannot.',
+    QUIET: 'In. Open.',
+  },
+  SIGNALS: {
+    STOIC: 'Their net is mine for nine minutes. Use them.',
+    JOKER: 'Told them their shift was over. Best news they have had all year.',
+    FATALIST: 'They will trace it. Everyone gets traced in the end.',
+    ROOKIE: 'I faked a colonel. A colonel! And they believed it!',
+    GEARHEAD: 'Hop pattern cracked, key rolled, their whole net singing my song.',
+    GLORY: 'Tonight I am the voice inside their heads.',
+    GUARDIAN: 'Every guard I talk away is one less rifle on you.',
+    SUPERSTITIOUS: 'Static on channel thirteen. Never trust thirteen. They did.',
+    MERC: 'Information is the one currency that never inflates.',
+    PLANNER: 'Script written, callsigns harvested, timing locked.',
+    LONER: 'Just me and the noise floor. Best company there is.',
+    JUNKIE: 'Bluffing a whole compound live on air. My hands are buzzing.',
+    HOMESICK: 'Caught a pop station under their chatter. A song from home.',
+    PHILOSOPHER: 'Truth is whatever comes through the speaker loudest.',
+    AVENGER: 'They used radios to call in the strike. Now radios call them off.',
+    PERFECTIONIST: 'Accent, cadence, codewords. Not one syllable out of place.',
+    OPTIMIST: 'They will work it out. We will be long gone.',
+    VETERAN: 'Spoofed nets in three wars. A guard never questions an order.',
+    BELIEVER: 'Even their machines turn on them tonight.',
+    QUIET: 'Net is ours.',
+  },
+  LINGUIST: {
+    STOIC: 'Right words, right price. They looked the other way.',
+    JOKER: 'I told them we were the plumbers. Very expensive plumbers.',
+    FATALIST: 'Everyone has a price. Tonight theirs was our gear.',
+    ROOKIE: 'I just talked. I cannot believe talking worked.',
+    GEARHEAD: 'Hurts to hand that over. Good kit buys good silence.',
+    GLORY: 'Talked us through a checkpoint. Put that in the film.',
+    GUARDIAN: 'Better our gear than our blood.',
+    SUPERSTITIOUS: 'Bribes in odd numbers only. Even ones bring bad luck.',
+    MERC: 'Gear is replaceable. The deal was fair. Mostly.',
+    PLANNER: 'Dialect, cover story, payment. Rehearsed on the flight in.',
+    LONER: 'I hate talking. I hate it less than shooting through.',
+    JUNKIE: 'One wrong vowel and we are dead. What a rush.',
+    HOMESICK: 'He has a daughter my sister\'s age. Talked about her the whole time.',
+    PHILOSOPHER: 'Language is the oldest weapon, and the quietest.',
+    AVENGER: 'I smiled at him. I will remember his face.',
+    PERFECTIONIST: 'Every honorific right. He never doubted for a second.',
+    OPTIMIST: 'See? People are reasonable, given the right gift.',
+    VETERAN: 'Paid off guards on four continents. Prices keep going up.',
+    BELIEVER: 'Words open doors that guns can only break.',
+    QUIET: 'Paid. Passed.',
+  },
+  PATHFINDER: {
+    STOIC: 'No road on any map. Now there is.',
+    JOKER: 'Scenic route. Complaints to the travel agent.',
+    FATALIST: 'Long way round. The war waits for us either way.',
+    ROOKIE: 'How did you even see that path? I still cannot see it.',
+    GEARHEAD: 'The satellite is forty metres off here. My boots are not.',
+    GLORY: 'Found a road nobody ever mapped. Name it after me.',
+    GUARDIAN: 'Slower and safer. Step where I step.',
+    SUPERSTITIOUS: 'Old goat track. Goats know where the dead are buried.',
+    MERC: 'Overtime starts now. Two extra hours, people.',
+    PLANNER: 'Contours, water flow, dead ground. The path was always there.',
+    LONER: 'Nobody comes this way. That is why I like it.',
+    JUNKIE: 'Nothing beats walking where the map goes blank.',
+    HOMESICK: 'Feels like hiking with my brother. Except for the rifles.',
+    PHILOSOPHER: 'Maps are opinions. The ground is the fact.',
+    AVENGER: 'They will never know which way death came in.',
+    PERFECTIONIST: 'Not one twig broken. We were never here.',
+    OPTIMIST: 'Long walk, but look at those stars.',
+    VETERAN: 'Old smugglers\' trail. Smugglers always knew better than generals.',
+    BELIEVER: 'There is always a way for those who keep walking.',
+    QUIET: 'This way.',
+  },
+  ENDURANCE: {
+    STOIC: 'One at a time. The shoulders hold.',
+    JOKER: 'Human ladder, folks. Tips welcome.',
+    FATALIST: 'Muscles tear, bones crack. It comes for everyone. Not tonight.',
+    ROOKIE: 'I did not know I could lift that. I really did not know.',
+    GEARHEAD: 'Leverage, not strength. All right, mostly strength.',
+    GLORY: 'Carried the whole team over. Remember who did that.',
+    GUARDIAN: 'Climb on me. That is what I am here for.',
+    SUPERSTITIOUS: 'Grandmother said I had a mule\'s back. She was right.',
+    MERC: 'Heavy lifting is not in the contract. Adding it.',
+    PLANNER: 'Weight distribution calculated. My spine was not consulted.',
+    LONER: 'Do not thank me. Just do not make me carry you again.',
+    JUNKIE: 'Burn in the legs, fire in the chest. More.',
+    HOMESICK: 'Used to carry hay bales back home. Hay does not shoot back.',
+    PHILOSOPHER: 'We only get as far as the weakest back carries us.',
+    AVENGER: 'Every ache, I pay back to them with interest.',
+    PERFECTIONIST: 'Everyone over, nothing dropped. My back is ruined, though.',
+    OPTIMIST: 'Ow. Worth it. Mostly ow.',
+    VETERAN: 'Done this before. My back reminds me every morning.',
+    BELIEVER: 'We go over together or not at all.',
+    QUIET: 'Up you go.',
+  },
+};
+/** A specialist speaks their save line: logged, and shown as a speech bubble. */
+function saySave(u) {
+  const s = soldier(u.sid), line = SAVE_LINES[s.spec]?.[s.persona];
+  if (!line || u.dead) return;
+  const b = B();
+  b.log.push({ text: `${firstName(u)}: "${line}"`, kind: 'say-good', who: u.name, face: s.face, line, mood: 'good', seq: (b.seq = (b.seq || 0) + 1) });
 }
 /** An officer's position falls to an approach that kills. `dead` means out of this fight; `fate` says how. */
 function officerFalls(off, members, lead, feared) {
@@ -2357,17 +2792,17 @@ function officerFalls(off, members, lead, feared) {
     const later = b.stages.map((_, i) => i).filter((i) => i > b.stage && i < exfilAt && !b.stages[i].skipped);
     if (later.length) {
       off.stage = pick(later); off.grudge = true;
-      log(`${off.name} goes over the back wall in the smoke. They are not finished: expect them further in.`, 'alert');
+      log(`${off.name} goes over the back wall in the smoke. They are not finished: expect them further in.`, 'major');
     } else {
       off.stage = -1; off.fled = true;
-      log(`${off.name} vanishes into the dark with what is left of their men. You will see them again.`, 'alert');
+      log(`${off.name} vanishes into the dark with what is left of their men. You will see them again.`, 'major');
     }
     return;
   }
   off.dead = true; b.officerKilled = true;
   if (off.fate === 'CAPTIVE') {
     b.prisoner = true;
-    log(`${off.name} throws down their rifle and puts their hands on their head. Their ${loot} comes with you, and so do they. Escorting a prisoner makes moving quietly harder.`, 'good');
+    log(`${off.name} throws down their rifle and puts their hands on their head. Their ${loot} comes with you, and so do they. Escorting a prisoner makes moving quietly harder.`, 'major');
     return;
   }
   lead.kills++; b.kills++;
@@ -2389,22 +2824,22 @@ function settle(cleared) {
   const b = B(), m = G.mission;
   if (m.rAt && !b.reinf && b.attempts >= m.rAt && !b.done) {
     b.reinf = m.rCount;
-    log(`Engines to the east: ${m.rCount === 1 ? 'a vehicle' : 'two vehicles'} of reinforcements arrive.`, 'alert');
+    log(`Engines to the east: ${m.rCount === 1 ? 'a vehicle' : 'two vehicles'} of reinforcements arrive.`, 'major');
     raise(1);
   }
   if (b.done) return finish();
   if (!team().some(active)) { log('Nobody is left standing.', 'kill'); return finish(); }
   const exfilAt = b.stages.findIndex((s) => s.kind === 'EXFIL');
   if (b.alert >= ALERT_MAX && b.stage < exfilAt) {
-    log('Quick reaction force inbound! Abandon everything and get to the extraction point.', 'alert');
-    for (let i = b.stage + (cleared ? 1 : 0); i < exfilAt; i++) b.stages[i].skipped = true;
+    log('Quick reaction force inbound! Abandon everything and get to the extraction point.', 'crit');
+    for (let i = b.stage + (cleared ? 1 : 0); i < exfilAt; i++) { b.stages[i].skipped = true; b.stages[i].abandoned = true; }
     b.stage = exfilAt - 1;
     cleared = true;
   }
   if (cleared) advance();
   flushCues();
   if (b.time <= 0 && !b.done) {
-    log('The extraction window has closed. Everyone left must get out on foot.', 'alert');
+    log('The extraction window has closed. Everyone left must get out on foot.', 'crit');
     for (const u of team()) if (active(u)) u.stranded = true;
     finish();
   }
@@ -2423,12 +2858,14 @@ function advance() {
   st.seen = true;
   log(`Stage ${b.stage + 1}: ${KIND[st.kind]}${st.pick != null ? ' · ' + SIT[st.choices[st.pick]].label : ''}.`, 'turn');
   if (off?.grudge) log(`${off.name} is waiting here, regrouped and furious. Every approach is 1 harder.`, 'alert');
+  if (b.lateAlert) { const n = b.lateAlert; b.lateAlert = 0; raise(n, 'They have worked out the radio trick.'); }
+  for (const u of team()) if (u.away === b.stage && active(u)) log(`${u.name} is still in overwatch and sits this stage out.`, 'info');
   const sk = st.pick != null ? st.choices[st.pick] : null;
   if (off) cue('STAGE', witness(null), { threat: off.name });
   else if (THREAT_NAME[sk]) cue('STAGE', witness(null), { threat: THREAT_NAME[sk] });
   if (e.turnAt === b.stage && e.turnTo) { // the weather can change fast
     e.weather = e.turnTo; e.turnTo = null;
-    log(`The weather turns: ${WEATHER[e.weather].label.toLowerCase()}. ${envSummary(e)}`, 'alert');
+    log(`The weather turns: ${WEATHER[e.weather].label.toLowerCase()}. ${envSummary(e)}`, 'major');
     if (!vehUsable(G.mission.ext, e.weather)) log(`No ${VEH[G.mission.ext].label.toLowerCase()} can reach you in this. You will have to walk out.`, 'alert');
   }
   const up = team().filter(active);
@@ -2457,7 +2894,7 @@ function abort() {
   need('OPERATION');
   if (B().over) fail('The operation is over.');
   B().state = 'PLAN'; B().roll = null;
-  log('Mission aborted. Everyone breaks contact on foot.', 'alert');
+  log('Mission aborted. Everyone breaks contact on foot.', 'crit');
   for (const u of team()) if (active(u)) u.stranded = true;
   finish();
 }
@@ -2791,6 +3228,7 @@ function debrief(m) {
     }
     if (u.consumed) lost.push(`${ITEMS[u.consumed].label} (expended)`);
     for (const it of u.wrecked || []) lost.push(`${ITEMS[it].label} (wrecked by ${off.name}'s grenade)`);
+    for (const g of u.lostGear || []) lost.push(`${ITEMS[g.it].label} (${u.name}: ${g.why})`);
     if (u.droneLost) lost.push('Recon Drone (shot down)');
     s.xp += xp; s.kills += u.kills; s.missions++;
     const after = rankIdx(s.xp);
@@ -2860,7 +3298,7 @@ function enlist(cls) {
   if (!CLASSES[cls]) fail('Unknown class.');
   const xp = G.base.lv.BARRACKS >= 3 ? 20 : 0;
   if (G.phase === 'DEBRIEF' && G.recruits > 0) { G.recruits--; return recruit(xp, cls); }
-  need('BASE');
+  needBase();
   if (G.roster.filter((s) => s.alive).length >= rosterMax()) fail(`The roster is full (${rosterMax()} operators). Upgrade the barracks for more.`);
   if (G.rp < recruitCost()) fail(`Recruiting costs ${recruitCost()} RP; you have ${G.rp}.`);
   G.rp -= recruitCost();
@@ -2951,9 +3389,11 @@ function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(G)); } 
 
 let mounted = null;
 const draft = { mission: null, team: [], loadouts: {}, insertion: 'FOOT', extraction: 'FOOT', step: 0 };
-const plan = { key: null, opt: 0, ids: [], lead: null, gear: [], strike: false, abortArmed: false };
+const plan = { key: null, opt: 0, ids: [], lead: null, gear: [], strike: false, abortArmed: false, way: null };
 
+let cmdSeq = null; // log position before the last command: big events after it show as banners until the next command
 function run(fn) {
+  cmdSeq = G?.battle?.seq || 0;
   try { fn(); } catch (e) {
     if (e instanceof Rule) return toast(e.message);
     console.error(e);
@@ -2984,15 +3424,48 @@ function refresh() {
   else if (G.phase === 'OPERATION') { renderOps(); showBubbles(); }
   else renderDebrief();
   startWeather();
+  showSitrep();
 }
 // Speech bubbles: barks new since the last render pop up one after another, linger and fade. They stay in the log;
 // nothing is replayed after a reload.
+/** Major and critical events since the last command, as banners over the scene. */
+function eventsHtml() {
+  const b = B();
+  if (cmdSeq == null) cmdSeq = b.seq || 0; // a fresh load replays nothing
+  const evs = b.log.filter((e) => (e.kind === 'major' || e.kind === 'crit') && e.seq > cmdSeq);
+  return evs.length ? `<div class="evban" role="alert">${evs.map((e) => `<div class="evb ${e.kind}">${ico(e.kind === 'crit' ? 'alert' : 'warn')}<span>${esc(e.text)}</span></div>`).join('')}</div>` : '';
+}
+/* Critical events (the QRF, the window closing, an abort, a death) also open a stamped situation report that has to be
+   dismissed, on whatever screen comes next. Like the bubbles, nothing is replayed after a reload. */
+const SITREPS = [
+  [/Quick reaction force/, 'QRF inbound', 'Every stage before the extraction is abandoned. Get the team out.'],
+  [/extraction window/, 'Window closed', 'No pickup is coming. Everyone still out there walks, and not all of them may make it.'],
+  [/aborted/, 'Mission aborted', 'The team breaks contact on foot. Nothing more gets done tonight.'],
+  [/KIA|could not be recovered/, 'KIA', 'An operator will not be coming home.'],
+];
+let sitKey = null, sitSeq = 0;
+function showSitrep() {
+  const b = G.battle, m = G.mission;
+  if (!b || !m) return;
+  const key = `${G.flown}:${m.codename}`, seq = b.seq || 0;
+  if (sitKey !== key) { sitKey = key; sitSeq = seq; return; }
+  const fresh = b.log.filter((e) => e.kind === 'crit' && e.seq > sitSeq);
+  sitSeq = seq;
+  if (!fresh.length) return;
+  const [, title, means] = SITREPS.find(([re]) => re.test(fresh[0].text)) || [null, 'Situation report', ''];
+  const d = $('#sitrep');
+  d.innerHTML = `<div class="sitrep-in"><div class="stamp">${title}</div><ul>${fresh.map((e) => `<li>${esc(e.text)}</li>`).join('')}</ul>${means ? `<p class="muted">${means}</p>` : ''}
+    <div class="actions-row"><button class="btn primary big" type="button" id="sitrep-ok">Continue</button></div></div>`;
+  $('#sitrep-ok').addEventListener('click', () => d.close());
+  if (!d.open) d.showModal();
+  sfx('fail'); buzz(160);
+}
 const BUBBLE_MS = 4500;
 let bubbleKey = null, bubbleSeq = 0;
 function showBubbles() {
   const b = B(), key = `${G.flown}:${G.mission.codename}`, seq = b.seq || 0;
   if (bubbleKey !== key) { bubbleKey = key; bubbleSeq = seq; return; }
-  const fresh = b.log.filter((e) => e.seq > bubbleSeq);
+  const fresh = b.log.filter((e) => e.seq > bubbleSeq && e.kind.startsWith('say')); // every log line has a seq now; only speech pops up
   bubbleSeq = seq;
   fresh.forEach((e, i) => setTimeout(() => bubble(e), 300 + i * 900));
 }
@@ -3466,8 +3939,8 @@ function mapHtml(m, stages, curIdx, wx, opt = {}) {
     v.idx.forEach((ci, n2) => {
       const q = v.pts[n2], [x, y] = P(q), c = st.choices[ci], fork = v.idx.length > 1;
       if (v.named && st.kind === 'PERIMETER') feats += featSvg(c, x, y, sk, md);
-      const lbl = st.kind === 'APPROACH' ? 'RP' : st.kind === 'EXFIL' ? 'EXFIL' : !v.named ? '?' : st.kind === 'OBJECTIVE' || st.kind === 'OPTIONAL' ? (c === 'HVT' ? 'HVT' : c === 'INTEL' ? 'INTEL' : 'CACHE') : SIT[c].label.toUpperCase();
-      nodes += `<g class="wp ${state} ${fork ? 'fork' : ''}" transform="translate(${x} ${y})">${state === 'cur' ? `<circle class="ping" r="${f1(11 * sk)}"/>` : ''}<circle r="${f1((fork ? 9 : 11) * sk)}"/>
+      const lbl = st.abandoned ? 'ABANDONED' : st.kind === 'APPROACH' ? 'RP' : st.kind === 'EXFIL' ? 'EXFIL' : !v.named ? '?' : st.kind === 'OBJECTIVE' || st.kind === 'OPTIONAL' ? (c === 'HVT' ? 'HVT' : c === 'INTEL' ? 'INTEL' : 'CACHE') : SIT[c].label.toUpperCase();
+      nodes += `<g class="wp ${state} ${fork ? 'fork' : ''}" transform="translate(${x} ${y})">${st.abandoned ? `<path class="xmark" d="M-${f1(14 * sk)} -${f1(14 * sk)}L${f1(14 * sk)} ${f1(14 * sk)}M${f1(14 * sk)} -${f1(14 * sk)}L-${f1(14 * sk)} ${f1(14 * sk)}"/>` : ''}${state === 'cur' ? `<circle class="ping" r="${f1(11 * sk)}"/>` : ''}<circle r="${f1((fork ? 9 : 11) * sk)}"/>
         <text dy="${f1(4 * sk)}" style="font-size:${f1((fork ? 10 : 12) * sk)}px">${s + 1}${fork ? "AB"[n2] : ""}</text><text class="lbl" dy="${f1(26 * sk)}" style="font-size:${f1(9 * sk)}px">${lbl}</text></g>`;
       if (st.kind === 'APPROACH' || s < curIdx || v.skipped) return;
       const sit = SIT[c], count = sit ? (battle ? foesOf(st, sit) : sit.foes) : 0, hasOff = off === s;
@@ -3583,7 +4056,7 @@ function knowledge(st, reached) {
 }
 function nodeHtml(st, i, curIdx) {
   const reached = i <= curIdx, kn = knowledge(st, reached);
-  const state = st.skipped ? 'skipped' : i < curIdx ? 'done' : i === curIdx ? 'cur' : '';
+  const state = st.abandoned ? 'skipped abandoned' : st.skipped ? 'skipped' : i < curIdx ? 'done' : i === curIdx ? 'cur' : '';
   let title, detail = '';
   if (st.kind === 'APPROACH') {
     title = st.pick != null ? ROUTES[st.choices[st.pick]].label : st.choices.map((c) => ROUTES[c].label).join(' / ');
@@ -3598,7 +4071,7 @@ function nodeHtml(st, i, curIdx) {
     if (kn.nums) detail = sits.map((s) => { const f = G.battle && G.phase === 'OPERATION' ? foesOf(st, s) : s.foes; return `${f} hostile${f === 1 ? '' : 's'}`; }).join(' / ');
     else detail = null; // redacted below
   }
-  return `<li class="node ${state}"><span class="k">${i + 1} · ${KIND[st.kind]}</span><b>${esc(title)}</b><small>${detail == null ? redact(9, 'Strength unknown') : esc(detail)}</small></li>`;
+  return `<li class="node ${state}"><span class="k">${i + 1} · ${KIND[st.kind]}</span><b>${esc(title)}</b><small>${st.abandoned ? 'Abandoned: QRF inbound' : detail == null ? redact(9, 'Strength unknown') : esc(detail)}</small></li>`;
 }
 const routeHtml = (stages, curIdx) => `<ol class="route">${stages.map((st, i) => nodeHtml(st, i, curIdx)).join('')}</ol>`;
 
@@ -3650,12 +4123,12 @@ function offerHtml(m, i) {
     <dl class="facts"><dt>Threat</dt><dd>${threat(m)}</dd>${k.faction ? `<dt>Enemy</dt><dd class="fac">${emblem(m.faction)}${FACTIONS[m.faction].label}</dd>` : ''}${m.officer?.returning ? `<dt>Officer</dt><dd><span class="chip bad">${esc(m.officer.name)} has resurfaced</span></dd>` : ''}<dt>Reward</dt><dd>${m.reward.rp} RP · ${m.reward.bp} BP on success</dd></dl>
     <button class="btn primary" type="button" data-mission="${i}">Plan this mission</button></div>`;
 }
-function deptHtml(d) {
+function deptHtml(d, sheet = false) { // sheet: opened over the briefing, without upgrades
   const bs = G.base, lv = bs.lv[d], D = DEPTS[d], next = lv < 3 ? UPGRADE_BP[lv + 1] : null;
   const head = `${artSlot(`DEPT-${d}`, "dept", "dept-art")}<div class="dept-head"><div><h2>${D.label}</h2><p class="muted" style="margin:0">${D.desc}</p></div>
       <div class="dept-lv">${[1, 2, 3].map((n) => `<i class="${n <= lv ? 'on' : ''}"></i>`).join('')}<span>Level ${lv}</span></div></div>
     <ol class="lv-list">${D.lv.map((t, n) => `<li class="${n + 1 <= lv ? 'have' : ''}"><b>L${n + 1}</b> ${t}</li>`).join('')}</ol>
-    ${next != null ? `<button class="btn" type="button" data-upgrade="${d}" ${G.bp < next ? 'disabled' : ''}>Upgrade to level ${lv + 1} · ${next} BP</button>` : '<span class="chip ok">Fully upgraded</span>'}`;
+    ${sheet ? '' : next != null ? `<button class="btn" type="button" data-upgrade="${d}" ${G.bp < next ? 'disabled' : ''}>Upgrade to level ${lv + 1} · ${next} BP</button>` : '<span class="chip ok">Fully upgraded</span>'}`;
   let body = '';
   if (d === 'BARRACKS') {
     const alive = G.roster.filter((s) => s.alive);
@@ -3704,15 +4177,33 @@ function renderBase() {
   startWeather();
   v.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => { ui.baseTab = b.dataset.tab; saveUi(); sfx('click'); renderBase(); }));
   v.querySelectorAll('[data-mission]').forEach((b) => b.addEventListener('click', () => { sfx('select'); run(() => chooseMission(+b.dataset.mission)); }));
-  v.querySelectorAll('[data-upgrade]').forEach((b) => b.addEventListener('click', () => { run(() => upgradeDept(b.dataset.upgrade)); sfx('success'); }));
-  v.querySelectorAll('[data-bed]').forEach((b) => b.addEventListener('click', () => { sfx('click'); run(() => toggleBed(+b.dataset.bed)); }));
-  v.querySelectorAll('[data-fab]').forEach((b) => b.addEventListener('click', () => { sfx('select'); run(() => fabricate(b.dataset.fab)); }));
-  v.querySelectorAll('[data-repair]').forEach((b) => b.addEventListener('click', () => { sfx('select'); run(() => repair(b.dataset.repair)); }));
-  v.querySelectorAll('[data-hire]').forEach((b) => b.addEventListener('click', () => run(() => { const s = hireCaptive(+b.dataset.hire); sfx('success'); toast(`${s.name} switches sides and joins as ${CLASSES[s.cls].label}, ${SPECS[s.spec].label.toLowerCase()}.`); })));
-  v.querySelectorAll('[data-trade]').forEach((b) => b.addEventListener('click', () => { sfx('select'); run(() => tradeCaptive(+b.dataset.trade)); }));
-  v.querySelectorAll('[data-enlist]').forEach((b) => b.addEventListener('click', () => run(() => { const s = enlist(b.dataset.enlist); toast(`${s.name} joins as ${CLASSES[s.cls].label}, ${SPECS[s.spec].label.toLowerCase()}.`); })));
+  bindDept(v);
 }
-
+/** Department buttons, wherever the panel is shown: at base, or in the sheet over the briefing (after re-draws it). */
+function bindDept(root, after = () => {}) {
+  const on = (sel, fn) => root.querySelectorAll(sel).forEach((b) => b.addEventListener('click', () => { fn(b); after(); }));
+  on('[data-upgrade]', (b) => { run(() => upgradeDept(b.dataset.upgrade)); sfx('success'); });
+  on('[data-bed]', (b) => { sfx('click'); run(() => toggleBed(+b.dataset.bed)); });
+  on('[data-fab]', (b) => { sfx('select'); run(() => fabricate(b.dataset.fab)); });
+  on('[data-repair]', (b) => { sfx('select'); run(() => repair(b.dataset.repair)); });
+  on('[data-hire]', (b) => run(() => { const s = hireCaptive(+b.dataset.hire); sfx('success'); toast(`${s.name} switches sides and joins as ${CLASSES[s.cls].label}, ${SPECS[s.spec].label.toLowerCase()}.`); }));
+  on('[data-trade]', (b) => { sfx('select'); run(() => tradeCaptive(+b.dataset.trade)); });
+  on('[data-enlist]', (b) => run(() => { const s = enlist(b.dataset.enlist); toast(`${s.name} joins as ${CLASSES[s.cls].label}, ${SPECS[s.spec].label.toLowerCase()}.`); }));
+}
+/** Engineering or the barracks as a side sheet over the briefing: make, repair, recruit, without losing the plan. */
+function openSheet(d) {
+  const dlg = $('#sheet');
+  const fill = () => {
+    if (G.phase !== 'BRIEFING') return dlg.close();
+    dlg.innerHTML = `<div class="help-head"><h2 id="sheet-title">${DEPTS[d].label}</h2><button class="btn ghost icon" type="button" id="sheet-close" aria-label="Close">${ico('cross')}</button></div><div class="help-body">${deptHtml(d, true)}</div>`;
+    $('#sheet-close').addEventListener('click', () => dlg.close());
+    bindDept(dlg, fill);
+  };
+  fill();
+  if (!dlg.open) dlg.showModal();
+  sfx('click');
+}
+$('#sheet').addEventListener('click', (e) => { if (e.target === e.currentTarget) e.currentTarget.close(); });
 // ------------------------------------------------------------------ briefing
 function remaining() {
   const left = { ...G.armory };
@@ -3782,6 +4273,12 @@ function renderBriefing() {
     const wx = vehWeather(id, m.env.forecast);
     return `<label class="veh ${draft[f] === id ? 'on' : ''} ${why ? 'locked' : ''}"><input type="radio" id="${f}-${id}" name="${f}" value="${id}" ${draft[f] === id ? 'checked' : ''} ${why ? 'disabled' : ''}>
       <span class="veh-head"><b>${v.label}</b><span class="cost">${v.cost ? v.cost + ' RP' : 'Free'}</span></span><small>${why ? `<span class="bad-text">${why}.</span> ` : ''}${typeof wx === 'number' && wx > 0 ? `<span class="warn-text">Forecast: riskier (+${wx}%).</span> ` : ''}${typeof wx === 'string' && f === 'extraction' ? `<span class="warn-text">The forecast weather would ground it: you might walk out.</span> ` : ''}${v.desc}</small></label>`; }).join('');
+  // gear the team's classes could carry that has run out, with the workshop's price when it can make more
+  const wanted = new Set(draft.team.flatMap((id) => { const c = CLASSES[classOf(id)]; return [...c.weapons, ...c.armor, ...c.utility, ...KITS]; }));
+  const shortages = [...wanted].filter((it) => !(G.armory[it] > 0) && FAB[it] && G.base.lv.ENG >= FAB[it][0]).map((it) => {
+    const [lv, c] = FAB[it], why = G.base.lv.ENG < lv ? `Needs Engineering level ${lv}` : G.rp < c ? `Costs ${c} RP` : '';
+    return `<button class="btn" type="button" data-fabq="${it}" ${why ? `disabled title="${why}"` : ''}>${ITEMS[it].label} · Fabricate ${c} RP</button>`;
+  });
   const tot = `<dt>Time on target</dt><dd>${BASE_TIME + VEH[draft.insertion].time} (base ${BASE_TIME}, +${VEH[draft.insertion].time} from insertion)</dd><dt>Reward</dt><dd>${m.reward.rp} RP · ${m.reward.bp} BP on success</dd>`;
 
   const body = [
@@ -3793,8 +4290,11 @@ function renderBriefing() {
       <div class="col"><div class="card"><h3>Operation plan</h3>${mapHtml(m, m.route, -1, m.env.forecast, { ins: draft.insertion, ext: draft.extraction, k: 1.5 })}${routeHtml(m.route, -1)}
         ${m.intel.some((i) => ['SATELLITE', 'HUMINT', 'UAV'].includes(i)) ? '' : '<p class="muted" style="margin:8px 0 0">Entry points are unscouted. Buy intel to see what is waiting.</p>'}</div>
         <div class="card"><h3>Intelligence</h3>${intelRows}${humint}</div></div></div>`,
-    () => `<div class="card"><h3>Team <span class="count">${draft.team.length}/${MAX_TEAM}</span></h3>
-        <p class="muted" style="margin:0 0 12px">Tick up to ${MAX_TEAM} operators and choose what they carry. Everyone has a handgun; the rest comes from the armory.</p><div class="roster wide">${roster}</div></div>`,
+    () => `<div class="card"><div class="team-head"><h3>Team <span class="count">${draft.team.length}/${MAX_TEAM}</span></h3>
+          <span class="grow"></span><button class="btn ghost" type="button" data-sheet="ENG">${ico('tech')}Engineering</button><button class="btn ghost" type="button" data-sheet="BARRACKS">${ico('star')}Barracks</button></div>
+        <p class="muted" style="margin:0 0 12px">Tick up to ${MAX_TEAM} operators and choose what they carry. Everyone has a handgun; the rest comes from the armory.</p>
+        ${shortages.length ? `<div class="short"><span>${ico('warn')}Out of stock:</span>${shortages.join('')}</div>` : ''}
+        <div class="roster wide">${roster}${G.roster.filter((s) => s.alive).length < rosterMax() ? `<button class="op recruit-card" type="button" data-sheet="BARRACKS">${ico('star')}<span><b>Recruit an operator</b><small>${recruitCost()} RP · roster ${G.roster.filter((s) => s.alive).length}/${rosterMax()}</small></span></button>` : ''}</div></div>`,
     () => `<div class="brief-grid"><div class="col"><div class="card"><h3>Insertion</h3><div class="vehicles">${vehicles('insertion')}</div></div>
         <div class="card"><h3>Extraction</h3><div class="vehicles">${vehicles('extraction')}</div></div></div>
       <div class="col"><div class="card"><h3>Going in</h3>
@@ -3817,6 +4317,8 @@ function renderBriefing() {
   const v = $('#view');
   v.querySelectorAll('[data-step]').forEach((b) => b.addEventListener('click', () => { draft.step = +b.dataset.step; sfx('click'); renderBriefing(); window.scrollTo(0, 0); }));
   v.querySelectorAll('[data-intel]').forEach((b) => b.addEventListener('click', () => { sfx('select'); run(() => buyIntel(b.dataset.intel, draft.team)); }));
+  v.querySelectorAll('[data-sheet]').forEach((b) => b.addEventListener('click', () => openSheet(b.dataset.sheet)));
+  v.querySelectorAll('[data-fabq]').forEach((b) => b.addEventListener('click', () => { sfx('select'); run(() => fabricate(b.dataset.fabq)); }));
   v.querySelectorAll('[data-pick]').forEach((cb) => cb.addEventListener('change', () => {
     const id = +cb.dataset.pick;
     if (cb.checked) {
@@ -3894,17 +4396,17 @@ function renderTransit() {
 function syncPlan() {
   const b = B(), st = cur(), key = `${G.flown}:${b.stage}:${st.pick ?? '-'}`;
   if (plan.key !== key) {
-    Object.assign(plan, { key, opt: 0, lead: null, gear: [], strike: false, abortArmed: false });
+    Object.assign(plan, { key, opt: 0, lead: null, gear: [], strike: false, abortArmed: false, way: null });
     const sit = sitOf(st);
-    const all = team().filter(active).map((u) => u.id);
+    const all = team().filter(ready).map((u) => u.id);
     plan.ids = all.slice(0, 1 + MAX_SUPPORT);
     if (sit) { // sensible default: the approach with the best odds for its strongest fireteam
       let best = -1, ids = plan.ids;
-      sit.opts.forEach((o, i) => { plan.ids = fireteam(o, all); const p = previewOf(i).odds.s; if (p > best) { best = p; plan.opt = i; ids = plan.ids; } });
+      sit.opts.forEach((o, i) => { if (lockReason(o)) return; plan.ids = fireteam(o, all); const p = previewOf(i).odds.s; if (p > best) { best = p; plan.opt = i; ids = plan.ids; } });
       plan.ids = ids;
     }
   }
-  plan.ids = plan.ids.filter((id) => active(unitById(id)));
+  plan.ids = plan.ids.filter((id) => ready(unitById(id)));
   const sit = sitOf(st);
   if (sit) {
     const opt = sit.opts[plan.opt];
@@ -3915,7 +4417,7 @@ function syncPlan() {
 }
 function previewOf(i) {
   const st = cur(), sit = sitOf(st), opt = sit.opts[i];
-  const ids = plan.ids.filter((id) => active(unitById(id)));
+  const ids = plan.ids.filter((id) => ready(unitById(id)));
   const gear = i === plan.opt ? plan.gear : [];
   const lead = i === plan.opt && ids.includes(plan.lead) && (!opt.need || hasSpec(unitById(plan.lead).sid, opt.need)) ? plan.lead : bestLead(opt, ids);
   const pool = ids.length ? poolOf(opt, ids, gear, i === plan.opt && plan.strike, lead) : { value: 0, parts: [] };
@@ -3963,14 +4465,14 @@ function riskLines(p, sit) {
   else if (foes) out.push(`<span class="bad">On failure: spotted, +2 alert, ${n} return-fire dice hit on 4+.</span>`);
   else if (sit.hazard) out.push('<span class="bad">On failure: a tripwire hurts one committed operator.</span>');
   else out.push('<span class="bad">On failure: +1 alert.</span>');
-  out.push('<span class="muted">Failure costs the time but not the stage: you can try again.</span>');
+  out.push('<span class="muted">Failure costs the time but not the stage: try again, or take a way past it at a price.</span>');
   return out.join('');
 }
 /** What the last roll did, told on the scene card until the next action. */
 function resultHtml() {
   const r = B().lastResult;
   if (!r?.out) return '';
-  const lines = r.lines.filter((l) => l.kind !== 'turn' && !l.text.startsWith(r.label + ':')); // the heading already says how it went
+  const lines = r.lines.filter((l) => l.kind !== 'turn' && !l.text.startsWith(r.label + ':') && l.kind !== 'major' && l.kind !== 'crit'); // the heading already says how it went
   return `<div class="result ${r.out}"><div class="rhead">${ico(OUT_ICON[r.out])}${esc(r.label)}: ${OUT_WORD[r.out].toLowerCase()}</div>
     ${lines.length ? `<ul>${lines.map((l) => `<li class="ev-${l.kind}">${esc(l.text)}</li>`).join('')}</ul>` : ''}</div>`;
 }
@@ -3992,21 +4494,41 @@ function forkHtml(st) {
 const officerHtml = (o) => `<span class="chip bad">${ico('star')}${esc(o.name)} · ${OFFICER_TRAITS[o.trait].label}</span> ${OFFICER_TRAITS[o.trait].desc}${o.grudge ? ' Back with a grudge: 1 harder.' : o.returning ? ` Got away from you on ${esc(o.returning)}.` : ''} Take the position with an approach that kills for their ${ITEMS[o.loot].label.toLowerCase()}, though they may run, surrender or go out fighting.`;
 /** Who on the team could lead an option that needs a specialist. */
 const specialists = (k) => team().filter((u) => active(u) && hasSpec(u.sid, k));
+/** Why an approach is closed to this team, or null: no specialist, or none fit to lead it this stage. */
+function lockReason(o) {
+  if (!o.need) return null;
+  const sp = team().filter((u) => active(u) && hasSpec(u.sid, o.need)), what = SPECS[o.need].label.toLowerCase();
+  if (!sp.length) return `needs a ${what}`;
+  if (sp.some((u) => ready(u) && canLead(u))) return null;
+  if (sp.length > 1) return `no ${what} is fit to lead`;
+  return `${firstName(sp[0])}, your only ${what}, ${ready(sp[0]) ? "can't lead: critical injury" : 'is in overwatch'}`;
+}
 function planSceneHtml(st, sit) {
-  const b = B(), foes = foesOf(st, sit);
+  const b = B(), foes = foesOf(st, sit), locked = [];
   const tiles = sit.opts.map((o, i) => {
-    const locked = o.need && !specialists(o.need).length;
-    if (locked) return `<button class="tile opt locked" type="button" disabled><span class="row">${skillTag(o.skill)}<span class="chip">${SPECS[o.need].label}</span></span>
-      <b>${o.label}</b><small>${o.desc}</small><span class="foot">Needs a ${SPECS[o.need].label.toLowerCase()} on the team to lead it.</span></button>`;
+    const why = lockReason(o);
+    if (why) { locked.push(`(${esc(o.label)}: ${esc(why)})`); return ''; }
     const q = previewOf(i), s = pct(q.odds.s);
     return `<button class="tile opt ${i === plan.opt ? 'on' : ''}" type="button" data-act="opt" data-i="${i}" aria-pressed="${i === plan.opt}">
-      <span class="row">${skillTag(o.skill)}<span class="pct ${s < 35 ? 'lo' : s < 65 ? 'mid' : 'hi'}">${s}%</span></span>
+      <span class="row">${skillTag(o.skill)}<span class="pct ${s < 35 ? 'lo' : s < 65 ? 'mid' : 'hi'}" aria-label="${s}% chance of a clean success">${s}%</span></span>
       <b>${o.label}</b><small>${o.desc}</small><span class="tags">${o.need ? `<span class="spec-tag">${SPECS[o.need].label}</span>` : ''}${tagsOf(o, q.foes)}</span>
       <span class="foot">Difficulty ${q.diff.value} · ${q.pool.value} dice</span></button>`; }).join('');
   const m = G.mission, off = officerAt(st);
   const who = sit === SIT.HVT && m.target ? foeRow(`TGT-${m.target}`, `<span class="chip ${m.target === 'WARLORD' ? 'bad' : ''}">Target: ${TARGETS[m.target].label}</span> ${TARGETS[m.target].desc}`) : '';
-  return `${resultHtml()}<div class="scene-head"><div class="eyebrow">Stage ${b.stage + 1} · ${KIND[st.kind]}</div>${hostiles(foes)}</div>
-    <h2>${esc(sit.label)}</h2><p class="sit-text">${esc(sit.text)}</p>${off ? foeRow(`OFF-${off.trait}`, officerHtml(off)) : ''}${who}<div class="tiles">${tiles}</div>`;
+  return `${resultHtml()}${waysHtml()}<div class="scene-head"><div class="eyebrow">Stage ${b.stage + 1} · ${KIND[st.kind]}</div>${hostiles(foes)}</div>
+    <h2>${esc(sit.label)}</h2><p class="sit-text">${esc(sit.text)}</p>${off ? foeRow(`OFF-${off.trait}`, officerHtml(off)) : ''}${who}<div class="tiles">${tiles}</div>
+    ${locked.length ? `<p class="locked-line">${ico('cross')}<span>Not available with this team: ${locked.join(' · ')}</span></p>` : ''}`;
+}
+/** After a failure: the ways past this stage, each with its price. Ways that cost gear ask which piece first. */
+function waysHtml() {
+  const ws = waysOut();
+  if (!ws.length) return '';
+  const picking = ws.find((w) => w.id === plan.way && w.pick && gearChoices(w.pick).length);
+  const ask = { DIVER: 'What does the water ruin?', LINGUIST: 'What goes as the bribe?', FORCE: 'What is lost forcing the way through?' };
+  return `<section class="ways" aria-label="Ways past this stage"><div class="ways-head">${ico('warn')}<b>Stopped here. Ways past this stage</b><small>Each gets the team through at a price. Or try again.</small></div>
+    <div class="ways-list">${ws.map((w) => `<button class="way ${plan.way === w.id ? 'on' : ''} ${w.id === 'FORCE' ? 'force' : ''}" type="button" data-act="way" data-id="${w.id}" aria-pressed="${plan.way === w.id}">
+      <b>${esc(w.label)}${w.uid != null ? ` <span class="muted">· ${esc(firstName(unitById(w.uid)))}</span>` : ''}</b><span class="price">${esc(w.price)}</span><small>${esc(w.desc)}</small></button>`).join('')}</div>
+    ${picking ? `<div class="waypick"><span>${ask[picking.id]}</span>${gearChoices(picking.pick).map((c) => `<button class="btn" type="button" data-act="waygear" data-uid="${c.uid}" data-slot="${c.slot}">${esc(firstName(unitById(c.uid)))}: ${ITEMS[c.it].label}</button>`).join('')}<button class="btn ghost" type="button" data-act="way" data-id="">Cancel</button></div>` : ''}</section>`;
 }
 function rollSceneHtml(st, sit) {
   const b = B(), r = b.roll, opt = sit.opts[r.opt], out = outcomeOf(r), s = successes(r), lead = unitById(r.lead);
@@ -4019,8 +4541,9 @@ function rollSceneHtml(st, sit) {
     <div class="track">${Array.from({ length: r.diff }, (_, i) => `<i class="${i < s ? 'on' : ''}"></i>`).join('')}<span><b>${s}</b> of ${r.diff} needed</span></div>
     <div class="roll-after">
       <div class="outcome ${out}">${ico(OUT_ICON[out])}${OUT_WORD[out]}${r.pushed ? ' <small class="muted" style="font-size:14px">pushed</small>' : ''}</div>
+      ${r.comp?.length ? `<ul class="comp" aria-label="What went wrong pushing it">${r.comp.map((c) => `<li>${ico('warn')}${esc(c)}</li>`).join('')}</ul>` : ''}
       ${out === 'PARTIAL' ? `<div class="costs">${Object.entries(COSTS).map(([k, c]) => `<button class="btn" type="button" data-act="cost" data-c="${k}"><b>${c.label}</b><small>${esc(costDesc(k, c))}</small></button>`).join('')}</div>` : ''}
-      <div class="actions-row">${out !== 'SUCCESS' && !r.pushed ? `<button class="btn" type="button" data-act="push">Push: re-roll ${r.dice.length - s} misses (+1 alert)</button>` : ''}<span class="grow"></span>
+      <div class="actions-row">${out !== 'SUCCESS' && !r.pushed ? `<button class="btn" type="button" data-act="push">Push: re-roll ${r.dice.length - s} misses (every 1 costs you)</button>` : ''}<span class="grow"></span>
         ${out === 'PARTIAL' ? '' : `<button class="btn primary big" type="button" data-act="accept">${out === 'SUCCESS' ? 'Continue' : 'Accept failure'}</button>`}</div>
     </div>`;
 }
@@ -4033,21 +4556,23 @@ function injHtml(u) {
   return rows.length ? `<span class="injlist">${rows.join('')}</span>` : '<span class="unhurt">Unhurt</span>';
 }
 function opCardHtml(u, p, opt) {
-  const b = B(), ok = active(u), on = plan.ids.includes(u.id), lead = !!p && u.id === p.lead, free = b.state === 'PLAN' && !b.over;
+  const b = B(), ok = active(u), away = ok && !ready(u), on = plan.ids.includes(u.id), lead = !!p && u.id === p.lead, free = b.state === 'PLAN' && !b.over;
   let role = '', dice = '';
   if (u.dead) role = '<span class="badge down">KIA</span>';
   else if (u.downed) role = '<span class="badge down">Down</span>';
   else if (lead) role = `<span class="badge lead">${ico('star')}Lead</span>`;
+  else if (away) role = '<span class="badge">Overwatch</span>';
   else if (on) role = '<span class="badge">Support</span>';
-  if (opt && ok) dice = `<span class="opdice">${on ? (lead ? `<b>${opDice(u, opt.skill)}</b>dice` : '<b>+1</b>die') : canLead(u) ? `<b class="dim">${opDice(u, opt.skill)}</b>as lead` : "can't lead until treated"}</span>`;
+  if (away) dice = '<span class="opdice">In the hide: sits this stage out</span>';
+  else if (opt && ok) dice = `<span class="opdice">${on ? (lead ? `<b>${opDice(u, opt.skill)}</b>dice` : '<b>+1</b>die') : canLead(u) ? `<b class="dim">${opDice(u, opt.skill)}</b>as lead` : "can't lead until treated"}</span>`;
   else if (ok) dice = `<span class="opskills">${skillLine((k) => opDice(u, k))}</span>`;
   const care = [], medics = team().filter((x) => x.cls === 'MEDIC' && active(x) && !b.revived.includes(x.id)), kits = team().filter((x) => active(x) && x.util === 'MEDKIT');
   if (free && opt && on && !lead && ok && canLead(u) && (!opt.need || hasSpec(u.sid, opt.need))) care.push(`<button class="btn" type="button" data-act="lead" data-id="${u.id}">${ico('star')}Make lead</button>`);
   if (free && (ok || u.downed) && fieldCareNeed(u)) for (const md of medics) care.push(`<button class="btn" type="button" data-act="care" data-m="${md.id}" data-t="${u.id}">${ico('medic')}Field care · ${esc(firstName(md))}</button>`);
   if (free && (ok || u.downed) && worstNeed(u)) for (const k of kits) care.push(`<button class="btn" type="button" data-act="treat" data-h="${k.id}" data-t="${u.id}">${ico('medic')}Medkit · ${esc(firstName(k))}</button>`);
   if (free && ok && u.util === 'DRONE' && !b.drone.used) care.push(`<button class="btn" type="button" data-act="drone" data-id="${u.id}">Launch drone</button>`);
-  return `<div class="opcard ${on ? 'on' : ''} ${lead ? 'lead' : ''} ${ok ? '' : u.dead ? 'gone' : 'out'}">
-    <button class="optoggle" type="button" data-act="op" data-id="${u.id}" ${ok && opt && free ? '' : 'disabled'} aria-pressed="${on}">
+  return `<div class="opcard ${on ? 'on' : ''} ${lead ? 'lead' : ''} ${ok && !away ? '' : u.dead ? 'gone' : 'out'}">
+    <button class="optoggle" type="button" data-act="op" data-id="${u.id}" ${ok && !away && opt && free ? '' : 'disabled'} aria-pressed="${on}">
       <span class="oprow">${faceImg(soldier(u.sid), 'f48')}<b>${esc(u.name)}</b>${role}</span>
       <span class="oprow">${classChip(u.cls)}<span class="trait spec">${SPECS[soldier(u.sid).spec].label}</span>${b.carrier === u.id ? '<span class="chip gold">Intel</span>' : ''}</span>
       ${`<span class="muted util">${[u.weapon || 'HANDGUN', u.kit, u.util].filter(Boolean).map((x) => ITEMS[x].label + (x === 'HANDGUN' ? ' only' : '')).join(' · ')}</span>`}
@@ -4097,8 +4622,9 @@ function renderOps() {
   syncPlan();
   const rolled = b.state === 'ROLLED';
   const scene = st.kind === 'APPROACH' || !sit ? resultHtml() + forkHtml(st) : rolled ? rollSceneHtml(st, sit) : planSceneHtml(st, sit);
+  const events = eventsHtml();
   $('#view').innerHTML = `<section class="ops">${statusHtml()}
-    <div class="ops-body ${ui.drawer ? 'with-drawer' : ''}"><div class="stage-col"><div class="card scene-card">${scene}</div>${rolled ? rollTeamHtml() : trayHtml(st, sit)}</div>
+    <div class="ops-body ${ui.drawer ? 'with-drawer' : ''}"><div class="stage-col"><div class="card scene-card">${events}${scene}</div>${rolled ? rollTeamHtml() : trayHtml(st, sit)}</div>
     ${ui.drawer ? drawerHtml() : ''}</div></section>`;
   fadeRoutes(); startWeather();
   if (rolled) animateRoll();
@@ -4174,6 +4700,15 @@ $('#view').addEventListener('click', (e) => {
   if (a === 'fork') { sfx('click'); return run(() => chooseFork(n('i'))); }
   if (a === 'exec') return run(() => execute({ opt: plan.opt, ids: plan.ids, lead: previewOf(plan.opt).lead, gear: plan.gear, strike: plan.strike }));
   if (a === 'push') return run(push);
+  if (a === 'way') { // a way that costs gear asks which piece first
+    const id = el.dataset.id, w = waysOut().find((x) => x.id === id);
+    if (!w) { plan.way = null; return refresh(); }
+    sfx('select');
+    if (w.pick && gearChoices(w.pick).length) { plan.way = plan.way === id ? null : id; return refresh(); }
+    plan.way = null;
+    return run(() => wayOut(id));
+  }
+  if (a === 'waygear') { const id = plan.way; plan.way = null; sfx('select'); return run(() => wayOut(id, { uid: n('uid'), slot: el.dataset.slot })); }
   if (a === 'accept' || a === 'cost') {
     run(() => resolve(a === 'cost' ? el.dataset.c : undefined));
     const lines = G.battle?.lastResult?.lines || [];
@@ -4218,7 +4753,8 @@ function helpHtml() {
     ['Alert', `How awake the enemy is, 0 to ${ALERT_MAX}. At ${ALERT_TIER} they are alerted and shoot back harder; at ${ALERT_MAX} a quick reaction force forces you out.`],
     ['Time', 'Every action, route and rest spends time. When it runs out, the team has to leave.'],
     ['Difficulty', 'How many successes (dice showing 5 or 6) a test needs. One short is a success at a cost you choose.'],
-    ['Push', 'Re-roll the misses once, at +1 alert.'],
+    ['Push', 'Re-roll the misses once, free, but every 1 on the new dice is something going wrong: a radio call, a bite, a jam, a dropped magazine.'],
+    ['Ways out', 'After a failure at a stage: a detour to the other entry, a breaching charge, a specialist doing what they do best, or forcing it. Each passes the stage at a price in time, fatigue, wounds or gear, and lost gear is gone for good.'],
     ['Lead and support', `The lead rolls their own dice for the skill and takes the first hit; each of up to ${MAX_SUPPORT} supporters adds 1 die.`],
     ['Fatigue', 'Builds with tests, failures, long routes, heat and smoke. Tired leads roll 1 die fewer, exhausted ones 2. Rest at base, in a treatment bed, or briefly in the field.'],
     ['Injuries', `Named wounds that cost dice when the operator leads. A critical one knocks them out in ${CRIT_STAGES} stages unless treated; the unconscious die in ${BLEED_STAGES} more.`],
@@ -4237,7 +4773,7 @@ function helpHtml() {
         <li><b>Commit operators.</b> Tap an operator to add or stand them down; Make lead picks who rolls. More bodies make Stealth noisier (Scouts and infiltrators excepted), and only committed operators get shot.</li>
         <li><b>Everyone carries a handgun.</b> A primary weapon is optional. A lead with only the handgun rolls ${HANDGUN_PENALTY} Assault die fewer, except in close quarters or as a CQB specialist.</li>
         <li><b>Spend gear</b> for extra dice, then execute. Every 5 or 6 is a success. Meet the difficulty to succeed; one short is a success at a cost you choose.</li>
-        <li><b>Push</b> to re-roll the misses, at +1 alert. Failure costs time but not the stage: you can try again.</li></ol></div>
+        <li><b>Push</b> to re-roll the misses: free, but every 1 rolled costs you something. A failure costs time and raises the alarm, then opens the <b>ways out</b>: go round, blow through, let a specialist do it, or force it, each at a price.</li></ol></div>
       <div><h3>Glossary</h3><dl class="gloss">${terms.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl></div>
     </div>`;
 }
@@ -4319,7 +4855,7 @@ function start(data) {
 if (/[?&]test\b/.test(location.search)) {
   window.SKIRM = { get G() { return G; }, newCampaign, chooseMission, backToBase, upgradeDept, toggleBed, fabricate, repair, rest, vehBlock, intelCost, fatState,
     DEPTS, FAB, VEH, LOCATIONS, WEATHER, SPECS, KITS, INTEL, hireCaptive, tradeCaptive, OFFICER_TRAITS, buyIntel, launch, proceed, enlist, chooseRoute, chooseFork, execute, push, resolve, skip, abort,
-    fieldCare, treat, launchDrone, canLead, opDice, chooseLine, mapCheck, mapHtml, interlude, PERSONAS, TOPICS, LINES, TRAITS, worstNeed, fieldCareNeed, INJURIES, bestLead, odds, difficulty, poolOf, previewOf, cur, sitOf, active, team, outcomeOf, foesOf, Rule, CLASSES, ITEMS, SIT, available, refresh };
+    fieldCare, treat, launchDrone, canLead, opDice, chooseLine, mapCheck, mapHtml, waysOut, wayOut, gearChoices, ready, SAVE_LINES, interlude, PERSONAS, TOPICS, LINES, TRAITS, worstNeed, fieldCareNeed, INJURIES, bestLead, odds, difficulty, poolOf, previewOf, cur, sitOf, active, team, outcomeOf, foesOf, Rule, CLASSES, ITEMS, SIT, available, refresh };
 }
 window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
 })();
