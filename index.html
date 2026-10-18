@@ -304,10 +304,14 @@ main { flex: 1; min-height: 0; padding-block: 20px; padding-left: max(20px, env(
 .tile ul { margin: 0; padding-left: 18px; font-size: 14px; color: var(--muted); }
 .tile .entry-opts { list-style: none; padding: 0; display: grid; gap: 3px; }
 .entry-opts li { display: flex; gap: 6px; align-items: baseline; } .entry-opts .ico { align-self: center; width: 0.95em; height: 0.95em; color: var(--dim); }
+.tile .mark { display: flex; gap: 6px; align-items: center; font: 600 13px/1.35 var(--body); }
+.tile .mark.no { color: var(--bad); } .tile .mark.gear { color: var(--warn); }
+.tile.hopeless { border-style: dashed; border-color: rgba(240, 113, 106, 0.5); } .tile.hopeless .pct { color: var(--bad); }
+.entry-opts li.gear { color: var(--warn); } .entry-opts li.gear .ico { color: var(--warn); } .entry-opts li.gear em { font-style: normal; }
 .entry-opts li.yes { color: var(--fg); } .entry-opts li.yes .ico { color: var(--ok); } .entry-opts li.yes em { color: #cdbdf8; font-style: normal; }
 .entry-opts li.no { color: var(--dim); } .entry-opts li.no > span { text-decoration: line-through; text-decoration-color: rgba(240, 113, 106, 0.6); } .entry-opts li.no .ico { color: var(--bad); } .entry-opts li.no em { font-style: normal; }
 .result { display: grid; gap: 6px; border-radius: var(--r); padding: 12px 14px; margin-bottom: 18px; background: var(--panel-2); border-left: 4px solid var(--line); animation: reveal 0.35s both; }
-.result.SUCCESS { border-left-color: var(--ok); } .result.PARTIAL { border-left-color: var(--warn); } .result.FAIL { border-left-color: var(--bad); }
+.result.SUCCESS { border-left-color: var(--ok); } .result.PARTIAL { border-left-color: var(--warn); } .result.WAY { border-left-color: var(--warn); } .result.WAY .rhead { color: var(--warn); } .result.FAIL { border-left-color: var(--bad); }
 .result .rhead { display: flex; align-items: center; gap: 8px; font-weight: 700; }
 .result.SUCCESS .rhead { color: var(--ok); } .result.PARTIAL .rhead { color: var(--warn); } .result.FAIL .rhead { color: var(--bad); }
 .result ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; font-size: 14.5px; color: #c9d1d6; }
@@ -2295,6 +2299,7 @@ function push() {
   if (b.state !== 'ROLLED') fail('Nothing to push.');
   if (r.pushed) fail('You can only push once.');
   if (outcomeOf(r) === 'SUCCESS') fail('Already a success.');
+  if (outcomeOf(r) === 'FAIL') fail('A failure cannot be pushed: take a way past the stage, or accept it.'); // push turns a success at a cost into a clean one
   r.pushed = true;
   r.rerolled = [];
   r.dice = r.dice.map((d, i) => { if (d >= HIT) return d; r.rerolled.push(i); return d6(); });
@@ -2447,9 +2452,10 @@ function gearChoices(kind) {
   }
   return out;
 }
-function waysOut() {
+function waysOut(preview = false) { // preview: what a failed roll on screen would open
   const b = B(), st = cur(), sit = sitOf(st);
-  if (b.over || b.state !== 'PLAN' || !sit || !st.failed) return [];
+  if (b.over || !sit || (!preview && b.state !== 'PLAN')) return [];
+  if (!preview && !st.failed && !hopeless(st, sit)) return [];
   const loc = G.mission.loc, key = st.choices[st.pick], foes = foesOf(st, sit), out = [];
   const fit = team().filter((u) => ready(u) && canLead(u)), spec = (k) => fit.find((u) => hasSpec(u.sid, k));
   const carrier = (its) => team().filter(ready).sort((a, c) => hasSpec(c.sid, 'DEMOLITIONS') - hasSpec(a.sid, 'DEMOLITIONS')).find((u) => its.includes(u.util));
@@ -2481,8 +2487,48 @@ const LOSS_TEXT = {
   kit: (u, l) => `${u.name}'s ${l} is smashed on the way through.`,
   util: (u, l) => `${u.name}'s ${l} is used up getting through.`,
 };
-/** Take a way out. item names the gear it costs ({ uid, slot }) when the way asks for a pick. */
+/** The best this team could do at an approach: its strongest fireteam as it is, and with every piece of usable gear. */
+function bestOdds(st, sit, o) {
+  const none = { plain: 0, gear: 0, kit: [] }, all = team().filter(ready).map((u) => u.id);
+  if (lockReason(o) || !all.length) return none;
+  const lead = bestLead(o, all);
+  if (lead == null) return none;
+  const size = 1 + MAX_SUPPORT, ids = [lead, ...fireteam(o, all).filter((x) => x !== lead)].slice(0, size);
+  const plain = odds(poolOf(o, ids, [], false, lead).value, difficulty(st, sit, o, ids).value).s;
+  const carriers = all.filter((id) => id !== lead && gearUsable(unitById(id), o));
+  const withKit = [lead, ...carriers, ...ids].filter((x, i, a) => a.indexOf(x) === i).slice(0, size);
+  const gearIds = withKit.filter((id) => gearUsable(unitById(id), o)), strike = canStrike(o);
+  const gear = Math.max(plain, odds(poolOf(o, withKit, gearIds, strike, lead).value, difficulty(st, sit, o, withKit).value).s);
+  return { plain, gear, kit: [...gearIds.map((id) => `${ITEMS[unitById(id).util].label} (${firstName(unitById(id))})`), ...(strike ? ['drone strike'] : [])] };
+}
+/** No approach here has any chance for this team, even with all its gear: desperate measures open without a failure. */
+const LONG_SHOT = 0.05; // under this chance of a clean success an approach counts as no real chance
+const hopeless = (st, sit) => sit.opts.every((o) => bestOdds(st, sit, o).gear < LONG_SHOT);
+/** Straight from a failed roll to a way past: the failure lands first (alarm, return fire), then the way is taken. */
+function failWay(id, item = null) {
+  need('OPERATION');
+  const b = B();
+  if (b.state !== 'ROLLED' || outcomeOf(b.roll) !== 'FAIL') fail('Only after a failed roll.');
+  resolve();
+  if (G.phase !== 'OPERATION' || b.over) return;
+  const w = waysOut().find((x) => x.id === id);
+  if (!w) return log('There is no time for that now.', 'alert');
+  const gc = w.pick ? gearChoices(w.pick) : [];
+  if (gc.length && !gc.some((c) => c.uid === item?.uid && c.slot === item?.slot)) return log('That gear is gone. Choose again.', 'alert');
+  b.failNote = b.lastResult;
+  wayOut(id, item);
+}
+/** Take a way out, telling it on the scene card (after the failure it came from, if any). */
 function wayOut(id, item = null) {
+  const b = B(), w = waysOut().find((x) => x.id === id), prior = b.failNote;
+  delete b.failNote;
+  b.capture = [];
+  try { takeWay(id, item); } catch (e) { delete b.capture; throw e; }
+  if (w) b.lastResult = { label: prior ? `${prior.label} failed. ${w.label}` : w.label, out: 'WAY', lines: [...(prior?.lines || []), ...b.capture] };
+  delete b.capture;
+}
+/** Take a way out. item names the gear it costs ({ uid, slot }) when the way asks for a pick. */
+function takeWay(id, item = null) {
   needPlan();
   const w = waysOut().find((x) => x.id === id);
   if (!w) fail('That way out is not open.');
@@ -4436,8 +4482,8 @@ function previewOf(i) {
 const pct = (x) => Math.round(x * 100);
 const SK_ICON = { ASSAULT: 'assault', STEALTH: 'stealth', RECON: 'recon', TECH: 'tech' };
 const skillTag = (k) => `<span class="sk sk-${k.toLowerCase()}">${ico(SK_ICON[k])}${SKILLS[k].label}</span>`;
-const OUT_WORD = { SUCCESS: 'Success', PARTIAL: 'Success at a cost', FAIL: 'Failure' };
-const OUT_ICON = { SUCCESS: 'check', PARTIAL: 'warn', FAIL: 'cross' };
+const OUT_WORD = { SUCCESS: 'Success', PARTIAL: 'Success at a cost', FAIL: 'Failure', WAY: 'Through, at a price' };
+const OUT_ICON = { SUCCESS: 'check', PARTIAL: 'warn', FAIL: 'cross', WAY: 'warn' };
 const hostiles = (n) => (n ? `<span class="chip bad">${n} hostile${n > 1 ? 's' : ''}</span>` : '<span class="chip">Unguarded</span>');
 
 function statusHtml() {
@@ -4500,9 +4546,10 @@ function forkHtml(st) {
       // what this team can actually do here: specialist approaches are open (with who leads them) or closed (and why)
       const lines = s.opts.map((o) => {
         const why = lockReason(o), who = o.need && !why ? team().find((u) => ready(u) && canLead(u) && hasSpec(u.sid, o.need)) : null;
-        return `<li class="${why ? 'no' : o.need ? 'yes' : ''}">${ico(why ? 'cross' : o.need ? 'check' : 'next')}<span>${SKILLS[o.skill].label} ${o.diff}: ${o.label}${who ? ` <em>${SPECS[o.need].label.toLowerCase()}: ${esc(firstName(who))}</em>` : ''}</span>${why ? `<em>(${esc(why)})</em>` : ''}</li>`;
+        const bo = why ? null : bestOdds(st, s, o), note = why || (bo.gear < LONG_SHOT ? 'no real chance as you are' : bo.plain < LONG_SHOT ? `only with gear: ${bo.kit.join(', ')}` : '');
+        return `<li class="${why || bo.gear < LONG_SHOT ? 'no' : bo.plain < LONG_SHOT ? 'gear' : o.need ? 'yes' : ''}">${ico(why || bo.gear < LONG_SHOT ? 'cross' : bo.plain < LONG_SHOT ? 'tech' : o.need ? 'check' : 'next')}<span>${SKILLS[o.skill].label} ${o.diff}: ${o.label}${who ? ` <em>${SPECS[o.need].label.toLowerCase()}: ${esc(firstName(who))}</em>` : ''}</span>${note ? `<em>(${esc(note)})</em>` : ''}</li>`;
       });
-      const open = s.opts.filter((o) => !lockReason(o)).length;
+      const open = s.opts.filter((o) => !lockReason(o) && bestOdds(st, s, o).gear >= LONG_SHOT).length;
       return `<button class="tile entry" type="button" data-act="fork" data-i="${i}"><span class="row"><b>${s.label}</b>${hostiles(f)}</span><small>${s.text}</small>
         <span class="tags">${s.hazard ? '<span class="loud">Hazard</span>' : ''}<span class="${open < s.opts.length ? 'loud' : 'good'}">${open} of ${s.opts.length} approaches open to this team</span></span>
         <ul class="entry-opts">${lines.join('')}</ul></button>`; }).join('')}</div>`;
@@ -4524,11 +4571,13 @@ function planSceneHtml(st, sit) {
   const tiles = sit.opts.map((o, i) => {
     const why = lockReason(o);
     if (why) { locked.push(`(${esc(o.label)}: ${esc(why)})`); return ''; }
-    const q = previewOf(i), s = pct(q.odds.s);
-    return `<button class="tile opt ${i === plan.opt ? 'on' : ''}" type="button" data-act="opt" data-i="${i}" aria-pressed="${i === plan.opt}">
+    const q = previewOf(i), s = pct(q.odds.s), bo = bestOdds(st, sit, o);
+    const mark = bo.gear < LONG_SHOT ? `<span class="mark no">${ico('cross')}No real chance as you are: needs gear the team does not have, or a desperate specialist action</span>`
+      : bo.plain < LONG_SHOT ? `<span class="mark gear">${ico('tech')}Only with gear: ${esc(bo.kit.join(', '))}</span>` : '';
+    return `<button class="tile opt ${i === plan.opt ? 'on' : ''} ${bo.gear < LONG_SHOT ? 'hopeless' : ''}" type="button" data-act="opt" data-i="${i}" aria-pressed="${i === plan.opt}">
       <span class="row">${skillTag(o.skill)}<span class="pct ${s < 35 ? 'lo' : s < 65 ? 'mid' : 'hi'}" aria-label="${s}% chance of a clean success">${s}%</span></span>
       <b>${o.label}</b><small>${o.desc}</small><span class="tags">${o.need ? `<span class="spec-tag">${SPECS[o.need].label}</span>` : ''}${tagsOf(o, q.foes)}</span>
-      <span class="foot">Difficulty ${q.diff.value} · ${q.pool.value} dice</span></button>`; }).join('');
+      ${mark}<span class="foot">Difficulty ${q.diff.value} · ${q.pool.value} dice</span></button>`; }).join('');
   const m = G.mission, off = officerAt(st);
   const who = sit === SIT.HVT && m.target ? foeRow(`TGT-${m.target}`, `<span class="chip ${m.target === 'WARLORD' ? 'bad' : ''}">Target: ${TARGETS[m.target].label}</span> ${TARGETS[m.target].desc}`) : '';
   return `${resultHtml()}${waysHtml()}<div class="scene-head"><div class="eyebrow">Stage ${b.stage + 1} · ${KIND[st.kind]}</div>${hostiles(foes)}</div>
@@ -4536,15 +4585,16 @@ function planSceneHtml(st, sit) {
     ${locked.length ? `<p class="locked-line">${ico('cross')}<span>Not available with this team: ${locked.join(' · ')}</span></p>` : ''}`;
 }
 /** After a failure: the ways past this stage, each with its price. Ways that cost gear ask which piece first. */
-function waysHtml() {
-  const ws = waysOut();
+function waysHtml(roll = false) { // roll: on a failed roll, before the failure is accepted
+  const ws = waysOut(roll);
   if (!ws.length) return '';
+  const st = cur(), failedHere = roll || st.failed, act = roll ? 'fway' : 'way';
   const picking = ws.find((w) => w.id === plan.way && w.pick && gearChoices(w.pick).length);
   const ask = { DIVER: 'What does the water ruin?', LINGUIST: 'What goes as the bribe?', FORCE: 'What is lost forcing the way through?' };
-  return `<section class="ways" aria-label="Ways past this stage"><div class="ways-head">${ico('warn')}<b>Stopped here. Ways past this stage</b><small>Each gets the team through at a price. Or try again.</small></div>
-    <div class="ways-list">${ws.map((w) => `<button class="way ${plan.way === w.id ? 'on' : ''} ${w.id === 'FORCE' ? 'force' : ''}" type="button" data-act="way" data-id="${w.id}" aria-pressed="${plan.way === w.id}">
+  return `<section class="ways" aria-label="Ways past this stage"><div class="ways-head">${ico('warn')}<b>${roll ? 'Failed. Take a way past it now' : failedHere ? 'Stopped here. Ways past this stage' : 'No way through as you are. Desperate measures'}</b><small>${roll ? 'The failure lands first, then the way is taken. Or accept the failure and try again.' : failedHere ? 'Each gets the team through at a price. Or try again.' : 'Nothing here can work for this team as it is. Each of these gets through at a price.'}</small></div>
+    <div class="ways-list">${ws.map((w) => `<button class="way ${plan.way === w.id ? 'on' : ''} ${w.id === 'FORCE' ? 'force' : ''}" type="button" data-act="${act}" data-id="${w.id}" aria-pressed="${plan.way === w.id}">
       <b>${esc(w.label)}${w.uid != null ? ` <span class="muted">· ${esc(firstName(unitById(w.uid)))}</span>` : ''}</b><span class="price">${esc(w.price)}</span><small>${esc(w.desc)}</small></button>`).join('')}</div>
-    ${picking ? `<div class="waypick"><span>${ask[picking.id]}</span>${gearChoices(picking.pick).map((c) => `<button class="btn" type="button" data-act="waygear" data-uid="${c.uid}" data-slot="${c.slot}">${esc(firstName(unitById(c.uid)))}: ${ITEMS[c.it].label}</button>`).join('')}<button class="btn ghost" type="button" data-act="way" data-id="">Cancel</button></div>` : ''}</section>`;
+    ${picking ? `<div class="waypick"><span>${ask[picking.id]}</span>${gearChoices(picking.pick).map((c) => `<button class="btn" type="button" data-act="${act}gear" data-uid="${c.uid}" data-slot="${c.slot}">${esc(firstName(unitById(c.uid)))}: ${ITEMS[c.it].label}</button>`).join('')}<button class="btn ghost" type="button" data-act="${act}" data-id="">Cancel</button></div>` : ''}</section>`;
 }
 function rollSceneHtml(st, sit) {
   const b = B(), r = b.roll, opt = sit.opts[r.opt], out = outcomeOf(r), s = successes(r), lead = unitById(r.lead);
@@ -4559,7 +4609,8 @@ function rollSceneHtml(st, sit) {
       <div class="outcome ${out}">${ico(OUT_ICON[out])}${OUT_WORD[out]}${r.pushed ? ' <small class="muted" style="font-size:14px">pushed</small>' : ''}</div>
       ${r.comp?.length ? `<ul class="comp" aria-label="What went wrong pushing it">${r.comp.map((c) => `<li>${ico('warn')}${esc(c)}</li>`).join('')}</ul>` : ''}
       ${out === 'PARTIAL' ? `<div class="costs">${Object.entries(COSTS).map(([k, c]) => `<button class="btn" type="button" data-act="cost" data-c="${k}"><b>${c.label}</b><small>${esc(costDesc(k, c))}</small></button>`).join('')}</div>` : ''}
-      <div class="actions-row">${out !== 'SUCCESS' && !r.pushed ? `<button class="btn" type="button" data-act="push">Push: re-roll ${r.dice.length - s} misses (every 1 costs you)</button>` : ''}<span class="grow"></span>
+      ${out === 'FAIL' ? waysHtml(true) : ''}
+      <div class="actions-row">${out === 'PARTIAL' && !r.pushed ? `<button class="btn" type="button" data-act="push">Push: re-roll ${r.dice.length - s} misses (every 1 costs you)</button>` : ''}<span class="grow"></span>
         ${out === 'PARTIAL' ? '' : `<button class="btn primary big" type="button" data-act="accept">${out === 'SUCCESS' ? 'Continue' : 'Accept failure'}</button>`}</div>
     </div>`;
 }
@@ -4725,6 +4776,15 @@ $('#view').addEventListener('click', (e) => {
     return run(() => wayOut(id));
   }
   if (a === 'waygear') { const id = plan.way; plan.way = null; sfx('select'); return run(() => wayOut(id, { uid: n('uid'), slot: el.dataset.slot })); }
+  if (a === 'fway') { // from the failed roll: the failure lands, then the way is taken
+    const id = el.dataset.id, w = waysOut(true).find((x) => x.id === id);
+    if (!w) { plan.way = null; return refresh(); }
+    sfx('select');
+    if (w.pick && gearChoices(w.pick).length) { plan.way = plan.way === id ? null : id; return refresh(); }
+    plan.way = null;
+    return run(() => failWay(id));
+  }
+  if (a === 'fwaygear') { const id = plan.way; plan.way = null; sfx('select'); return run(() => failWay(id, { uid: n('uid'), slot: el.dataset.slot })); }
   if (a === 'accept' || a === 'cost') {
     run(() => resolve(a === 'cost' ? el.dataset.c : undefined));
     const lines = G.battle?.lastResult?.lines || [];
@@ -4769,7 +4829,7 @@ function helpHtml() {
     ['Alert', `How awake the enemy is, 0 to ${ALERT_MAX}. At ${ALERT_TIER} they are alerted and shoot back harder; at ${ALERT_MAX} a quick reaction force forces you out.`],
     ['Time', 'Every action, route and rest spends time. When it runs out, the team has to leave.'],
     ['Difficulty', 'How many successes (dice showing 5 or 6) a test needs. One short is a success at a cost you choose.'],
-    ['Push', 'Re-roll the misses once, free, but every 1 on the new dice is something going wrong: a radio call, a bite, a jam, a dropped magazine.'],
+    ['Push', 'On a success at a cost, re-roll the misses once for a clean success: free, but every 1 on the new dice is something going wrong (a radio call, a bite, a jam, a dropped magazine). A failure cannot be pushed.'],
     ['Ways out', 'After a failure at a stage: a detour to the other entry, a breaching charge, a specialist doing what they do best, or forcing it. Each passes the stage at a price in time, fatigue, wounds or gear, and lost gear is gone for good.'],
     ['Lead and support', `The lead rolls their own dice for the skill and takes the first hit; each of up to ${MAX_SUPPORT} supporters adds 1 die.`],
     ['Fatigue', 'Builds with tests, failures, long routes, heat and smoke. Tired leads roll 1 die fewer, exhausted ones 2. Rest at base, in a treatment bed, or briefly in the field.'],
@@ -4789,7 +4849,7 @@ function helpHtml() {
         <li><b>Commit operators.</b> Tap an operator to add or stand them down; Make lead picks who rolls. More bodies make Stealth noisier (Scouts and infiltrators excepted), and only committed operators get shot.</li>
         <li><b>Everyone carries a handgun.</b> A primary weapon is optional. A lead with only the handgun rolls ${HANDGUN_PENALTY} Assault die fewer, except in close quarters or as a CQB specialist.</li>
         <li><b>Spend gear</b> for extra dice, then execute. Every 5 or 6 is a success. Meet the difficulty to succeed; one short is a success at a cost you choose.</li>
-        <li><b>Push</b> to re-roll the misses: free, but every 1 rolled costs you something. A failure costs time and raises the alarm, then opens the <b>ways out</b>: go round, blow through, let a specialist do it, or force it, each at a price.</li></ol></div>
+        <li><b>Push</b> a success at a cost to re-roll the misses: free, but every 1 rolled costs you something. A <b>failure</b> costs time and raises the alarm, and offers the <b>ways out</b> on the spot: go round, blow through, let a specialist do it, or force it, each at a price. An approach marked <b>No real chance as you are</b> (under 5%) needs gear the team lacks or one of these desperate measures; when nothing at a stage can work, they open without a failure.</li></ol></div>
       <div><h3>Glossary</h3><dl class="gloss">${terms.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl></div>
     </div>`;
 }
@@ -4871,7 +4931,7 @@ function start(data) {
 if (/[?&]test\b/.test(location.search)) {
   window.SKIRM = { get G() { return G; }, newCampaign, chooseMission, backToBase, upgradeDept, toggleBed, fabricate, repair, rest, vehBlock, intelCost, fatState,
     DEPTS, FAB, VEH, LOCATIONS, WEATHER, SPECS, KITS, INTEL, hireCaptive, tradeCaptive, OFFICER_TRAITS, buyIntel, launch, proceed, enlist, chooseRoute, chooseFork, execute, push, resolve, skip, abort,
-    fieldCare, treat, launchDrone, canLead, opDice, chooseLine, mapCheck, mapHtml, waysOut, wayOut, gearChoices, ready, SAVE_LINES, interlude, PERSONAS, TOPICS, LINES, TRAITS, worstNeed, fieldCareNeed, INJURIES, bestLead, odds, difficulty, poolOf, previewOf, cur, sitOf, active, team, outcomeOf, foesOf, Rule, CLASSES, ITEMS, SIT, available, refresh };
+    fieldCare, treat, launchDrone, canLead, opDice, chooseLine, mapCheck, mapHtml, waysOut, wayOut, failWay, bestOdds, gearChoices, ready, SAVE_LINES, interlude, PERSONAS, TOPICS, LINES, TRAITS, worstNeed, fieldCareNeed, INJURIES, bestLead, odds, difficulty, poolOf, previewOf, cur, sitOf, active, team, outcomeOf, foesOf, Rule, CLASSES, ITEMS, SIT, available, refresh };
 }
 window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
 })();
