@@ -37,7 +37,7 @@ Wide establishing shots, horizon on the upper third, a small compound or objecti
 
 ## Hostile portraits: 400×400 (7)
 
-These match the operator files. After you add them I run each one through the same mosaic (15×15 blocks, black censor bar over the eyes), so make them plain, centred head-and-shoulders photos.
+Plain, centred head-and-shoulders photos. Unlike your own operators, hostiles are not censored: their faces are what intel has on file. They are scaled to 400×400, and the game greys, grains and pixelates them like every other picture.
 
 | ID | Prompt (head-and-shoulders, centred, plain dark background, *shared look*) |
 |---|---|
