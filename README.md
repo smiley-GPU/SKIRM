@@ -32,13 +32,15 @@ Design notes and balance numbers: `docs/abstract-mission-design.md`.
 
 ## Code layout
 
-`index.html` holds styles, rules and UI in one script:
+`index.html` holds styles, rules and UI in one script; the story text it tells lives in `data/`:
 
 - **Rules data** at the top: skills, items, vehicles, intel, routes, situations, locations, weather, factions, officers, targets, specialties, base departments, injuries, classes, personalities and their lines. Every balance number lives in these tables.
 - **Engine**: the base and mission board, mission generation, the operation rules, injuries, fatigue, weather, interludes and phases. Every command validates before it changes anything and throws `Rule` with a player-facing message on a bad input.
 - **UI**: one render function per phase, re-rendered from the save state after each command.
 - **Deterministic**: all randomness comes from a seeded generator whose state is in the save, so a reload continues the same game.
-- **Test hook**: `index.html?test` exposes the rules API as `window.SKIRM`, for automated play-throughs (a bot soak test plays 150 missions, base included, through it).
+- **Story text** in `data/`, loaded before the game script: `data/voices.js` (what operators say, in each personality's voice: barks, interlude statements, specialist lines, words over the fallen, comments at base) and `data/story.js` (transit scenes, scene-setting, roll results, after-action wording). Text only; the rules never read it to decide anything.
+- **Saves** are version 5 (LAST SEASON); a save from an earlier version ends and a new campaign starts. A new campaign asks how to play: the story (in development, shown but not yet playable) or open-ended operations.
+- **Test hook**: `index.html?test` exposes the rules API as `window.SKIRM`, for automated play-throughs. `tools/` holds the soak bots and test pages that use it (see `tools/README.md`).
 
 Operator portraits (90×90) live in `img/operators/` (`m1`–`m10`, `f1`–`f9`, scaled from the sources in `Images/Operators/`). Each operator gets one at recruitment that nobody else alive has; operators with female first names get an `f` portrait, and names anyone might have get either.
 

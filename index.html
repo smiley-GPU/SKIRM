@@ -631,6 +631,16 @@ body { background-image: var(--grain); }
 .title-in { position: relative; z-index: 3; display: grid; gap: 10px; justify-items: start; padding: max(32px, 6vw); }
 .title-logo { font: 700 clamp(34px, 10vw, 128px)/0.9 var(--display); letter-spacing: 0.24em; }
 .title-in p { margin: 0 0 14px; color: var(--muted); font-size: 18px; }
+.title-in .title-note { margin: -6px 0 14px; color: var(--gold); font-size: 15px; max-width: 46ch; }
+.modes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; width: min(720px, 100%); }
+.mode { display: grid; gap: 6px; align-content: start; text-align: left; padding: 16px 18px; border: 1px solid var(--line); border-radius: var(--r); background: rgba(15, 18, 22, 0.78); color: var(--fg); font: inherit; cursor: pointer; }
+.mode b { font: 700 24px/1 var(--display); letter-spacing: 0.06em; }
+.mode span { color: var(--muted); font-size: 14.5px; line-height: 1.45; }
+.mode .mode-kind { font: 600 12px/1 var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); }
+.mode .mode-go { margin-top: 6px; color: var(--accent); font-weight: 600; }
+.mode:hover:not([disabled]), .mode:focus-visible { border-color: var(--accent); }
+.mode[disabled] { cursor: default; opacity: 0.62; } .mode[disabled] .mode-go { color: var(--muted); font-weight: 500; }
+@media (max-width: 560px) { .modes { grid-template-columns: 1fr; } }
 @media (prefers-reduced-motion: reduce) { .tmap .ping { animation: none; } }
 @media (max-width: 640px) { .tmap svg { min-width: 760px; max-height: none; } } /* phones pan the map sideways; it opens on the current stage */
 @media (max-width: 560px) {
@@ -781,6 +791,8 @@ dialog.sheet { margin: 0 0 0 auto; width: min(620px, 100vw); height: 100dvh; max
 <div id="toast" role="status" hidden></div>
 <div id="bubbles" aria-live="polite"></div>
 
+<script src="data/voices.js"></script>
+<script src="data/story.js"></script>
 <script>
 'use strict';
 (() => {
@@ -1264,525 +1276,11 @@ const BARK = {
   DOWN: { mood: 'bad', pri: 4, odds: 100 }, LOST: { mood: 'bad', pri: 5, odds: 100 },
 };
 const BARKS_PER_ACTION = 2;
-const BARKS = {
-  STOIC: { SUCCESS: ['Done. Next.', 'As briefed.'], KILL: ['Target down.', 'Two in the chest. Moving.'], PARTIAL: ['Not clean. It will do.'], FAIL: ['Reset. Again.'],
-    WOUND: ['Hit. I can work.', 'It is nothing. Keep going.'], HEALED: ['Thanks, {mate}. Back in.'], DOWN: ['{mate} is down. Cover them.'], LOST: ['{mate} is gone. Finish the job.'],
-    ALERT: ['They know. Tighten up.'], STAGE: ['Eyes on {threat}. Standard drill.', '{threat}. We have done worse.'] },
-  JOKER: { SUCCESS: ['And the crowd goes wild.', 'Tell me that was not beautiful.'], KILL: ['He did not see that coming. Literally.', 'Sorry, buddy. Wrong night.'],
-    PARTIAL: ['Technically a win. I will take technically.'], FAIL: ['In my defence, that was a terrible idea.'], WOUND: ['Ow. Put that in the brochure.', 'I am fine. My dignity is not.'],
-    HEALED: ['{mate}, you have the hands of an angel. Cold ones.'], DOWN: ['{mate}, stop napping, this is not the bus!'], LOST: ['No joke for this one. {mate}...'],
-    ALERT: ['So that is the surprise party ruined.'], STAGE: ['{threat}. Lovely. Who booked this?', 'Ah, {threat}. My favourite.'] },
-  FATALIST: { SUCCESS: ['Worked. For now.', 'Luck. It runs out.'], KILL: ['Their turn tonight. Ours later.', 'One less. Plenty more.'], PARTIAL: ['Always a price. Told you.'], FAIL: ['Of course.'],
-    WOUND: ['There it is. Knew it was coming.', 'Thought it would be worse. Give it time.'], HEALED: ['Patched up for the next one. Thanks, {mate}.'],
-    DOWN: ['{mate}. It was always going to be one of us.'], LOST: ['{mate}. Should have been me. Next time it will be.'], ALERT: ['Here we go. The bad part.'],
-    STAGE: ['{threat}. This is where it goes wrong.', 'Hope everyone wrote their letters. {threat}.'] },
-  ROOKIE: { SUCCESS: ['Did I do that? I did that!', 'It worked! Sorry. Quiet. It worked.'], KILL: ['I got him. I actually got him.', 'Is he... yeah. Okay. Okay.'],
-    PARTIAL: ['That counts, right? Tell me that counts.'], FAIL: ['Sorry! Sorry. My fault.'], WOUND: ["I'm hit! Is it bad? Don't tell me.", 'That really hurts. Nobody said it hurts this much.'],
-    HEALED: ['Thanks, {mate}. I owe you. Like, a lot.'], DOWN: ['{mate}! Somebody help {mate}!'], LOST: ['{mate}? No. No, no...'], ALERT: ['Uh. Are those all for us?'],
-    STAGE: ['Is that {threat}? Like in training?', 'Okay. {threat}. I read about this.'] },
-  GEARHEAD: { SUCCESS: ['Kit performed to spec.', 'See? Maintenance matters.'], KILL: ['Good grouping. Zeroed it myself.', 'Clean function, clean shot.'],
-    PARTIAL: ['Something rattled. I will find out what.'], FAIL: ['That was user error, not the gear.'], WOUND: ['They scratched my plate carrier. And me.', 'Hit. Check my kit first, then me.'],
-    HEALED: ['Nice work, {mate}. Proper tourniquet, too.'], DOWN: ['{mate} is down! Grab their kit, grab them!'], LOST: ['{mate}. Their rifle comes home. They should have.'],
-    ALERT: ['Radios lighting up. Somebody tripped something.'], STAGE: ['{threat}. Right tool for it?', 'Checking batteries before {threat}.'] },
-  GLORY: { SUCCESS: ['Did everyone see that?', 'Write that one down.'], KILL: ['That one goes on my tally.', 'Mine. Count it.'], PARTIAL: ['Messy. Still counts in the story.'],
-    FAIL: ['Nobody saw that. Nobody.'], WOUND: ['A scar! Finally.', 'Hit. Make it look cool in the report.'], HEALED: ['Thanks, {mate}. Make sure I still look good.'],
-    DOWN: ['{mate}, not now! You will miss the best part!'], LOST: ['{mate} deserved a better ending than this.'], ALERT: ['Now it is a real fight.'],
-    STAGE: ['{threat}. Finally something worth the trip.', 'Leave {threat} to me.'] },
-  GUARDIAN: { SUCCESS: ['Good. Everyone still with me?', 'Clear. Keep close.'], KILL: ['He was aiming at us. Not anymore.', 'That is one fewer pointed at you.'],
-    PARTIAL: ['Close. Too close. Check yourselves.'], FAIL: ['Get behind me. Now.'], WOUND: ['Better me than you lot.', 'I am hit. Keep going, I am covering.'],
-    HEALED: ['Thanks, {mate}. Now let me get back in front.'], DOWN: ['I have {mate}! I have them!'], LOST: ['I was supposed to keep {mate} safe.'],
-    ALERT: ['They are coming. Stay behind cover.'], STAGE: ['{threat}. Nobody goes first but me.', 'Stay tight past {threat}.'] },
-  SUPERSTITIOUS: { SUCCESS: ['Touch wood. Somebody touch wood.', 'Knew it. Lucky socks.'], KILL: ['Fate picked him, not me.', 'His charm ran out.'],
-    PARTIAL: ['The luck is thinning. I felt it.'], FAIL: ['Someone said it would be easy. I heard it.'], WOUND: ['I knew it. I saw a crow this morning.', 'Who whistled? Somebody whistled.'],
-    HEALED: ['Bless you, {mate}. Truly.'], DOWN: ['{mate} gave back the lucky coin yesterday. I told them.'], LOST: ['{mate}... I should have given them the charm.'],
-    ALERT: ['Bad omen. Very bad omen.'], STAGE: ['{threat}. Thirteen steps to get here. I counted.', 'Do not say {threat} out loud. It hears.'] },
-  MERC: { SUCCESS: ['That is what you pay me for.', 'Billable.'], KILL: ['He was overpaid.', 'Bonus on that one, I hope.'], PARTIAL: ['That cost extra. I am noting it.'],
-    FAIL: ['Not in my contract, that.'], WOUND: ['Hazard pay. I want hazard pay.', 'Hit. Add it to the invoice.'], HEALED: ['Good work, {mate}. I will buy the first round.'],
-    DOWN: ['{mate} is down. Get them, they owe me money.'], LOST: ['{mate}. Nobody pays enough for that.'], ALERT: ['Price just went up.'],
-    STAGE: ['{threat}. Not enough money in the world.', 'Fine. {threat}. Double time, double pay.'] },
-  PLANNER: { SUCCESS: ['Exactly as planned.', 'Phase complete. Moving to the next.'], KILL: ['Threat removed per plan.', 'Right where I expected him.'], PARTIAL: ['Deviation. Manageable.'],
-    FAIL: ['That was not in the plan. Revising.'], WOUND: ['Hit. Plan for one less pair of hands.', 'Unforeseen. Adjusting.'], HEALED: ['Back on schedule. Thanks, {mate}.'],
-    DOWN: ['{mate} down. Contingency B. Move!'], LOST: ['{mate}. There was no plan for that.'], ALERT: ['Alarm. Switch to the hard plan.'],
-    STAGE: ['{threat}. Page four of the plan.', 'We rehearsed {threat}. Do it like we rehearsed.'] },
-  LONER: { SUCCESS: ['Told you I could do it alone.', 'Easier without help.'], KILL: ['Quiet. Done.', 'One less.'], PARTIAL: ['Too many of us. Too much noise.'],
-    FAIL: ['Should have gone in alone.'], WOUND: ['Leave it. I will manage.', 'Hit. Do not fuss.'], HEALED: ['...Thanks, {mate}.'], DOWN: ['Fine. I will get {mate}.'],
-    LOST: ['{mate}. ...Keep moving.'], ALERT: ['Crowded now.'], STAGE: ['{threat}. Give me room.', 'I will scout {threat}. Alone.'] },
-  JUNKIE: { SUCCESS: ['Yes! Again! Do it again!', 'My heart is going a thousand an hour!'], KILL: ['Woo! Did you feel that?', 'Now we are dancing!'],
-    PARTIAL: ['Close! Love it when it is close!'], FAIL: ['Okay, that was a rush. Just not the good kind.'], WOUND: ['Ha! That stings! I feel alive!', 'Hit! Best night ever, honestly.'],
-    HEALED: ['Patch me up fast, {mate}, I am missing it!'], DOWN: ['{mate}, wake up, you are missing everything!'], LOST: ['{mate}... that is not fun anymore.'],
-    ALERT: ['Now it is a party!'], STAGE: ['{threat}! Finally!', 'Oh, {threat}. Come on, come on.'] },
-  HOMESICK: { SUCCESS: ['One step closer to home.', 'Good. Let us get this over with.'], KILL: ['He had a home too.', 'Done. I just want to go home.'], PARTIAL: ['Fine. Just keep moving.'],
-    FAIL: ['I am supposed to be home for her birthday.'], WOUND: ['Do not tell my mother.', 'Hit. Still going home. Still going home.'],
-    HEALED: ['Thanks, {mate}. I promised I would come back.'], DOWN: ['{mate}! You promised you would come home!'], LOST: ["Someone has to tell {mate}'s family."],
-    ALERT: ['Longer night now.'], STAGE: ['{threat}. Home is the other way.', 'Get past {threat}, then home.'] },
-  PHILOSOPHER: { SUCCESS: ['Order, briefly, out of chaos.', 'Effort, rewarded. Rare.'], KILL: ["He was somebody's whole world.", 'Necessary is not the same as right.'],
-    PARTIAL: ['Everything costs. The universe keeps books.'], FAIL: ['Failure teaches. I would rather not learn.'],
-    WOUND: ['Pain is information. This is a lot of information.', 'The body objects. Noted.'], HEALED: ['Kindness under fire, {mate}. Thank you.'],
-    DOWN: ['{mate}! Stay with us. Stay.'], LOST: ['{mate} was here a moment ago. That is all we get.'], ALERT: ['Chaos returns, as it does.'],
-    STAGE: ['{threat}. What would a wiser person do?', 'Every road leads to {threat} tonight.'] },
-  AVENGER: { SUCCESS: ['Keep pushing. They pay for every step.', 'Good. More.'], KILL: ['That is for the ones we lost.', 'Not enough. Not yet.'],
-    PARTIAL: ['Close enough. They will feel the rest.'], FAIL: ['They will pay for that too.'], WOUND: ['They will regret that.', 'Hit. Just makes me angrier.'],
-    HEALED: ['Patch me up, {mate}. I am not finished.'], DOWN: ['They got {mate}. They will pay.'], LOST: ['{mate}. Add it to the list.'], ALERT: ['Good. Let them come.'],
-    STAGE: ['{threat}. Somebody there owes us.', 'I have been waiting for {threat}.'] },
-  PERFECTIONIST: { SUCCESS: ['Acceptable.', 'Clean. That is how it is done.'], KILL: ['Centre mass. Textbook.', 'One round. As it should be.'], PARTIAL: ['Sloppy. We drill that again at home.'],
-    FAIL: ['Unacceptable. Again, properly.'], WOUND: ['Bad angle. I should not have been there.', 'Hit. My own fault. Sloppy.'], HEALED: ['Neat work, {mate}. Very neat.'],
-    DOWN: ['{mate} is down. Do it right, do it fast.'], LOST: ['{mate}. We did something wrong. I will find it.'], ALERT: ['Someone was careless.'],
-    STAGE: ['{threat}. No mistakes here.', 'Precise movement past {threat}. Precise.'] },
-  OPTIMIST: { SUCCESS: ['See? Told you it would work!', 'Going great, everyone!'], KILL: ['That is one problem solved!', 'Down he goes. Things are looking up.'], PARTIAL: ['Hey, a win is a win!'],
-    FAIL: ['Next one will go better. Bound to.'], WOUND: ['Only a flesh wound! Probably!', 'Hit, but look, still smiling.'], HEALED: ['Good as new! Thanks, {mate}!'],
-    DOWN: ['{mate} will be fine! Get them up!'], LOST: ['{mate}... I really thought we would all make it.'], ALERT: ['Well, at least we know where they are now!'],
-    STAGE: ['{threat}? We have got this.', 'There is a bright side to {threat}. Somewhere.'] },
-  VETERAN: { SUCCESS: ['Seen it done worse.', 'Good. Do not get cocky.'], KILL: ['Should have kept his head down.', 'Just like the old days.'],
-    PARTIAL: ['They always find a way to take something.'], FAIL: ['Happens. Breathe. Go again.'], WOUND: ['Had worse shaving.', 'Another scar for the collection.'],
-    HEALED: ['Steady hands, {mate}. You will go far.'], DOWN: ['{mate}, stay with me. I have seen people come back from worse.'],
-    LOST: ['{mate}. Never gets easier. Anyone who says it does is lying.'], ALERT: ['There it is. Every op, sooner or later.'],
-    STAGE: ['{threat}. Seen a hundred of those.', 'Slow is smooth past {threat}. Smooth is fast.'] },
-  BELIEVER: { SUCCESS: ['For the cause.', 'This is why we are here.'], KILL: ['Justice, delivered.', 'He chose his side.'], PARTIAL: ['Sacrifice is part of it.'],
-    FAIL: ['A setback. The mission stands.'], WOUND: ['I bleed for something. That is enough.', 'Hit. It does not matter. The mission matters.'],
-    HEALED: ['Thank you, {mate}. Back to the work.'], DOWN: ['{mate} gave everything. Get them out!'], LOST: ['{mate} died for something. Remember that.'],
-    ALERT: ['Let them come. We are in the right.'], STAGE: ['{threat}. Stand firm.', 'This is the work. {threat}, then onward.'] },
-  QUIET: { SUCCESS: ['...Good.', '*nods*'], KILL: ['...', 'Down.'], PARTIAL: ['Hm.'], FAIL: ['...Damn.'], WOUND: ['*grits teeth*', 'Fine.'], HEALED: ['*a nod to {mate}*'],
-    DOWN: ['{mate}.'], LOST: ['...{mate}.'], ALERT: ['Company.'], STAGE: ['{threat}.', '*points at {threat}*'] },
-};
-const SCENES = {
-  IN: { HELO: ['The helicopter lifts off and banks toward the hills. Through the open door, the lights of the base shrink to nothing.', 'When the rotor noise swallows the talk, whose words stay with you?'],
-    GROUND: ['The convoy pulls out of the gate onto the dark road. The trucks rattle; someone checks a radio for the third time.', 'When the talk dies down to engine noise, whose words stay with you?'],
-    FOOT: ['The team moves out past the last checkpoint. One last huddle in the treeline before the walk.', 'When the column goes silent, whose words stay with you?'],
-    LSV: ['The light strike vehicles slip out of the gate with their lights off. Every rut in the track comes up through the seats.', 'When the engines settle into a growl, whose words stay with you?'],
-    BOAT: ['The boat pushes off from the jetty on a muffled motor. Black water, cold spray, and the far bank somewhere ahead.', 'When the motor drops to a murmur, whose words stay with you?'],
-    HALO: ['The ramp opens at twenty-five thousand feet. Oxygen hissing, the team waits in the red light for the green.', 'In the last minute before the jump, whose words stay with you?'],
-    MRAP: ['The armoured trucks grind out of the gate. Inside it is loud, hot and close, and everyone pretends to sleep.', 'When the armour plates stop rattling, whose words stay with you?'] },
-  OUT: { HELO: ['The helicopter claws away from the clearing. Nobody speaks until the ground falls far behind.', 'On the long flight back, whose words stay with you?'],
-    GROUND: ['The trucks roar back onto the road. The adrenaline drains out, and the talking starts.', 'On the drive back, whose words stay with you?'],
-    FOOT: ['The team pushes through the treeline toward friendly lines. Once it is safe, someone breaks the silence.', 'On the long walk home, whose words stay with you?'],
-    LSV: ['The vehicles tear away down the track, guns still trained behind them. Only on the main road does anyone breathe.', 'On the rough ride back, whose words stay with you?'],
-    BOAT: ['The boat swings out into the current and the shore falls away into the dark. Somebody bails water and says nothing.', 'On the slow run back across the water, whose words stay with you?'],
-    MRAP: ['The armoured trucks roll out, rounds pinging off the plates for the first kilometre. Then just the engines.', 'On the long drive back behind the armour, whose words stay with you?'] },
-};
+const BARKS = LS_TEXT.BARKS; // data/voices.js
+const SCENES = LS_TEXT.SCENES; // data/story.js
 // Slots: {weapon} {threat} {intel} {env} {mate} {objective} {ride} (IN); {feat} {boom} {mate} {fallen} {weapon} {threat} (OUT).
 // Operator names are unisex, so lines use names, never pronouns, for other operators.
-const LINES = {
-  STOIC: {
-    GEAR: 'Cleaned the {weapon}, checked it twice. It will do its job. So will I.',
-    THREAT: 'Only thing on this op I do not like is {threat}. Does not change the plan.',
-    INTEL: 'Read {intel} cover to cover. Good work. We stick to it until it stops being true.',
-    BLIND: 'No intel. Fine. Eyes open, mouths shut, we find out the old-fashioned way.',
-    ENV: 'Weather is weather. Work with {env}, not against it.',
-    MATE: 'Stay on my left, {mate}. Same as always.',
-    OBJECTIVE: 'We go in, we get {objective}, we come home. Nothing else matters tonight.',
-    FATE: "If it's my turn, it's my turn. Until then I've got work to do.",
-    RIDE: "Check your watches. If we're late getting to {ride}, nobody waits.",
-    KILL: "Clean work tonight, {feat}. Doesn't need talking about. But it was clean.",
-    BOOM: 'Textbook use of {boom}. That is all it was.',
-    HELPED: "I did what anyone would for {mate}. Don't make it a thing.",
-    HELPED_BY: "I owe {mate}. I don't forget debts.",
-    LOST: "We lost {fallen}. We grieve at home. Not here.",
-    SIGNATURE: "The {weapon} didn't miss a beat all night. I'm keeping it.",
-    SURVIVOR: "Went dark for a while back there. I'm back. Moving on.",
-    GHOST: "In and out and nobody knew. That's how it's supposed to go.",
-    NEMESIS: "Said {threat} would be trouble. Was. Isn't anymore.",
-    REFLECT: "Debrief me later. Right now I'm going over every step we took.",
-  },
-  JOKER: {
-    GEAR: "If the {weapon} jams, I'm throwing it at them. Worked in a movie once.",
-    THREAT: "Fun fact: I've been having nightmares about {threat}. Unfun fact: they were documentaries.",
-    INTEL: "According to {intel}, it's a quiet night. So naturally I wore my running shoes.",
-    BLIND: 'No intel, huh? Love a surprise party. Hate it when the party has guns.',
-    ENV: 'Ah, {env}. Perfect for romance. Or ambushes. Mostly ambushes.',
-    MATE: "{mate}, if I die you can have my snacks. If you die, I'm taking your boots.",
-    OBJECTIVE: "Grab {objective}, home by breakfast. I've already ordered the pancakes.",
-    FATE: "My horoscope said 'avoid confrontation'. Wrong job for that, I guess.",
-    RIDE: 'Five stars for the ride in. Let us hope the trip to {ride} gets better reviews.',
-    KILL: 'Did everyone see me {feat}? I need witnesses. For the memoir.',
-    BOOM: 'Was {boom} strictly necessary? No. Was it beautiful? Also no. It was spectacular.',
-    HELPED: 'Patched up {mate} with tape and bad jokes. Mostly the jokes did it.',
-    HELPED_BY: '{mate} saved my life. Now I have to be nice forever. Worst part of the night.',
-    LOST: "{fallen} would've had a joke for this. I can't think of one.",
-    SIGNATURE: "Me and the {weapon} are official now. I'm naming it. Don't laugh.",
-    SURVIVOR: "Blacked out, saw a bright light. Turned out to be a medic's flashlight. Disappointing afterlife.",
-    GHOST: 'Nobody saw us. Honestly, a little insulting.',
-    NEMESIS: 'Remember {threat}? Me neither. Not anymore.',
-    REFLECT: 'Long night. Somebody say something stupid so I can stop thinking.',
-  },
-  FATALIST: {
-    GEAR: 'Nice {weapon}. Shame whoever inherits it will not appreciate the tuning.',
-    THREAT: "It'll be {threat}. Mark my words. It's always the thing you worry about.",
-    INTEL: "Pretty pictures in {intel}. The dead don't care how good the pictures were.",
-    BLIND: 'Going in blind. At least nothing can disappoint me.',
-    ENV: "Fine night to die in {env}. Not that I'm planning on it. Not that plans matter.",
-    MATE: '{mate}, if this goes bad, tell them I saw it coming.',
-    OBJECTIVE: "We'll get {objective}. The question is what it costs.",
-    FATE: "Wrote my letter last night. Feels lighter now. Let's go.",
-    RIDE: "I never count on making it to {ride}. That way I'm never let down.",
-    KILL: "Somebody's mother gets a call tonight. That's what {feat} means.",
-    BOOM: "One day I'll be on the wrong side of something like {boom}. Not today.",
-    HELPED: "Couldn't let {mate} go. Not like that. Not on my watch.",
-    HELPED_BY: "Should've been my turn. {mate} said no. I'm still deciding how I feel.",
-    LOST: "I knew one of us wasn't coming back. I'm sorry it was {fallen}.",
-    SIGNATURE: "The {weapon} kept me breathing tonight. I'll trust it until it doesn't.",
-    SURVIVOR: 'I was gone. I felt it. Something sent me back. Must be unfinished business.',
-    GHOST: 'Nobody saw us. Usually means they see us next time.',
-    NEMESIS: 'Told you it would be {threat}. And we still walked out. Huh.',
-    REFLECT: 'Counting heads. Then counting again. Habit.',
-  },
-  ROOKIE: {
-    GEAR: "Is the {weapon} supposed to rattle like that? I mean, it's fine. It's totally fine.",
-    THREAT: "Sorry, what's the plan for {threat} again? Just checking. Just... checking.",
-    INTEL: 'I read {intel} three times. Is it normal to be this scared after reading it?',
-    BLIND: "We really don't know what's in there? Cool. Cool cool cool.",
-    ENV: 'Does {env} help us or them? Asking for a friend. The friend is me.',
-    MATE: "{mate}, I'm sticking to you like glue. Tell me if I'm doing something wrong.",
-    OBJECTIVE: 'Getting {objective} is the whole point, right? I can do that. I trained for this.',
-    FATE: "My family thinks I work in logistics. Let's keep it that way.",
-    RIDE: 'If I miss the run to {ride}, somebody come back for me. Please.',
-    KILL: 'Was that me? I keep seeing it. Me, {feat}.',
-    BOOM: 'I set off {boom}! On purpose. Mostly on purpose.',
-    HELPED: 'I patched up {mate}. My hands were shaking the whole time. It held!',
-    HELPED_BY: "{mate} saved me back there. I'll never forget it. Ever.",
-    LOST: "{fallen} taught me to tie a tourniquet last week. I don't... I don't get it.",
-    SIGNATURE: 'The {weapon} worked every single time. I think we are friends now.',
-    SURVIVOR: 'I thought that was it. I really thought that was it.',
-    GHOST: "We didn't fire a shot? Is it always like this? It's never like this, is it.",
-    NEMESIS: 'I was so scared of {threat}. And we beat it. We actually beat it!',
-    REFLECT: "Can we do that again? No. Never. Maybe. I don't know.",
-  },
-  GEARHEAD: {
-    GEAR: "Zeroed the {weapon} twice last night. If it jams, I'm filing a complaint with God.",
-    THREAT: 'Packed a load-out just for {threat}. Hope it is enough. Hope I am wrong to worry.',
-    INTEL: "Ran the numbers off {intel}: range, angles, cover. We're good. Mostly.",
-    BLIND: 'No intel means you bring a bit of everything. My back hates me.',
-    ENV: 'Checked every seal against {env}. Kit is ready. Not sure about the people.',
-    MATE: '{mate}, your sling is twisted. Fix it before I fix it for you.',
-    OBJECTIVE: 'Got the right tools for {objective}. Tools never let you down. People do.',
-    FATE: 'If I do not make it, my torque wrench goes to whoever earns it.',
-    RIDE: 'Somebody better have triple-checked the plan for {ride}. I did. Still worried.',
-    KILL: "Proper kit, proper result. That's how you end up {feat}.",
-    BOOM: 'Did you hear {boom}? Perfect pressure wave. I want to frame it.',
-    HELPED: 'Rigged a splint for {mate} out of a rail cover and zip ties. Engineering.',
-    HELPED_BY: "{mate} fixed me up better than I fix rifles. That's saying something.",
-    LOST: "{fallen}'s kit is coming home with me. All of it. Clean.",
-    SIGNATURE: 'The {weapon} and I have an understanding now. Nobody else touches it.',
-    SURVIVOR: "Plate stopped what it could. I'll be writing to the manufacturer. Nicely.",
-    GHOST: 'Suppressors earned their keep tonight. Not one shot heard.',
-    NEMESIS: 'Built a whole kit around {threat}. Worth every gram.',
-    REFLECT: 'Everything worked tonight. Even me. Mostly.',
-  },
-  GLORY: {
-    GEAR: 'Watch me with the {weapon} tonight. Somebody film it.',
-    THREAT: 'Let them bring {threat}. Bigger the problem, better the story.',
-    INTEL: 'Saw {intel}. Plenty of targets. Plenty of chances to shine.',
-    BLIND: "Nobody knows what's in there? Then nobody knows what I'll do about it.",
-    ENV: 'Heroes do not care about {env}. Watch.',
-    MATE: '{mate}, stay behind me tonight. Best seat in the house.',
-    OBJECTIVE: 'When they write this one up, my name goes next to {objective}.',
-    FATE: "If I go out, it'll be the kind they name a building after.",
-    RIDE: "I'll be the last one to reach {ride}. Somebody has to cover the exit.",
-    KILL: "Tell me somebody saw me {feat}. Tell me.",
-    BOOM: 'Everyone felt {boom}. That was me.',
-    HELPED: 'Dragged {mate} out under fire. Yeah. That happened.',
-    HELPED_BY: "{mate} got me out. I'll admit it. Once. Here. Never again.",
-    LOST: "{fallen} deserved the medal tonight. Not me. I'll make sure they hear it.",
-    SIGNATURE: "The {weapon} made me look good tonight. We're a team now.",
-    SURVIVOR: "Went down, got up. That's the part they'll remember.",
-    GHOST: 'Nobody even knew we were there. Feels wrong. Feels kind of great.',
-    NEMESIS: 'Everyone worried about {threat}. I handled it.',
-    REFLECT: 'Good night. Could have been legendary. Next time.',
-  },
-  GUARDIAN: {
-    GEAR: "The {weapon} is for keeping you lot alive. That's all it's for.",
-    THREAT: "I don't like {threat}. Everyone stays close when we get there.",
-    INTEL: "If {intel} is right, we all walk out. Let's make sure it's right.",
-    BLIND: 'No intel. Then we move slow, and nobody gets ahead of me.',
-    ENV: 'Stay in sight of each other in {env}. Nobody wanders.',
-    MATE: "{mate}, I've got your back. Whatever happens in there.",
-    OBJECTIVE: "We'll get {objective}, but not at any price. Everyone comes home.",
-    FATE: "If somebody's taking a hit tonight, let it be me.",
-    RIDE: "I'm counting heads at {ride}. Nobody gets left.",
-    KILL: "Didn't enjoy {feat}. Did it so nobody else had to.",
-    BOOM: 'Used {boom} so nobody had to go through that door first.',
-    HELPED: "{mate} was down. I wasn't leaving. Simple as that.",
-    HELPED_BY: "Usually I'm the one doing the carrying. Thanks, {mate}.",
-    LOST: "I was supposed to keep {fallen} safe. I'll carry that.",
-    SIGNATURE: 'The {weapon} kept them off us. It stays with me.',
-    SURVIVOR: "Went down covering the team. I'd do it again.",
-    GHOST: 'No shots fired means nobody got hurt. Best kind of night.',
-    NEMESIS: "Worried about {threat} all the way in. Everyone's still here. Good.",
-    REFLECT: 'Everybody check yourselves. Then check each other.',
-  },
-  SUPERSTITIOUS: {
-    GEAR: "Kissed the {weapon} for luck. Don't look at me like that.",
-    THREAT: "Dreamt about {threat} last night. Dreams like that don't come for nothing.",
-    INTEL: "Good pictures in {intel}. Cameras don't see ghosts, though.",
-    BLIND: 'Going in without intel on a night like this. Somebody touch wood.',
-    ENV: "An op in {env}. That's a sign. Good or bad, we'll find out.",
-    MATE: "{mate}, you're wearing the lucky socks, right? Tell me you are.",
-    OBJECTIVE: "Knocked three times before we left. We'll get {objective}.",
-    FATE: 'Same boots, same breakfast, same seat. Nothing changes, nothing goes wrong.',
-    RIDE: "Nobody says the words 'easy pickup' until we're at {ride}. Nobody.",
-    KILL: 'Felt it in my bones before {feat}. Something was guiding me.',
-    BOOM: 'Saw a crow right before {boom}. Told you. Signs.',
-    HELPED: 'Gave {mate} my charm while I patched them up. It stays with them now.',
-    HELPED_BY: '{mate} pulled me back. Somebody up there is working overtime.',
-    LOST: "I saw the signs and didn't say anything. I'm sorry, {fallen}.",
-    SIGNATURE: "The {weapon} is blessed. I'm sure of it now.",
-    SURVIVOR: "Went somewhere dark and something sent me back. I'm not asking questions.",
-    GHOST: 'Like smoke. Nobody saw a thing. Good omens all night.',
-    NEMESIS: 'The dream about {threat} came true, but we came out on top. Curse broken.',
-    REFLECT: 'Salt over the shoulder, all of you. Just in case.',
-  },
-  MERC: {
-    GEAR: 'The {weapon} cost me a month of pay. It better earn it back.',
-    THREAT: "Nobody's paying me enough for {threat}. Put it on the invoice.",
-    INTEL: "Somebody paid good money for {intel}. Let's see if it comes with a refund policy.",
-    BLIND: 'No intel. So danger pay doubles, right? Right?',
-    ENV: "Working in {env} costs extra. I'll remind accounting.",
-    MATE: '{mate}, cover me and I split my bonus with you. Ten percent. Fine, fifteen.',
-    OBJECTIVE: 'Get {objective}, get paid. Everything else is unbillable.',
-    FATE: "Dead people don't cash checks. So I don't plan on it.",
-    RIDE: "Whatever happens, I'm getting to {ride}. That part of the contract I read twice.",
-    KILL: "That's a bonus line right there, {feat}. Somebody write it down.",
-    BOOM: "Hope they're not charging us for {boom}.",
-    HELPED: 'Patched up {mate}. On the house. Just this once.',
-    HELPED_BY: "{mate} saved my hide. I'll buy the drinks. All of them. Once.",
-    LOST: "{fallen} was the only one here not in it for the money. Figures.",
-    SIGNATURE: 'The {weapon} paid for itself tonight. Best investment I ever made.',
-    SURVIVOR: 'Nearly checked out without collecting. Not happening again.',
-    GHOST: 'No ammo spent, full fee. My favourite kind of job.',
-    NEMESIS: 'We took care of {threat}. I want that hazard pay.',
-    REFLECT: 'Same as always. Add it up, see if it was worth it.',
-  },
-  PLANNER: {
-    GEAR: 'The {weapon} fits the plan. Everything tonight fits the plan.',
-    THREAT: "There's one thing the plan doesn't cover well: {threat}.",
-    INTEL: 'I built three contingencies off {intel}. We use the first one.',
-    BLIND: 'No intel. So the plan is: observe, then plan. I hate this.',
-    ENV: 'Factored {env} into every timing. Stick to the timings.',
-    MATE: '{mate}, you are on phase two. Know your cue.',
-    OBJECTIVE: "Twelve steps to {objective}. I've walked them a hundred times in my head.",
-    FATE: "The odds are fine. I've run them. Mostly fine.",
-    RIDE: "Our timing at {ride} has a four-minute margin. Don't eat into it.",
-    KILL: 'That went exactly as drawn up: {feat}.',
-    BOOM: 'Timed {boom} to the second. Satisfying.',
-    HELPED: "Treating {mate} wasn't in the plan. Should have been. It will be.",
-    HELPED_BY: "{mate} improvised and saved me. I'm adding that to the plan.",
-    LOST: "Somewhere in the plan there was a mistake that cost us {fallen}. I'll find it.",
-    SIGNATURE: 'The {weapon} was the one variable I never had to worry about.',
-    SURVIVOR: "Going unconscious wasn't in my plan. Revised.",
-    GHOST: "Undetected. Every step on schedule. That's what planning buys you.",
-    NEMESIS: 'Flagged {threat} as the risk. Risk managed.',
-    REFLECT: 'Debrief notes are already forming. Somebody give me a pen.',
-  },
-  LONER: {
-    GEAR: "Me and the {weapon}. That's all I need tonight.",
-    THREAT: "I'll deal with {threat} myself. Stay out of my way.",
-    INTEL: "Don't trust {intel}. Trust what I see.",
-    BLIND: "No intel. Good. I work better without someone else's guesses.",
-    ENV: "I know how to move in {env}. Don't follow too close.",
-    MATE: "{mate}. Just... don't slow me down.",
-    OBJECTIVE: "I'll get {objective}. You lot keep the noise down.",
-    FATE: "If I don't come back, don't come looking.",
-    RIDE: "I'll get to {ride}. My own way.",
-    KILL: "Didn't need anyone for {feat}. Never do.",
-    BOOM: 'Set {boom} myself. Easier than explaining it.',
-    HELPED: "Stayed with {mate}. Don't make it weird.",
-    HELPED_BY: "Didn't ask for help. {mate} helped anyway. ...Thanks.",
-    LOST: "Shouldn't have let {fallen} get close. To me, I mean. Now look.",
-    SIGNATURE: "The {weapon} doesn't talk and doesn't let me down. I'll keep it.",
-    SURVIVOR: 'Woke up on my own. Always do.',
-    GHOST: "Nobody saw us. That's how I like everything.",
-    NEMESIS: 'Said I would handle {threat}. Did.',
-    REFLECT: "Leave me alone for a bit. I'm fine.",
-  },
-  JUNKIE: {
-    GEAR: "Can't wait to open up with the {weapon}. Seriously, I can't wait.",
-    THREAT: "Everyone's worried about {threat}? Good. Means it'll be fun.",
-    INTEL: 'Read {intel}. Skipped to the part with the most guards.',
-    BLIND: "No intel? That's the best kind. Pure surprise.",
-    ENV: "An op in {env}! My heart's already going.",
-    MATE: '{mate}, race you to the objective. Loser buys.',
-    OBJECTIVE: "Let's hit {objective} hard and fast. Hard and fast is the only speed.",
-    FATE: 'Only time I feel alive is when I almost do not.',
-    RIDE: 'The sprint to {ride} at the end. Best part of the night.',
-    KILL: 'My hands are still buzzing from {feat}.',
-    BOOM: 'Did you feel {boom}? Can we do it again? Can we?',
-    HELPED: 'Hauled {mate} out with rounds snapping overhead. What a rush. Sorry, {mate}.',
-    HELPED_BY: '{mate} pulled me out of that mess. Best night of my life, honestly.',
-    LOST: "Doesn't feel fun anymore. {fallen} should be here.",
-    SIGNATURE: "The {weapon} sings. I'm never giving it back.",
-    SURVIVOR: 'Went all the way down and came back. Nothing beats that. Nothing.',
-    GHOST: "Nobody saw us? Kind of boring. Kind of thrilling. I'm confused.",
-    NEMESIS: "Took on {threat} and won. When's the next one?",
-    REFLECT: "Can't sleep. Won't sleep. What a night.",
-  },
-  HOMESICK: {
-    GEAR: "Taped a photo from home under the {weapon}'s grip. Silly, I know.",
-    THREAT: 'Just want to get past {threat} and go home.',
-    INTEL: "If {intel} is right, I'll be home for the weekend.",
-    BLIND: 'No intel. Promised I would be careful. Guess I have to mean it.',
-    ENV: 'Same {env} back home tonight, maybe. Wonder if they are looking at it too.',
-    MATE: "{mate}, if anything happens, you've got the letter. Right pocket.",
-    OBJECTIVE: 'Get {objective}, get out, get home. In that order.',
-    FATE: 'Promised someone I would come back. I keep my promises.',
-    RIDE: "I keep thinking about the moment we reach {ride}. That's the one I'm living for.",
-    KILL: "They'll ask me what I did tonight. I won't tell them about {feat}.",
-    BOOM: 'Felt {boom} in my chest. Glad nobody back home will ever hear that sound.',
-    HELPED: 'Kept {mate} talking about home while I worked. Kept us both going.',
-    HELPED_BY: "Thanks to {mate}, nobody back home gets a knock on the door tonight.",
-    LOST: "Someone's waiting at home for {fallen}. I can't stop thinking about that.",
-    SIGNATURE: "The {weapon} got me home tonight. That's all I asked of it.",
-    SURVIVOR: "When I was out, I was home. Then I woke up here. I'll get back.",
-    GHOST: 'Quiet night. Wish they were all like this. Wish I was home.',
-    NEMESIS: 'Got past {threat}. One step closer to home.',
-    REFLECT: 'Need to call home. Just to hear a voice.',
-  },
-  PHILOSOPHER: {
-    GEAR: "Funny thing, the {weapon}. Just a tool. It's the hand that decides.",
-    THREAT: 'Our fear of {threat} says more about us than about them.',
-    INTEL: 'We trust {intel} the way sailors once trusted maps of the edge of the world.',
-    BLIND: 'Not knowing is the honest state of things. Tonight we just admit it.',
-    ENV: "There's something old about {env}. Soldiers have been waiting in it forever.",
-    MATE: '{mate}, ever wonder why we keep doing this? Ask me afterwards.',
-    OBJECTIVE: "Is {objective} worth what it'll cost? We'll know afterwards. We always do.",
-    FATE: "Whatever happens, it'll be what it was always going to be.",
-    RIDE: 'Every road in leads to the road out. Ours ends at {ride}.',
-    KILL: 'There is a silence after {feat}. I keep listening to it.',
-    BOOM: 'Strange how {boom} undid in a second what took someone years to build.',
-    HELPED: 'Helping {mate} was the only clear thing tonight.',
-    HELPED_BY: "{mate} chose to come back for me. I've been thinking about that choice.",
-    LOST: "{fallen} is a story now. Let's tell it properly.",
-    SIGNATURE: 'The {weapon} and I understood each other tonight. Strange thing to say about a tool.',
-    SURVIVOR: 'I was nowhere for a while. It was quieter than I expected.',
-    GHOST: "We passed through like a rumour. Maybe that's the best we can be.",
-    NEMESIS: 'Our fear of {threat} was bigger than the thing itself turned out to be.',
-    REFLECT: "What we did tonight and what it meant aren't the same question.",
-  },
-  AVENGER: {
-    GEAR: 'The {weapon} has a job tonight. Settling accounts.',
-    THREAT: "If it's {threat} waiting for us, good. I've got a score to settle.",
-    INTEL: 'Read {intel} looking for one thing. Faces.',
-    BLIND: "Don't need intel to know who the enemy is.",
-    ENV: "Doesn't matter if it's {env}. They'll see me coming either way.",
-    MATE: "{mate}, stay close. I've lost enough people.",
-    OBJECTIVE: 'This is about more than {objective}. For me, anyway.',
-    FATE: "I'll go when they're paid back. Not before.",
-    RIDE: "I'll get to {ride} when I'm done. Not before.",
-    KILL: 'I thought {feat} would feel like more.',
-    BOOM: 'Hope they heard {boom} all the way up to their bosses.',
-    HELPED: 'Not losing anyone else. Not {mate}. Not tonight.',
-    HELPED_BY: '{mate} pulled me back from the edge. In more ways than one.',
-    LOST: "They'll pay for {fallen}. Every one of them.",
-    SIGNATURE: "The {weapon} delivered tonight. It'll keep delivering.",
-    SURVIVOR: "They tried to put me down. That's one more debt.",
-    GHOST: 'They never saw us. Next time, I want them to.',
-    NEMESIS: "Told you {threat} would come for us. Now it's done.",
-    REFLECT: "Doesn't feel finished. It never does.",
-  },
-  PERFECTIONIST: {
-    GEAR: "Stripped and rebuilt the {weapon} four times. It's perfect. Ish.",
-    THREAT: 'Everything is accounted for except {threat}. That bothers me.',
-    INTEL: "Found two errors in {intel}. Corrected them. You're welcome.",
-    BLIND: 'Going in without intel is sloppy. Not our fault. Still sloppy.',
-    ENV: "Recalculated every movement for {env}. Don't improvise.",
-    MATE: "{mate}, your spacing was off in training. Tonight, it isn't.",
-    OBJECTIVE: 'Getting {objective} is the minimum. Doing it cleanly is the job.',
-    FATE: "Mistakes get people killed. I don't make mistakes. Usually.",
-    RIDE: 'Arrival at {ride} on the minute. Not early. Not late.',
-    KILL: 'Textbook. Every angle right, {feat}.',
-    BOOM: 'Placement on {boom} was millimetre-perfect. I measured.',
-    HELPED: "Dressed {mate}'s wound properly. Hospital grade. Nearly.",
-    HELPED_BY: "{mate}'s field dressing was... adequate. More than adequate. Thank you.",
-    LOST: "Losing {fallen} wasn't a mistake anyone made. That's what I can't stand.",
-    SIGNATURE: "The {weapon} performed flawlessly. I don't say that about anything.",
-    SURVIVOR: 'Getting knocked out was below my standards. Noted.',
-    GHOST: "Zero detection. Zero rounds. That's a perfect score.",
-    NEMESIS: 'The one variable was {threat}. Eliminated.',
-    REFLECT: "Three things we could have done better. I'll list them later.",
-  },
-  OPTIMIST: {
-    GEAR: 'The {weapon} feels great tonight. Good sign!',
-    THREAT: "Sure, there's {threat}. But there's also us!",
-    INTEL: "Look how much {intel} tells us. We're in great shape.",
-    BLIND: 'No intel? Means no bad news either!',
-    ENV: 'Love {env}. Honestly, perfect for this.',
-    MATE: "{mate}, this is going to go great. I can feel it.",
-    OBJECTIVE: "We'll get {objective} and be back before the coffee's cold.",
-    FATE: "Nobody's dying tonight. I've decided.",
-    RIDE: 'Picture us at {ride}, laughing about all this. Hold that picture.',
-    KILL: 'Honestly, {feat} might have saved the whole mission.',
-    BOOM: 'Well, {boom} certainly opened things up!',
-    HELPED: "Patched up {mate}, and there's a smile already. Told you!",
-    HELPED_BY: '{mate} saved me! I knew it. I always knew.',
-    LOST: "I said nobody would die. I was wrong about {fallen}. I'm so sorry.",
-    SIGNATURE: 'The {weapon} was amazing tonight. Lucky gun. Lucky me.',
-    SURVIVOR: 'Down and out, and back up! See? Things work out.',
-    GHOST: 'Nobody saw us! Not even a little! Best night ever.',
-    NEMESIS: 'Everyone worried about {threat}, and look! We are fine!',
-    REFLECT: "Rough in places, but we're going home. That's a win.",
-  },
-  VETERAN: {
-    GEAR: 'Carried a {weapon} like that on my first tour. Treat it right, it treats you right.',
-    THREAT: "Seen {threat} go wrong before. Keep your heads down when we get there.",
-    INTEL: 'Good work on {intel}. Still, trust your eyes over paper.',
-    BLIND: "Did this for years without satellites. You'll be fine. Probably.",
-    ENV: 'Done a dozen ops in {env}. Slow is smooth, smooth is fast.',
-    MATE: '{mate}, watch how I move tonight. Learn something.',
-    OBJECTIVE: "Seen people die for less than {objective}. Let's not join them.",
-    FATE: "Twenty years of this. Still here. Means nothing tonight, but still here.",
-    RIDE: 'Golden rule: always know your way to {ride}. Always.',
-    KILL: 'Twenty years, and {feat} still makes my hands shake afterwards.',
-    BOOM: 'Old school, {boom}. Some things never change.',
-    HELPED: 'Patched up {mate}. Done it a hundred times. Never gets easier.',
-    HELPED_BY: "Getting old. {mate} pulled me out. I won't forget it.",
-    LOST: 'Buried a lot of friends. {fallen} goes on the list. It never gets shorter.',
-    SIGNATURE: 'The {weapon} reminded me of the old days. Keeping it.',
-    SURVIVOR: 'Went down. Not the first time. Hopefully not the last either.',
-    GHOST: 'That is how we did it back in the day. Nobody the wiser.',
-    NEMESIS: 'Knew {threat} would bite. Bit back harder.',
-    REFLECT: "Sleep when you can. Talk when you're ready. Not before.",
-  },
-  BELIEVER: {
-    GEAR: 'The {weapon} serves something bigger than any of us.',
-    THREAT: "Let {threat} come. We're on the right side of this.",
-    INTEL: 'Someone risked their life for {intel}. We honour that by getting it right.',
-    BLIND: "No intel. Doesn't matter. We know why we're here.",
-    ENV: 'Even {env} is on our side tonight.',
-    MATE: '{mate}, what we do tonight matters. Never forget that.',
-    OBJECTIVE: 'Getting {objective} could save lives. Hundreds, maybe.',
-    FATE: "If I fall, I fall for something. That's enough.",
-    RIDE: "Whatever happens, we all reach {ride} together. That's the promise.",
-    KILL: 'History will remember {feat}, even if nobody ever knows our names.',
-    BOOM: 'With {boom}, we sent a message tonight.',
-    HELPED: 'Saving {mate} was the most important thing I did tonight.',
-    HELPED_BY: "{mate} believed in me enough to come back. I won't waste that.",
-    LOST: '{fallen} died for something real. We make sure it counts.',
-    SIGNATURE: "The {weapon} served well tonight. And it'll serve again.",
-    SURVIVOR: "I was given another chance. I won't waste it.",
-    GHOST: "Unseen, unheard, and the job is done. That's service.",
-    NEMESIS: "We faced {threat} and didn't flinch. That's faith.",
-    REFLECT: 'Whatever it cost, it mattered. Hold on to that.',
-  },
-  QUIET: {
-    GEAR: 'Checked the {weapon}. Ready.',
-    THREAT: "Watch out for {threat}. That's all.",
-    INTEL: 'Read {intel}. Good enough.',
-    BLIND: 'No intel. Fine.',
-    ENV: 'Pay attention to {env}. It talks.',
-    MATE: '{mate}. With me.',
-    OBJECTIVE: 'Get {objective}. Get out.',
-    FATE: 'Not worried.',
-    RIDE: 'See you at {ride}.',
-    KILL: "Didn't miss.",
-    BOOM: 'That was loud. Worked, though.',
-    HELPED: "{mate}'s fine now. That's all.",
-    HELPED_BY: 'Thanks, {mate}. Mean it.',
-    LOST: 'For {fallen}.',
-    SIGNATURE: 'Good {weapon}. Keeping it.',
-    SURVIVOR: 'Still here.',
-    GHOST: 'Nobody saw. Good.',
-    NEMESIS: 'Called {threat}. Handled.',
-    REFLECT: 'Long night.',
-  },
-};
+const LINES = LS_TEXT.LINES; // data/voices.js
 
 // =====================================================================================
 // SEEDED RNG + small helpers
@@ -1822,11 +1320,13 @@ const fail = (m) => { throw new Rule(m); };
 // =====================================================================================
 // CAMPAIGN + MISSION GENERATION
 // =====================================================================================
-function newCampaign(seed) {
-  G = { v: 4, mode: 'ops', rs: seed | 0, phase: 'BASE', rp: 12, bp: 3, flown: 0, nextSid: 1, roster: [], used: {}, recruits: 0,
+/** A new campaign. play: 'story' (LAST SEASON) or 'open' (open-ended operations); null asks on the title screen. */
+function newCampaign(seed, play = 'open') {
+  G = { v: 5, mode: 'ops', play, rs: seed | 0, phase: 'BASE', rp: 12, bp: 3, flown: 0, nextSid: 1, roster: [], used: {}, recruits: 0,
     armory: { CARBINE: 4, SMG: 2, DMR: 1, LMG: 2, AK: 0, VEST: 4, PLATE: 2, SUPPRESSOR: 1, OPTIC: 1, TOOLKIT: 1, GHILLIE: 0, THERMAL: 0, MEDKIT: 3, FRAG: 4, BREACH: 3, DRONE: 2 },
     base: { lv: { CMD: 1, INTEL: 1, MED: 1, ENG: 1, LOG: 1, BARRACKS: 1 }, beds: [], damaged: {}, offers: [] },
     nemeses: [], captives: [], // officers who got away, and officers held at base
+    memorial: [], archive: [], // the fallen, and a file for every mission flown
     mission: null, battle: null, debrief: null };
   [[60, 'HEAVY'], [25, 'MEDIC'], [25, 'SCOUT'], [0, 'DRONE'], [0, 'HEAVY'], [0, 'SCOUT']].forEach(([xp, cls]) => recruit(xp, cls));
   beginBase(false);
@@ -2848,228 +2348,7 @@ function takeWay(id, item = null) {
   }
 }
 /** What a specialist says when their way out saves a stopped stage, in their personality's voice. Always spoken. */
-const SAVE_LINES = {
-  DEMOLITIONS: {
-    STOIC: 'Charge placed, wall gone. Log it as a door.',
-    JOKER: 'Knock knock. Nobody gets to answer anymore.',
-    FATALIST: 'Every wall comes down eventually. I just keep the schedule.',
-    ROOKIE: 'I did the math in my head. Twice. Okay, three times.',
-    GEARHEAD: 'Forty grams, shaped right. Physics does not negotiate.',
-    GLORY: 'Somebody tell the satellites to look this way.',
-    GUARDIAN: 'Everyone behind me. The wall takes the hit, not you.',
-    SUPERSTITIOUS: 'Touched the det cord three times. The wall never stood a chance.',
-    MERC: 'That hole cost more than this village earns in a year. Bill it.',
-    PLANNER: 'Plan B was always a hole in the wall. Plan B is now.',
-    LONER: 'Stay back. The quiet ones are the ones who walk away from blasts.',
-    JUNKIE: 'Feel that in your teeth? That is the good part.',
-    HOMESICK: 'My father built walls. I just take them apart.',
-    PHILOSOPHER: 'A door is just a wall someone argued with.',
-    AVENGER: 'They built it to keep us out. Let them count the bricks.',
-    PERFECTIONIST: 'Clean cut. No scorch past the line. That is how it is done.',
-    OPTIMIST: 'See? A brand new door. Things are looking up.',
-    VETERAN: 'Same wall, different country. Same smoke in the lungs.',
-    BELIEVER: 'Nothing stands between us and the job. Nothing.',
-    QUIET: 'Door.',
-  },
-  MARKSMAN: {
-    STOIC: 'Seven hundred metres, no wind. Moving on.',
-    JOKER: 'Tell them it was a power cut. A very precise power cut.',
-    FATALIST: 'They were dead the moment I got the high ground. They just did not know.',
-    ROOKIE: 'My hands were shaking. The scope was not.',
-    GEARHEAD: 'Thermal does not lie. Body heat in the rain, every time.',
-    GLORY: 'Count them. I will wait. I will still be up here.',
-    GUARDIAN: 'Go. I am watching every window you pass.',
-    SUPERSTITIOUS: 'Same round I kissed this morning. Same luck.',
-    MERC: 'One cartridge, one problem solved. Cheapest work there is.',
-    PLANNER: 'I mapped every lane of fire before you woke up.',
-    LONER: 'Leave me up here. It is quieter with just the scope.',
-    JUNKIE: 'Breathe out, squeeze, and the world goes silent. God, I love that.',
-    HOMESICK: 'Up here the wind sounds like the coast back home.',
-    PHILOSOPHER: 'Through the glass they are just heat signatures. That is the trouble with distance.',
-    AVENGER: 'That one was for the convoy.',
-    PERFECTIONIST: 'Centre mass, centre mass, centre mass. No second shots.',
-    OPTIMIST: 'Lane is clear below. Lovely night for a walk.',
-    VETERAN: 'Glass, wind, breath. The rest is paperwork.',
-    BELIEVER: 'Every shot is a promise kept.',
-    QUIET: 'Clear.',
-  },
-  CQB: {
-    STOIC: 'Six rooms. Six seconds each. Next door.',
-    JOKER: 'Room service. Sorry about the mess.',
-    FATALIST: 'One of these doors has my name behind it. Not tonight.',
-    ROOKIE: 'I did not think. I just went. Is that how it works?',
-    GEARHEAD: 'Short barrel, good light, bad night for them.',
-    GLORY: 'First through the door. Always. Put that on the stone.',
-    GUARDIAN: 'I take the doors so you do not have to.',
-    SUPERSTITIOUS: 'Left foot first through every door. Still breathing.',
-    MERC: 'Close work costs extra. Somebody is paying for this blood.',
-    PLANNER: 'Corners, angles, fatal funnel. I drew it on my hand.',
-    LONER: 'Do not follow me in. You will slow me down.',
-    JUNKIE: 'Two metres from them. That is where I live.',
-    HOMESICK: 'Same hallway as my old flat. Different smell.',
-    PHILOSOPHER: 'Rooms are just boxes we decide to die in.',
-    AVENGER: 'They hid in the dark. I brought it in with me.',
-    PERFECTIONIST: 'Clean entry, clean exit. The blood is not mine. Mostly.',
-    OPTIMIST: 'Hurts. But we are through, are we not?',
-    VETERAN: 'Hallways never change. Only the wallpaper.',
-    BELIEVER: 'For the ones who never made it to a door like this.',
-    QUIET: 'Done. Next.',
-  },
-  DIVER: {
-    STOIC: 'Cold water, steady breath. Nobody watches the river.',
-    JOKER: 'Free spa treatment. Bring your own leeches.',
-    FATALIST: 'The water does not care who drowns. Tonight it picked them.',
-    ROOKIE: 'I could not see my own hands down there.',
-    GEARHEAD: 'Rebreather, no bubbles. Ghosts under their floodlights.',
-    GLORY: 'Swam right under their noses. Somebody film it next time.',
-    GUARDIAN: 'Hold my line. I lose nobody in black water.',
-    SUPERSTITIOUS: 'Rivers take one a year. Not one of ours.',
-    MERC: 'Hazard pay doubles below the waterline. Read the contract.',
-    PLANNER: 'Two knots of current, exit under the pier. On the clock.',
-    LONER: 'Down there it is just me and the static in my ears.',
-    JUNKIE: 'Lungs on fire, heart in my throat. Best part of the job.',
-    HOMESICK: 'Smells like the harbour at home. Oil and rain.',
-    PHILOSOPHER: 'Black water hides everything. Even what we are.',
-    AVENGER: 'They poisoned this river. Now it carries us to them.',
-    PERFECTIONIST: 'Surfaced on the marker. Not a ripple seen.',
-    OPTIMIST: 'Wet, freezing, alive. I will take it.',
-    VETERAN: 'Third river this year. They all taste of diesel.',
-    BELIEVER: 'Even the water is on our side tonight.',
-    QUIET: 'Wet. Through.',
-  },
-  MOUNTAINEER: {
-    STOIC: 'Rope is fixed. Clip in. Do not look down.',
-    JOKER: 'Nobody guards a cliff. Their mistake. Falling would be ours.',
-    FATALIST: 'Rock breaks, rope holds or it does not. Climb anyway.',
-    ROOKIE: 'I did not look down. I swear I did not look down.',
-    GEARHEAD: 'Cams, nuts, eleven mil dynamic. Trust the gear, not the rock.',
-    GLORY: 'Free-soloed the last pitch. You are welcome.',
-    GUARDIAN: 'I am at the top. Nobody falls while I hold the line.',
-    SUPERSTITIOUS: 'Never climb on a dead man\'s rope. This one is mine.',
-    MERC: 'Vertical metres are billable metres.',
-    PLANNER: 'Route picked off the satellite stills. Every hold was on it.',
-    LONER: 'Up here there is no comms and no voices. Just stone.',
-    JUNKIE: 'Two hundred metres of nothing under my boots. Perfect.',
-    HOMESICK: 'Mountains here are colder than at home. Everything is.',
-    PHILOSOPHER: 'The mountain does not know there is a war. Lucky mountain.',
-    AVENGER: 'They thought the cliff protected them. It works for me now.',
-    PERFECTIONIST: 'Clean placements all the way. Not one loose rock dropped.',
-    OPTIMIST: 'What a view. Shame about the people down there.',
-    VETERAN: 'My knees remember every peak. They complain about all of them.',
-    BELIEVER: 'Higher ground, higher purpose.',
-    QUIET: 'Up. Over.',
-  },
-  INFILTRATOR: {
-    STOIC: 'Left the rifle. I am the quieter weapon.',
-    JOKER: 'Walked in like I owned the place. Turns out I do now.',
-    FATALIST: 'Alone and unarmed in their house. Seemed fitting.',
-    ROOKIE: 'Nobody looked twice. Why did nobody look twice?',
-    GEARHEAD: 'Camera blind spot every eleven seconds. I counted the loop.',
-    GLORY: 'One operator, one door, one legend.',
-    GUARDIAN: 'I go in alone so the rest of you do not have to.',
-    SUPERSTITIOUS: 'Moved only on even counts. The shadows like that.',
-    MERC: 'That rifle goes on your tab. Worth every round it never fired.',
-    PLANNER: 'Ninety seconds to the latch. I had four to spare.',
-    LONER: 'Finally, a job where nobody talks to me.',
-    JUNKIE: 'No weapon, no backup. That is not fear, that is flavour.',
-    HOMESICK: 'Used to sneak home past curfew. Same feet, same silence.',
-    PHILOSOPHER: 'To be unseen is to stop existing for a while. Restful.',
-    AVENGER: 'I was inside their walls. They will never sleep sound again.',
-    PERFECTIONIST: 'Not one footprint. The door opens from inside, as planned.',
-    OPTIMIST: 'Bit of a scratch. Door is open, though.',
-    VETERAN: 'Shadows have not changed since my first tour. Neither have guards.',
-    BELIEVER: 'Faith walks where rifles cannot.',
-    QUIET: 'In. Open.',
-  },
-  SIGNALS: {
-    STOIC: 'Their net is mine for nine minutes. Use them.',
-    JOKER: 'Told them their shift was over. Best news they have had all year.',
-    FATALIST: 'They will trace it. Everyone gets traced in the end.',
-    ROOKIE: 'I faked a colonel. A colonel! And they believed it!',
-    GEARHEAD: 'Hop pattern cracked, key rolled, their whole net singing my song.',
-    GLORY: 'Tonight I am the voice inside their heads.',
-    GUARDIAN: 'Every guard I talk away is one less rifle on you.',
-    SUPERSTITIOUS: 'Static on channel thirteen. Never trust thirteen. They did.',
-    MERC: 'Information is the one currency that never inflates.',
-    PLANNER: 'Script written, callsigns harvested, timing locked.',
-    LONER: 'Just me and the noise floor. Best company there is.',
-    JUNKIE: 'Bluffing a whole compound live on air. My hands are buzzing.',
-    HOMESICK: 'Caught a pop station under their chatter. A song from home.',
-    PHILOSOPHER: 'Truth is whatever comes through the speaker loudest.',
-    AVENGER: 'They used radios to call in the strike. Now radios call them off.',
-    PERFECTIONIST: 'Accent, cadence, codewords. Not one syllable out of place.',
-    OPTIMIST: 'They will work it out. We will be long gone.',
-    VETERAN: 'Spoofed nets in three wars. A guard never questions an order.',
-    BELIEVER: 'Even their machines turn on them tonight.',
-    QUIET: 'Net is ours.',
-  },
-  LINGUIST: {
-    STOIC: 'Right words, right price. They looked the other way.',
-    JOKER: 'I told them we were the plumbers. Very expensive plumbers.',
-    FATALIST: 'Everyone has a price. Tonight theirs was our gear.',
-    ROOKIE: 'I just talked. I cannot believe talking worked.',
-    GEARHEAD: 'Hurts to hand that over. Good kit buys good silence.',
-    GLORY: 'Talked us through a checkpoint. Put that in the film.',
-    GUARDIAN: 'Better our gear than our blood.',
-    SUPERSTITIOUS: 'Bribes in odd numbers only. Even ones bring bad luck.',
-    MERC: 'Gear is replaceable. The deal was fair. Mostly.',
-    PLANNER: 'Dialect, cover story, payment. Rehearsed on the flight in.',
-    LONER: 'I hate talking. I hate it less than shooting through.',
-    JUNKIE: 'One wrong vowel and we are dead. What a rush.',
-    HOMESICK: 'He has a daughter my sister\'s age. Talked about her the whole time.',
-    PHILOSOPHER: 'Language is the oldest weapon, and the quietest.',
-    AVENGER: 'I smiled at him. I will remember his face.',
-    PERFECTIONIST: 'Every honorific right. He never doubted for a second.',
-    OPTIMIST: 'See? People are reasonable, given the right gift.',
-    VETERAN: 'Paid off guards on four continents. Prices keep going up.',
-    BELIEVER: 'Words open doors that guns can only break.',
-    QUIET: 'Paid. Passed.',
-  },
-  PATHFINDER: {
-    STOIC: 'No road on any map. Now there is.',
-    JOKER: 'Scenic route. Complaints to the travel agent.',
-    FATALIST: 'Long way round. The war waits for us either way.',
-    ROOKIE: 'How did you even see that path? I still cannot see it.',
-    GEARHEAD: 'The satellite is forty metres off here. My boots are not.',
-    GLORY: 'Found a road nobody ever mapped. Name it after me.',
-    GUARDIAN: 'Slower and safer. Step where I step.',
-    SUPERSTITIOUS: 'Old goat track. Goats know where the dead are buried.',
-    MERC: 'Overtime starts now. Two extra hours, people.',
-    PLANNER: 'Contours, water flow, dead ground. The path was always there.',
-    LONER: 'Nobody comes this way. That is why I like it.',
-    JUNKIE: 'Nothing beats walking where the map goes blank.',
-    HOMESICK: 'Feels like hiking with my brother. Except for the rifles.',
-    PHILOSOPHER: 'Maps are opinions. The ground is the fact.',
-    AVENGER: 'They will never know which way death came in.',
-    PERFECTIONIST: 'Not one twig broken. We were never here.',
-    OPTIMIST: 'Long walk, but look at those stars.',
-    VETERAN: 'Old smugglers\' trail. Smugglers always knew better than generals.',
-    BELIEVER: 'There is always a way for those who keep walking.',
-    QUIET: 'This way.',
-  },
-  ENDURANCE: {
-    STOIC: 'One at a time. The shoulders hold.',
-    JOKER: 'Human ladder, folks. Tips welcome.',
-    FATALIST: 'Muscles tear, bones crack. It comes for everyone. Not tonight.',
-    ROOKIE: 'I did not know I could lift that. I really did not know.',
-    GEARHEAD: 'Leverage, not strength. All right, mostly strength.',
-    GLORY: 'Carried the whole team over. Remember who did that.',
-    GUARDIAN: 'Climb on me. That is what I am here for.',
-    SUPERSTITIOUS: 'Grandmother said I had a mule\'s back. She was right.',
-    MERC: 'Heavy lifting is not in the contract. Adding it.',
-    PLANNER: 'Weight distribution calculated. My spine was not consulted.',
-    LONER: 'Do not thank me. Just do not make me carry you again.',
-    JUNKIE: 'Burn in the legs, fire in the chest. More.',
-    HOMESICK: 'Used to carry hay bales back home. Hay does not shoot back.',
-    PHILOSOPHER: 'We only get as far as the weakest back carries us.',
-    AVENGER: 'Every ache, I pay back to them with interest.',
-    PERFECTIONIST: 'Everyone over, nothing dropped. My back is ruined, though.',
-    OPTIMIST: 'Ow. Worth it. Mostly ow.',
-    VETERAN: 'Done this before. My back reminds me every morning.',
-    BELIEVER: 'We go over together or not at all.',
-    QUIET: 'Up you go.',
-  },
-};
+const SAVE_LINES = LS_TEXT.SAVE_LINES; // data/voices.js
 /** A specialist speaks their save line: logged, and shown as a speech bubble. */
 function saySave(u) {
   const s = soldier(u.sid), line = SAVE_LINES[s.spec]?.[s.persona];
@@ -3085,98 +2364,13 @@ function saySave(u) {
 const storyPick = (arr, key) => arr[hash32(`${G.mission?.codename}:${G.flown}:${key}`) % arr.length];
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 const WX_GROUP = { CLEAR: 'CLEAR', RAIN: 'WET', STORM: 'WET', FLOOD: 'WET', MUD: 'WET', FOG: 'MURK', SMOKE: 'MURK', DUST: 'DUST', HEAT: 'HEAT' };
-const TIME_WX = {
-  DAY: {
-    CLEAR: 'Hard light and long sightlines. Nowhere to hide from a pair of binoculars.',
-    WET: 'Grey rain all day, the kind that gets into the weapons and the nerves.',
-    MURK: 'Daylight, for what it is worth. The haze eats everything past a hundred metres.',
-    DUST: 'The wind carries half the desert in it. Goggles on, mouths shut.',
-    HEAT: 'Forty degrees in the shade, and there is no shade.',
-  },
-  DUSK: {
-    CLEAR: 'The sun goes down the colour of a wound. Shadows stretch toward the target.',
-    WET: 'Dusk and rain together. The light fails slowly, then all at once.',
-    MURK: 'Fog rolls in with the dusk. Shapes become rumours.',
-    DUST: 'Dust hangs in the last of the light like smoke after a fire.',
-    HEAT: 'The heat does not leave with the sun. It waits, like everyone else.',
-  },
-  NIGHT: {
-    CLEAR: 'No moon. The stars are cold and indifferent.',
-    WET: 'Night and rain. Every footstep is a splash, every splash a gamble.',
-    MURK: 'Black fog. You hear the generator long before you see a thing.',
-    DUST: 'Night and blowing dust. The world shrinks to the operator in front of you.',
-    HEAT: 'A hot night. Insects scream. Sweat runs into everything.',
-  },
-};
-const ARRIVE = {
-  FORK: ['Two ways in. {name} looks at both and chooses to believe one of them.', 'Two entry points, each with its own way of killing you.'],
-  SENTRY: ['Two cigarettes glow at the sentry hut. {name} counts the seconds between drags.', 'A radio crackles at the post. {name} wraps a hand round the {gear} and waits.'],
-  PATROL: ['Boots on gravel, regular as a clock. {name} times the patrol and does not like the number.', 'Torch beams sweep the track. {name} goes flat beside the {gear}.'],
-  TOWER: ['The searchlight walks the ground like a slow, bored eye.', '{name} glasses the watchtower. One up there, maybe two, and a lot of open ground.'],
-  GATE: ['Chain and padlock on the gate, rusted but new. Someone wants this kept shut.', '{name} runs a gloved hand along the gate chain. Cold steel, no give.'],
-  MINES: ['Thin wires catch what little light there is. {name} stops breathing for a moment.', 'The ground is too smooth here. {name} has seen ground like this before, and the people who walked on it.'],
-  DOGS: ['A dog barks once, then twice, then stops. That is worse.', 'Kennel smell on the wind. {name} checks the {gear} and thinks about teeth.'],
-  CLIFF: ['The rock face goes up into the dark. Somebody built on top of it for a reason.', '{name} puts a palm on the cliff. Wet stone, cold, and a long way down.'],
-  RIVERX: ['The ford is wide and slow and lit by a single lamp. Two figures smoke on the far bank.', 'Water to the knees, then to the waist. {name} holds the {gear} high.'],
-  DOCKS: ['Floodlights on the pier turn the water into black glass.', 'Diesel and salt. A generator thumps under the dock lights; {name} counts guards by their shadows.'],
-  CHECKPOINT: ['Concrete barriers, a burned-out car, a guard who looks bored. Looks.', 'A radio at the checkpoint plays something sentimental. {name} does not find it touching.'],
-  ROOFTOP: ['A silhouette on the roof, rifle across the knees. Patient. Professional.', '{name} finds the spotter by the glint of a lens and keeps very still.'],
-  OPENGROUND: ['Three hundred metres of nothing between the treeline and the wall.', '{name} looks at the open ground and does the arithmetic nobody wants to do.'],
-  FIRELINE: ['The brush fire crawls along the treeline, orange and patient, eating the only cover.', 'Smoke and heat. {name} pulls a wet scarf up and watches the flames walk.'],
-  INTEL: ['One lit window in a dark building. Somewhere inside, a safe full of other people\'s secrets.', '{name} runs the floor plan one last time. Second floor, east corner, a safe and a guard who sleeps badly.'],
-  HVT: ['The target is in there, asleep or pretending to be. The bodyguards are not asleep.', '{name} checks the {gear} twice. The last door of the night is always the heaviest.'],
-  CACHE: ['Crates under tarpaulin, stencils in a language nobody here was born speaking.', 'A weapons cache, badly hidden. {name} wonders who it was hidden from.'],
-  BREAK: ['The way out is the way in, only longer, and now everyone knows you are here.', '{name} looks back once. Then forward. The extraction point is a promise, nothing more.'],
-};
-const RESULT = {
-  ASSAULT: {
-    SUCCESS: ['{lead} goes in hard behind the {gear}, and it is over before the echoes are.', 'Muzzle flash, shouting, then nothing. {lead} lowers the {gear}.'],
-    PARTIAL: ['{lead} gets it done, ugly and loud, the {gear} hot in their hands.', 'It works. Not cleanly. {lead} will be hearing it for days.'],
-    FAIL: ['The plan comes apart in the first three seconds. {lead} is shouting into a wall of noise.', '{lead} pushes in, and the place pushes back.'],
-  },
-  STEALTH: {
-    SUCCESS: ['{lead} is a shadow in {wx}; the rest of the team follows in the gaps.', 'Nobody sees {lead}. Nobody ever will.'],
-    PARTIAL: ['{lead} slips through, but leaves something behind: a sound, a print, a doubt.', 'Almost silent. Almost is a dangerous word.'],
-    FAIL: ['A boot on loose stone. A shout. {lead} freezes a heartbeat too long.', '{wx} betrays {lead} at the worst possible moment.'],
-  },
-  RECON: {
-    SUCCESS: ['{lead} reads the ground like a confession: every guard, every gap, every habit.', 'Through the {gear}, {lead} sees the whole thing laid open.'],
-    PARTIAL: ['{lead} gets most of it. The rest is guesswork, and guesswork gets people killed.', 'A good enough picture. {lead} would rather have a perfect one.'],
-    FAIL: ['{wx} swallows everything {lead} needed to see.', '{lead} watches and watches, and learns the wrong thing.'],
-  },
-  TECH: {
-    SUCCESS: ['The lock gives with a sigh. {lead} is already moving.', '{lead} talks to the machine in its own language, and it listens.'],
-    PARTIAL: ['It opens, eventually, with a noise {lead} would rather forget.', 'The system gives way, but not before it complains.'],
-    FAIL: ['Sparks, a dead circuit, and a long silence. {lead} swears very quietly.', 'The mechanism wins this round. {lead} counts the seconds just lost.'],
-  },
-};
+const TIME_WX = LS_TEXT.TIME_WX; // data/story.js
+const ARRIVE = LS_TEXT.ARRIVE; // data/story.js
+const RESULT = LS_TEXT.RESULT; // data/story.js
 /** What a teammate says over the fallen, by the speaker's personality. {name} is the fallen operator's first name. */
-const MEMORIAL = {
-  STOIC: ['{name} did the job. Write that down.', 'We carry on. {name} would have.'],
-  JOKER: ['{name} owes me twenty. Guess I will never collect.', 'No joke for this one. Not for {name}.'],
-  FATALIST: ['It was always going to be one of us. Why did it have to be {name}?', '{name}\'s number came up. Mine is in the same drum.'],
-  ROOKIE: ['{name} showed me how to clean a rifle. Who shows me the rest now?', 'I thought {name} was unkillable. I thought we all were.'],
-  GEARHEAD: ['{name} never once let their kit fail. The world failed them.', 'I will strip and clean {name}\'s rifle tonight. Someone should.'],
-  GLORY: ['They will name nothing after {name}. They should.', '{name} died brave. That has to count for something. It has to.'],
-  GUARDIAN: ['I was supposed to be between {name} and that bullet.', 'I had {name}\'s back. Not enough of it.'],
-  SUPERSTITIOUS: ['{name} lost the charm last week. I told them. I told them.', 'I will burn a candle for {name}. Three, to be sure.'],
-  MERC: ['{name} was worth more than this job paid. Every one of us is.', 'Send {name}\'s share home. All of it.'],
-  PLANNER: ['I planned for everything except losing {name}.', 'Every plan has a cost. I did not want it to be {name}.'],
-  LONER: ['I do not get close to people. {name} got close anyway.', 'Quiet now. {name} would have liked the quiet.'],
-  JUNKIE: ['{name} lived at full speed. Went out the same way.', 'The rush is gone. {name} took it with them.'],
-  HOMESICK: ['Someone has to tell {name}\'s family. I hope it is not a letter.', '{name} talked about home every night. Now home is all that is left of them.'],
-  PHILOSOPHER: ['We tell ourselves it means something. For {name}, I need it to.', '{name} is out of the war now. That is not nothing.'],
-  AVENGER: ['{name} goes on the list. The list gets paid.', 'Somebody out there killed {name}. I will find them.'],
-  PERFECTIONIST: ['I go over it again and again. Where did we lose {name}?', 'One mistake. One. And {name} paid for it.'],
-  OPTIMIST: ['{name} would tell us to keep our chins up. So. Chins up.', 'I keep waiting for {name} to walk in late. Any minute now.'],
-  VETERAN: ['Another name for the wall. {name} was one of the good ones.', 'I have buried too many. {name} is one too many.'],
-  BELIEVER: ['{name} died for something. We finish it, or it was for nothing.', 'Rest now, {name}. We have the watch.'],
-  QUIET: ['{name}.', 'Goodbye, {name}.'],
-};
-const VIA = { FOOT: 'on foot', GROUND: 'by convoy', HELO: 'by helicopter', LSV: 'by light strike vehicle', BOAT: 'by boat', HALO: 'by HALO jump', MRAP: 'by MRAP' };
-const WAY_PAST = { DETOUR: 'detoured to the other way in', BLAST: 'blew a way through', DEMOLITIONS: 'blew a new way in', MARKSMAN: 'cleared a stage from overwatch', CQB: 'cleared it room by room',
-  DIVER: 'took the team round through the water', MOUNTAINEER: 'climbed round', INFILTRATOR: 'went in alone and opened the way', SIGNALS: 'spoofed their radio net', LINGUIST: 'talked the team through',
-  PATHFINDER: 'found a way off the map', ENDURANCE: 'hauled everyone over', FORCE: 'forced the way through' };
+const MEMORIAL = LS_TEXT.MEMORIAL; // data/voices.js
+const VIA = LS_TEXT.VIA; // data/story.js
+const WAY_PAST = LS_TEXT.WAY_PAST; // data/story.js
 const storyFill = (t, v) => t.replace(/\{(\w+)\}/g, (_, k) => v[k] ?? '');
 const gearWord = (u, skill) => { const it = [u.weapon, u.kit].find((x) => x && ITEMS[x].dice?.[skill] > 0) || u.weapon; return it ? ITEMS[it].label.toLowerCase() : 'handgun'; };
 /** One line of scene-setting for a stage: the hour and the weather, then what waits there, through a teammate's eyes. */
@@ -4579,16 +3773,28 @@ function startWeather() {
   for (const c of document.querySelectorAll('canvas.wx')) if (!c.dataset.drawn) { wxDraw(c); c.dataset.drawn = '1'; }
 }
 
-/** Title card on load: the key art, the name, and the way in. The test hook skips it. */
-function showTitle() {
+// The two ways to play. The story arrives over the coming updates; until then it shows, but cannot be started.
+const PLAY_MODES = {
+  story: { label: 'LAST SEASON', kind: 'The story', text: 'Three acts and a finale. A region going under fire and water.', ready: false },
+  open: { label: 'Open-ended operations', kind: 'Free play', text: 'Mission after mission with no end. Build the unit, bury the fallen, see how far it goes.', ready: true },
+};
+/** Title card on load: the key art, the name, and the way in; for a new campaign, the choice of how to play. The test hook skips it. */
+function showTitle(note = '') {
   const el = document.createElement('div');
   el.className = 'title'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'LAST SEASON');
+  const choose = !G.play;
   el.innerHTML = `${artSlot('KEYART', 'key')}<div class="title-in"><div class="title-logo">LAST SEASON</div><p>Special operations, one decision at a time.</p>
-    <button class="btn primary big" type="button">${G.flown || G.phase !== 'BASE' ? 'Continue campaign' : 'Start campaign'}</button></div>`;
+    ${note ? `<p class="title-note">${esc(note)}</p>` : ''}
+    ${choose ? `<div class="modes" role="group" aria-label="How to play">${Object.entries(PLAY_MODES).map(([k, m]) => `<button class="mode" type="button" data-play="${k}" ${m.ready ? '' : 'disabled'}>
+      <span class="mode-kind">${m.kind}</span><b>${m.label}</b><span>${m.text}</span><span class="mode-go">${m.ready ? 'Start' : 'In development: arrives over the coming updates'}</span></button>`).join('')}</div>`
+    : `<button class="btn primary big" type="button" data-play="">${G.flown || G.phase !== 'BASE' ? 'Continue campaign' : 'Start campaign'}</button>`}</div>`;
   document.body.append(el);
-  const go = el.querySelector('button');
-  go.addEventListener('click', () => { sfx('select'); el.remove(); });
-  go.focus();
+  el.querySelectorAll('[data-play]').forEach((b) => b.addEventListener('click', () => {
+    sfx('select');
+    if (b.dataset.play) { G.play = b.dataset.play; persist(); refresh(); }
+    el.remove();
+  }));
+  el.querySelector('[data-play]:not([disabled])')?.focus();
 }
 
 // ------------------------------------------------------------------ route track (shared by briefing and operation)
@@ -4761,7 +3967,7 @@ function openFile(i) {
 function renderBase() {
   const bs = G.base, tab = BASE_TABS.includes(ui.baseTab) ? ui.baseTab : 'BARRACKS';
   $('#view').innerHTML = `<section class="base">
-    <div class="col"><div class="card"><div class="eyebrow">Forward operating base · After ${G.flown} mission${G.flown === 1 ? '' : 's'}</div><h1>Mission board</h1>
+    <div class="col"><div class="card"><div class="eyebrow">Forward operating base · After ${G.flown} mission${G.flown === 1 ? '' : 's'}${G.play ? ` · ${PLAY_MODES[G.play].label}` : ''}</div><h1>Mission board</h1>
       <p class="muted" style="margin:0 0 14px">Choose the next operation. Requisition ${G.rp} RP · Base points ${G.bp} BP.</p>
       <div class="offers">${bs.offers.map(offerHtml).join('')}</div></div>${memorialHtml()}${archiveHtml()}</div>
     <div class="col"><div class="card dept">
@@ -5443,28 +4649,7 @@ $('#help').addEventListener('click', (e) => { if (e.target === e.currentTarget) 
 
 // ------------------------------------------------------------------ operator details: a click on any living operator's portrait
 /** What an operator says at base when you look them up, by personality and how they are. {fallen}: lost on the last mission. */
-const BASE_LINES = {
-  STOIC: { FIT: "Kit is clean. I am ready when you are.", TIRED: "I can go. I would rather sleep first.", WOUNDED: "It knits. Put me back on the board when it does.", BED: "The doctor says rest. I am resting. Aggressively.", GRIEF: "{fallen} knew the risks. So do I. Next op." },
-  JOKER: { FIT: "Reporting for duty. And for snacks. Mostly snacks.", TIRED: "I am so tired I laughed at my own joke. Twice.", WOUNDED: "Doc says I will live. I asked for a second opinion. Same answer, sadly.", BED: "Room service here is terrible. Five stars.", GRIEF: "{fallen} used to laugh at my worst jokes. Nobody laughs now." },
-  FATALIST: { FIT: "Another day borrowed. Let us spend it.", TIRED: "Tired. The grave will be restful, at least.", WOUNDED: "Missed me by a few centimetres. Next time it will not.", BED: "They patch us up so we can be broken somewhere new.", GRIEF: "{fallen} went first. The rest of us are just waiting our turn." },
-  ROOKIE: { FIT: "When is the next op? I have been practising my knots.", TIRED: "Is it always this exhausting? Nobody told me it was this exhausting.", WOUNDED: "It hurts more than in training. A lot more.", BED: "The nurse says I am lucky. I do not feel lucky.", GRIEF: "{fallen} was teaching me. Who teaches me now?" },
-  GEARHEAD: { FIT: "Stripped, oiled, zeroed. My rifle is happier than I am.", TIRED: "Even the drones need charging. So do I.", WOUNDED: "Worst part is I cannot hold a screwdriver steady.", BED: "Brought my toolkit to the ward. The nurse confiscated it.", GRIEF: "I cleaned {fallen}'s gear last night. It seemed wrong to leave it dirty." },
-  GLORY: { FIT: "Put me on the hard one. The one they write about.", TIRED: "Heroes need sleep too. Do not tell anyone.", WOUNDED: "Scars make better stories. This one will be a classic.", BED: "Lying in a bed while somebody else gets the glory. Torture.", GRIEF: "{fallen} deserved a medal. I will make sure people remember." },
-  GUARDIAN: { FIT: "Whoever goes out next, I want to be next to them.", TIRED: "I am tired, but put me in if someone needs covering.", WOUNDED: "I cannot cover anyone like this. That is the worst of it.", BED: "While I lie here, who is watching their backs?", GRIEF: "I should have been there for {fallen}. I should have been closer." },
-  SUPERSTITIOUS: { FIT: "Same socks, same knife, same left boot first. We are good.", TIRED: "Bad luck to go out tired. Everybody knows that.", WOUNDED: "I broke the ritual. Of course I got hit.", BED: "Third bed from the door. Never the third bed. Move me.", GRIEF: "{fallen} forgot the charm. I keep telling myself that was it." },
-  MERC: { FIT: "Paid up and ready. Point me at a payday.", TIRED: "Overtime rates apply when I am this tired.", WOUNDED: "Is this covered? Tell me this is covered.", BED: "Medical leave. On full pay, I trust.", GRIEF: "{fallen} had money owed. Make sure it reaches the family." },
-  PLANNER: { FIT: "I have three plans for the next op, and a fourth for when they fail.", TIRED: "My plans are getting sloppy. That means I need sleep.", WOUNDED: "I did not plan for this. I will next time.", BED: "Using the bed rest to rework our exfil drills.", GRIEF: "I keep replaying {fallen}'s last stage. Where was the gap?" },
-  LONER: { FIT: "Fine. Just leave me alone until we go.", TIRED: "Tired. Quiet. Leave it there.", WOUNDED: "It is nothing. Stop looking at it.", BED: "Too many people in this ward. Too much talking.", GRIEF: "I did not know {fallen} well. I wish I had bothered." },
-  JUNKIE: { FIT: "Base is boring. When do we go out again?", TIRED: "Running on fumes. Feels kind of good, honestly.", WOUNDED: "That was a rush. Shame about the hole.", BED: "Bed rest. The worst drug there is.", GRIEF: "{fallen} lived loud. Felt the same pull I do. Look where it went." },
-  HOMESICK: { FIT: "Got a letter from home. I am good. I am really good.", TIRED: "Tired. Missing my own bed most of all.", WOUNDED: "Do not tell my mother about this one.", BED: "The ward smells like the hospital back home. Not in a good way.", GRIEF: "Somebody has to write to {fallen}'s family. Let it be someone who knew them." },
-  PHILOSOPHER: { FIT: "A quiet day is a gift. I am unwrapping it slowly.", TIRED: "Fatigue is just the body keeping score.", WOUNDED: "Pain is information. Today it is saying a great deal.", BED: "Lying still teaches you how loud your thoughts are.", GRIEF: "{fallen} is beyond all this now. I cannot decide if I envy them." },
-  AVENGER: { FIT: "Give me the next op. Somebody out there still owes us.", TIRED: "I will sleep when the list is shorter.", WOUNDED: "Every stitch is another name on the list.", BED: "Bed rest. Fine. It gives me time to plan.", GRIEF: "{fallen} goes on the list. The list gets paid." },
-  PERFECTIONIST: { FIT: "Drilled the entry procedure twelve times today. Thirteen tomorrow.", TIRED: "I am making mistakes. Tired people make mistakes. I hate mistakes.", WOUNDED: "I was half a second slow. I keep going over it.", BED: "The stitches are uneven. I asked them to redo them.", GRIEF: "One mistake took {fallen}. I am still looking for whose." },
-  OPTIMIST: { FIT: "Good day today. Coffee is hot, sky is clear, we are all here.", TIRED: "A bit tired, but nothing a good night will not fix.", WOUNDED: "Could have been worse! Honestly, could have been much worse.", BED: "Clean sheets, three meals. Practically a holiday.", GRIEF: "I keep thinking {fallen} will walk in, late as always." },
-  VETERAN: { FIT: "Seen worse bases, worse food, worse officers. This will do.", TIRED: "My knees know the weather before the met team does.", WOUNDED: "Another one for the collection. I stopped counting years ago.", BED: "I know this ward. I know which bed creaks.", GRIEF: "Another name for the wall. They do not get easier, they just get familiar." },
-  BELIEVER: { FIT: "Whatever comes next, it is worth doing. Send me.", TIRED: "Tired, but the work does not stop because we are.", WOUNDED: "A small price. The cause is bigger than one body.", BED: "I pray, I heal, I go back out.", GRIEF: "{fallen} believed in this. We honour that by finishing it." },
-  QUIET: { FIT: "Ready.", TIRED: "Tired.", WOUNDED: "Healing.", BED: "Resting.", GRIEF: "{fallen}." },
-};
+const BASE_LINES = LS_TEXT.BASE_LINES; // data/voices.js
 const BASE_MOOD = { FIT: 'good', TIRED: 'neutral', WOUNDED: 'bad', BED: 'neutral', GRIEF: 'bad' };
 /** How an operator is at base, most pressing first, and who they are grieving if anyone was lost on the last mission. */
 function baseStatus(s) {
@@ -5545,47 +4730,24 @@ $('#btn-new').addEventListener('click', (e) => {
   if (b.dataset.armed) {
     closeMenu();
     draft.mission = null; plan.key = null; mounted = null;
-    newCampaign((Math.random() * 2 ** 31) | 0);
-    persist(); refresh();
+    newCampaign((Math.random() * 2 ** 31) | 0, null);
+    persist(); refresh(); showTitle();
     return;
   }
   b.dataset.armed = '1'; b.textContent = 'Tap again to restart: the campaign is lost'; b.classList.add('armed');
 });
 
-/** v2 saves (before interludes): give every soldier a personality and empty traits; mid-mission units get event counters. */
-function migrateV2() {
-  for (const s of G.roster) { s.traits ??= []; s.bonds ??= []; s.signature ??= null; if (!s.persona) s.persona = freePersona(); }
-  for (const u of G.battle?.units || []) { u.cared ??= []; u.caredBy ??= []; u.weaponWins ??= 0; u.boom ??= null; u.shrugged ??= false; }
-  if (G.battle) G.battle.omen ??= null;
-  if (G.mission) G.mission.bonusXp ??= {};
-  G.v = 3;
-}
-/** v3 saves (before the base): the campaign carries on at base. A mission in progress is called off and its kit returned. */
-function migrateV3() {
-  if (G.battle && G.phase !== 'DEBRIEF') for (const u of G.battle.units) for (const it of [u.weapon, u.armor, u.util]) if (it) G.armory[it] = (G.armory[it] || 0) + 1;
-  for (const s of G.roster) { s.spec ??= freeSpec(s.cls); s.fatigue ??= 0; s.traits = (s.traits || []).map((t) => (t === 'DEMOLITIONS' ? 'SAPPER' : t)); }
-  for (const k of KITS) G.armory[k] ??= 0;
-  G.bp = 3;
-  G.base = { lv: { CMD: 1, INTEL: 1, MED: 1, ENG: 1, LOG: 1, BARRACKS: 1 }, beds: [], damaged: {}, offers: [] };
-  G.v = 4;
-  beginBase(false);
-}
 function start(data) {
   let save = data && data.save;
   if (!save) { try { save = localStorage.getItem(SAVE_KEY); } catch (e) { save = null; } }
   try { G = save ? JSON.parse(save) : null; } catch (e) { G = null; }
-  if (G?.v === 2 && G.mode === 'ops') migrateV2();
-  if (G?.v === 3 && G.mode === 'ops') migrateV3();
-  if (!G || G.v !== 4 || G.mode !== 'ops') newCampaign((Math.random() * 2 ** 31) | 0);
-  G.nemeses ??= []; G.captives ??= []; // saves from before officer fates
-  G.archive ??= []; // saves from before the archive start with an empty one
-  G.memorial ??= []; // saves from before the memorial wall: the fallen are back-filled from the roster when it is drawn
-  for (const s of G.roster) if (s.alive && s.persona === 'ROOKIE' && rankIdx(s.xp) > 0) growUp(s); // saves from before quirks: promoted rookies grow up now
+  // Saves from before version 5 (LAST SEASON) end: the story needs a campaign that starts from its first mission.
+  const ended = !!G && (G.v !== 5 || G.mode !== 'ops');
+  if (!G || ended) newCampaign((Math.random() * 2 ** 31) | 0, null);
   for (const k of Object.keys(G.armory || {})) if (!(G.armory[k] >= 0)) G.armory[k] = 0; // a save hurt by a half-applied launch: never negative gear
-  for (const s of G.roster) if (!s.face) s.face = freeFace(s); // saves from before portraits
   window.claude?.hot?.snapshot?.(() => ({ save: JSON.stringify(G) }));
   refresh();
-  if (!/[?&]test\b/.test(location.search)) showTitle(); // the test hook plays without the title card
+  if (!/[?&]test\b/.test(location.search)) showTitle(ended ? 'The campaign saved by an earlier version has ended. LAST SEASON starts over.' : ''); // the test hook plays without the title card
 }
 // Test hook: index.html?test exposes the rules API to automated play-throughs.
 if (/[?&]test\b/.test(location.search)) {
