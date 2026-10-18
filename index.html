@@ -670,6 +670,19 @@ dialog.sheet { margin: 0 0 0 auto; width: min(620px, 100vw); height: 100dvh; max
 .mem-list { display: grid; gap: 10px; }
 .mem { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; align-items: start; padding: 10px 12px; background: var(--panel-2); border-radius: var(--r-sm); border-left: 3px solid var(--line); }
 .mem .face { filter: grayscale(1) contrast(1.1) brightness(0.8); }
+.face.f24 { width: 24px; height: 24px; border-radius: 5px; } .log li.say-li { display: flex; gap: 8px; align-items: flex-start; } .log li.say-li .face { flex: none; margin-top: 1px; }
+.words .word { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; align-items: start; } .words .word > div { display: grid; gap: 3px; }
+.oi-say { position: static; margin-bottom: 4px; animation: none; } .oi-say span { font-size: 15.5px; }
+.face.clickable { cursor: zoom-in; } .face.clickable:hover { outline: 2px solid var(--accent); outline-offset: 1px; }
+.oi-top { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 16px; align-items: start; }
+.oi-top .idn-name { font-size: 15px; } .oi-status { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-top: 10px; }
+.oi-skills { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.oi-skills > div { display: grid; justify-items: start; gap: 4px; background: var(--panel-2); border-radius: var(--r-sm); padding: 10px; }
+.oi-skills b { font: 700 26px/1 var(--display); } .oi-skills small { color: var(--muted); }
+.oi-gearlist { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.oi-gear { display: grid; gap: 2px; background: var(--panel-2); border-radius: var(--r-sm); padding: 9px 11px; } .oi-gear small { color: var(--muted); font-size: 12.5px; }
+.no-nerve { display: inline-flex; gap: 6px; align-items: center; font-size: 13.5px; }
+@media (max-width: 560px) { .oi-skills { grid-template-columns: repeat(2, minmax(0, 1fr)); } .oi-gearlist { grid-template-columns: 1fr; } }
 .mem small { display: block; color: var(--muted); font-size: 12.5px; }
 .mem q { display: block; margin-top: 6px; font-style: italic; quotes: '\201C' '\201D'; }
 .mem .mem-by { margin-top: 2px; } .mem .mem-by::before { content: "\2014 "; }
@@ -746,6 +759,7 @@ dialog.sheet { margin: 0 0 0 auto; width: min(620px, 100vw); height: 100dvh; max
 </div>
 <dialog class="help" id="help" aria-labelledby="help-title"></dialog>
 <dialog class="sitrep" id="sitrep" aria-label="Situation report"></dialog>
+<dialog class="help opinfo" id="opinfo" aria-labelledby="opinfo-title"></dialog>
 <dialog class="help sheet" id="sheet" aria-labelledby="sheet-title"></dialog>
 <div id="toast" role="status" hidden></div>
 <div id="bubbles" aria-live="polite"></div>
@@ -1287,10 +1301,17 @@ const BARKS = {
 const SCENES = {
   IN: { HELO: ['The helicopter lifts off and banks toward the hills. Through the open door, the lights of the base shrink to nothing.', 'When the rotor noise swallows the talk, whose words stay with you?'],
     GROUND: ['The convoy pulls out of the gate onto the dark road. The trucks rattle; someone checks a radio for the third time.', 'When the talk dies down to engine noise, whose words stay with you?'],
-    FOOT: ['The team moves out past the last checkpoint. One last huddle in the treeline before the walk.', 'When the column goes silent, whose words stay with you?'] },
+    FOOT: ['The team moves out past the last checkpoint. One last huddle in the treeline before the walk.', 'When the column goes silent, whose words stay with you?'],
+    LSV: ['The light strike vehicles slip out of the gate with their lights off. Every rut in the track comes up through the seats.', 'When the engines settle into a growl, whose words stay with you?'],
+    BOAT: ['The boat pushes off from the jetty on a muffled motor. Black water, cold spray, and the far bank somewhere ahead.', 'When the motor drops to a murmur, whose words stay with you?'],
+    HALO: ['The ramp opens at twenty-five thousand feet. Oxygen hissing, the team waits in the red light for the green.', 'In the last minute before the jump, whose words stay with you?'],
+    MRAP: ['The armoured trucks grind out of the gate. Inside it is loud, hot and close, and everyone pretends to sleep.', 'When the armour plates stop rattling, whose words stay with you?'] },
   OUT: { HELO: ['The helicopter claws away from the clearing. Nobody speaks until the ground falls far behind.', 'On the long flight back, whose words stay with you?'],
     GROUND: ['The trucks roar back onto the road. The adrenaline drains out, and the talking starts.', 'On the drive back, whose words stay with you?'],
-    FOOT: ['The team pushes through the treeline toward friendly lines. Once it is safe, someone breaks the silence.', 'On the long walk home, whose words stay with you?'] },
+    FOOT: ['The team pushes through the treeline toward friendly lines. Once it is safe, someone breaks the silence.', 'On the long walk home, whose words stay with you?'],
+    LSV: ['The vehicles tear away down the track, guns still trained behind them. Only on the main road does anyone breathe.', 'On the rough ride back, whose words stay with you?'],
+    BOAT: ['The boat swings out into the current and the shore falls away into the dark. Somebody bails water and says nothing.', 'On the slow run back across the water, whose words stay with you?'],
+    MRAP: ['The armoured trucks roll out, rounds pinging off the plates for the first kilometre. Then just the engines.', 'On the long drive back behind the armour, whose words stay with you?'] },
 };
 // Slots: {weapon} {threat} {intel} {env} {mate} {objective} {ride} (IN); {feat} {boom} {mate} {fallen} {weapon} {threat} (OUT).
 // Operator names are unisex, so lines use names, never pronouns, for other operators.
@@ -1783,7 +1804,11 @@ function freeFace(s) {
   for (let k = 0; k < n; k++) { const f = set + (((h >>> 1) + k) % n + 1); if (!taken.has(f)) return f; }
   return set + ((h >>> 1) % n + 1);
 }
-const faceImg = (s, cls = '') => `<img class="face ${cls}" src="img/operators/${s.face}.jpg" width="90" height="90" alt="">`;
+/** A portrait. A living operator's portrait opens their details when clicked (sid: a mission unit's soldier, else a soldier's id). */
+const faceImg = (s, cls = '') => {
+  const sid = s.sid ?? s.id, live = sid != null && !!G?.roster?.some((x) => x.id === sid && x.alive);
+  return `<img class="face ${cls}${live ? ' clickable' : ''}" src="img/operators/${s.face}.jpg" width="90" height="90" alt="${live ? `Details: ${esc(s.name)}` : ''}"${live ? ` data-sid="${sid}" tabindex="0" role="button"` : ''}>`;
+};
 /** A personality nobody alive on the roster has yet (20 personalities, at most 12 operators). */
 function freePersona() {
   const taken = new Set(G.roster.filter((s) => s.alive).map((s) => s.persona));
@@ -2360,16 +2385,16 @@ function push() {
   if (b.state !== 'ROLLED') fail('Nothing to push.');
   if (r.pushed) fail('You can only push once.');
   if (outcomeOf(r) === 'SUCCESS') fail('Already a success.');
-  if (outcomeOf(r) === 'FAIL') { // pushing a failure takes Nerve, or a lieutenant's orders once a mission; a success at a cost pushes free
+  { // every push takes Nerve, or a lieutenant's orders once a mission
     const lt = !b.ordersUsed && team().find((u) => active(u) && rankIdx(soldier(u.sid).xp) >= LT);
     if (lt) { b.ordersUsed = true; log(`${lt.name}: "Again. Now." Orders.`, 'good'); }
     else if ((b.nerve || 0) > 0) { b.nerve--; log(`${unitById(r.lead).name} digs deep. Nerve ${b.nerve}/${b.nerveMax}.`, 'good'); }
-    else fail('No Nerve left to push a failure. Take a way past the stage, or accept it.');
+    else fail('No Nerve left to push. Take a way past the stage, or accept the roll.');
   }
   r.pushed = true;
   r.rerolled = [];
   r.dice = r.dice.map((d, i) => { if (d >= HIT) return d; r.rerolled.push(i); return d6(); });
-  // Pushing is free, but every 1 on the re-rolled dice is something going wrong, drawn from the situation.
+  // Every 1 on the re-rolled dice is something going wrong, drawn from the situation.
   r.comp = [];
   const ones = r.rerolled.filter((i) => r.dice[i] === 1).length, key = cur().choices[cur().pick];
   for (let n = 0; n < ones; n++) {
@@ -2545,11 +2570,11 @@ function waysOut(preview = false) { // preview: what a failed roll on screen wou
   way('INFILTRATOR', inf, 'Slip in alone and open the way', `${inf?.weapon ? `Leaves the ${ITEMS[inf.weapon].label.toLowerCase()} behind (lost), ` : ''}a minor hit`, 'Alone, light, silent. Then a door opens from the inside.');
   const sg = spec('SIGNALS');
   if (foes) way('SIGNALS', sg, 'Spoof their radio net', sg?.kit === 'CRYPTO' ? 'Nothing: the encrypted radio covers the trace' : '+1 alert at the next stage', 'Fake orders pull the guards away. They will work it out.');
-  if (foes) way('LINGUIST', spec('LINGUIST'), 'Talk your way through', 'A piece of gear as the bribe (you pick, lost)', 'The right words, the right accent, and something for their trouble.', 'ANY');
+  if (foes && gearChoices('ANY').length) way('LINGUIST', spec('LINGUIST'), 'Talk your way through', 'A piece of gear as the bribe (you pick, lost)', 'The right words, the right accent, and something for their trouble.', 'ANY');
   if (loc !== 'URBAN' && b.time > 2) way('PATHFINDER', spec('PATHFINDER'), 'Find a way that is not on the map', '+2 time, everyone +1 fatigue', 'The long way round, but a way.');
   if (HAUL_SITS.includes(key)) way('ENDURANCE', spec('ENDURANCE'), 'Haul everyone over', '+3 fatigue and a minor hit', 'Brute strength, one teammate at a time.');
   const forcer = fit.find((u) => u.id === st.lastLead) || fit[0] || team().find(ready);
-  way('FORCE', forcer, 'Force the way through', 'A hit, and a piece of gear (you pick, lost)', 'No finesse left. Through, whatever it takes.', 'ANY');
+  way('FORCE', forcer, 'Force the way through', gearChoices('ANY').length ? 'A hit, and a piece of gear (you pick, lost)' : 'A hit (nothing left to lose)', 'No finesse left. Through, whatever it takes.', 'ANY');
   return out;
 }
 const LOSS_TEXT = {
@@ -2657,7 +2682,7 @@ function takeWay(id, item = null) {
       log(`${u.name} fakes orders on their net and the guards pull out. They will work it out soon.`, 'good');
       return passStage(u, false);
     case 'LINGUIST':
-      lose(lost, 'given away as a bribe', `${u.name} talks them round. ${unitById(lost.uid).name}'s ${ITEMS[lost.it].label.toLowerCase()} changes hands.`);
+      if (lost) lose(lost, 'given away as a bribe', `${u.name} talks them round. ${unitById(lost.uid).name}'s ${ITEMS[lost.it].label.toLowerCase()} changes hands.`);
       return passStage(u, false);
     case 'PATHFINDER':
       b.time -= 2; tire(team().filter(ready));
@@ -2669,7 +2694,7 @@ function takeWay(id, item = null) {
       hurt(u, 0, 1, 'strains something doing it');
       return passStage(u, false);
     default: // FORCE
-      lose(lost, 'lost forcing the way through');
+      if (lost) lose(lost, 'lost forcing the way through');
       hurt(u, 0, 1, 'forces the way through');
       return passStage(u, false);
   }
@@ -3502,7 +3527,7 @@ function debrief(m) {
     if (u.droneLost) lost.push('Recon Drone (shot down)');
     s.xp += xp; s.kills += u.kills; s.missions++;
     const after = rankIdx(s.xp);
-    soldiers.push({ name: u.name, face: s.face, cls: s.cls, spec: s.spec, status, injuries, kills: u.kills, xp, rank: RANKS[after][1], promoted: s.alive && after !== before ? RANKS[after][1] : null });
+    soldiers.push({ sid: s.id, name: u.name, face: s.face, cls: s.cls, spec: s.spec, status, injuries, kills: u.kills, xp, rank: RANKS[after][1], promoted: s.alive && after !== before ? RANKS[after][1] : null });
   }
   if (anyOut) {
     for (let i = 0; i < b.kills; i++) if (chance(25)) { const it = pick(FACTIONS[m.faction].loot); G.armory[it] = (G.armory[it] || 0) + 1; gained.push(`${ITEMS[it].label} (captured from ${FACTIONS[m.faction].label.toLowerCase()})`); }
@@ -3673,15 +3698,19 @@ const draft = { mission: null, team: [], loadouts: {}, insertion: 'FOOT', extrac
 const plan = { key: null, opt: 0, ids: [], lead: null, gear: [], strike: false, abortArmed: false, way: null };
 
 let cmdSeq = null; // log position before the last command: big events after it show as banners until the next command
+/** Run a command all-or-nothing: if it fails partway, the game is put back exactly as it was, so a half-applied
+    command (gear already out of the armory, say) can never be saved or shown. */
 function run(fn) {
   cmdSeq = G?.battle?.seq || 0;
+  const before = JSON.stringify(G);
   try { fn(); } catch (e) {
+    G = JSON.parse(before);
     if (e instanceof Rule) return toast(e.message);
     console.error(e);
     return toast('Unexpected error: ' + e.message);
   }
   persist();
-  refresh();
+  try { refresh(); } catch (e) { console.error(e); toast('The screen failed to draw: ' + e.message + '. Your progress is saved.'); }
 }
 
 const PHASES = [['BASE', 'Base'], ['BRIEFING', 'Briefing'], ['INSERTION', 'Insertion'], ['OPERATION', 'Operation'], ['EXTRACTION', 'Extraction'], ['DEBRIEF', 'Debrief']];
@@ -4524,7 +4553,15 @@ const BRIEF_STEPS = ['Intel', 'Team & gear', 'Transport'];
 const SLOT_LABEL = { WEAPON: 'Weapon', ARMOR: 'Armour', KIT: 'Kit', UTILITY: 'Utility' };
 /** The briefing in three steps (intel, team and gear, transport) under a pinned bar with the budget and the way on. */
 function renderBriefing() {
+  if (G.phase !== 'BRIEFING') return refresh(); // a stale handler must never draw the plan over another phase
   syncDraft();
+  // Never equip more than the armory holds: anything over-allocated comes off, last-equipped first.
+  for (let left = remaining(), guard = 0; Object.values(left).some((n) => n < 0) && guard < 40; left = remaining(), guard++) {
+    const it = Object.keys(left).find((k) => left[k] < 0);
+    const id = [...draft.team].reverse().find((x) => Object.values(draft.loadouts[x] || {}).includes(it)), l = draft.loadouts[id];
+    if (!l) break;
+    for (const slot of Object.keys(l)) if (l[slot] === it) { l[slot] = null; break; }
+  }
   const m = G.mission, left = remaining(), step = draft.step;
   for (const f of ['insertion', 'extraction']) if (vehBlock(m, draft[f], f === 'insertion' ? 'ins' : 'ext')) draft[f] = 'FOOT';
   const cost = VEH[draft.insertion].cost + VEH[draft.extraction].cost;
@@ -4542,7 +4579,7 @@ function renderBriefing() {
     const opts = allowed.map((k) => {
       const n = (left[k] || 0) + (cur === k ? 1 : 0);
       if (n <= 0 && cur !== k) return '';
-      return `<option value="${k}" ${cur === k ? 'selected' : ''}>${ITEMS[k].label} (${n})</option>`;
+      return `<option value="${k}" ${cur === k ? 'selected' : ''}>${ITEMS[k].label}</option>`; // no stock counts: the armory decides what is offered
     }).join('');
     return `<label class="slot"><span>${SLOT_LABEL[slot]}</span><select id="lo-${sid}-${slot}" data-sid="${sid}" data-slot="${slot}"><option value="">${slot === 'WEAPON' ? 'Handgun only' : `No ${SLOT_LABEL[slot].toLowerCase()}`}</option>${opts}</select></label>`;
   };
@@ -4660,7 +4697,7 @@ function renderReport() {
 
 // ------------------------------------------------------------------ transit scenes: the interlude and the insertion / extraction as one screen
 function renderTransit() {
-  const m = G.mission, it = interlude(), inbound = it.phase === 'IN', [scene, prompt] = SCENES[it.phase][it.veh], picked = it.pick != null;
+  const m = G.mission, it = interlude(), inbound = it.phase === 'IN', [scene, prompt] = SCENES[it.phase][it.veh] || SCENES[it.phase].FOOT, picked = it.pick != null;
   const cards = it.opts.map((o, i) => {
     const u = unitById(o.uid), s = soldier(u.sid), on = it.pick === i;
     return `<button class="line ${on ? 'on' : ''} ${picked && !on ? 'faded' : ''}" type="button" data-line="${i}" ${picked ? 'disabled' : ''} aria-pressed="${on}">
@@ -4856,14 +4893,13 @@ function rollSceneHtml(st, sit) {
         ${out === 'PARTIAL' ? '' : `<button class="btn primary big" type="button" data-act="accept">${out === 'SUCCESS' ? 'Continue' : 'Accept failure'}</button>`}</div>
     </div>`;
 }
-/** Push: free on a success at a cost; on a failure it takes Nerve, or a lieutenant's orders once a mission. */
+/** Push takes 1 Nerve, or a lieutenant's orders once a mission. With neither, there is no push: only a note why. */
 function pushBtn(r, out, misses) {
   const b = B(), what = `re-roll ${misses} miss${misses === 1 ? '' : 'es'}, every 1 costs you`;
-  if (out === 'PARTIAL') return `<button class="btn" type="button" data-act="push">Push: ${what}</button>`;
   const lt = !b.ordersUsed && team().find((u) => active(u) && rankIdx(soldier(u.sid).xp) >= LT);
   if (lt) return `<button class="btn push-nerve" type="button" data-act="push">${ico('star')}Push on ${esc(firstName(lt))}'s orders (free, once): ${what}</button>`;
   if (b.nerve > 0) return `<button class="btn push-nerve" type="button" data-act="push">${ico('star')}Push: spend 1 Nerve (${b.nerve} left), ${what}</button>`;
-  return `<button class="btn" type="button" disabled title="Nerve comes with rank: promoted operators bring more">${ico('star')}Push: no Nerve left</button>`;
+  return `<span class="muted no-nerve" title="Nerve comes with rank: promoted operators bring more">${ico('star')}No Nerve left to push</span>`;
 }
 /** Injuries as named chips with their effect. */
 function injHtml(u) {
@@ -4933,7 +4969,7 @@ function drawerHtml() {
   const b = B(), m = G.mission, carrier = b.carrier != null ? unitById(b.carrier) : null;
   const st = (t) => ({ RETRIEVE_INTEL: carrier ? 'Carrier must get out' : 'Not secured', ELIMINATE_HVT: b.hvtKilled ? 'Confirmed dead' : 'Alive', NO_CASUALTIES: team().some((u) => u.dead) ? 'Failed' : 'So far, so good', UNDETECTED: b.alerted ? 'Failed' : 'Undetected' })[t];
   return `<aside class="card drawer"><div><h3>Objectives</h3><div class="obj"><div><b>Primary</b>${OBJ[m.primary].label}: ${st(m.primary)}</div><div><b style="color:var(--muted)">Secondary</b>${OBJ[m.secondary].label}: ${st(m.secondary)}</div></div></div>
-    <div class="log"><h3>Log</h3><ol>${b.log.slice(-60).reverse().map((e) => `<li class="ev-${e.kind}">${esc(e.text)}</li>`).join('')}</ol></div></aside>`;
+    <div class="log"><h3>Log</h3><ol>${b.log.slice(-60).reverse().map((e) => (e.face ? `<li class="ev-${e.kind} say-li">${faceImg(e, 'f24')}<span>${esc(e.text)}</span></li>` : `<li class="ev-${e.kind}">${esc(e.text)}</li>`)).join('')}</ol></div></aside>`;
 }
 function renderOps() {
   const b = B(), st = cur(), sit = sitOf(st);
@@ -5063,7 +5099,7 @@ function renderDebrief() {
     ${d.aar?.length ? `<div class="card aar"><div class="aar-head"><h3>After-action report</h3><span class="stamp mini ok">Filed</span></div><p>${d.aar.map(esc).join(' ')}</p></div>` : ''}
     ${d.fallen?.length ? `<div class="card memorial"><h3>The fallen</h3><div class="mem-list">${d.fallen.map((f) => `<div class="mem">${f.face ? faceImg(f, 'f48') : ''}<div><b>${esc(f.rank)} ${esc(f.name)}</b> <span class="stamp mini">${f.missing ? 'MIA' : 'KIA'}</span>
       ${f.line ? `<q>${esc(f.line)}</q><small class="mem-by">${esc(f.by)}</small>` : ''}</div></div>`).join('')}</div><p class="muted" style="margin:10px 0 0">Their names go on the wall at base.</p></div>` : ''}
-    ${d.words?.length ? `<div class="card"><h3>Words that stayed</h3><div class="words">${d.words.map((w) => `<div><span class="muted">${w.when} · ${esc(w.name)}</span><q>${esc(w.text)}</q><small>${esc(w.reveal)}</small></div>`).join('')}</div></div>` : ''}
+    ${d.words?.length ? `<div class="card"><h3>Words that stayed</h3><div class="words">${d.words.map((w) => { const ws = G.roster.find((x) => x.name === w.name); return `<div class="word">${ws ? faceImg(ws, 'f40') : ''}<div><span class="muted">${w.when} · ${esc(w.name)}</span><q>${esc(w.text)}</q><small>${esc(w.reveal)}</small></div></div>`; }).join('')}</div></div>` : ''}
     <div class="card split"><div><h3>Gear lost</h3>${list(d.lost, 'Nothing lost.')}</div><div><h3>Gear gained</h3>${list(d.gained, 'Nothing recovered.')}</div>${d.notes.length ? `<div><h3>Notes</h3>${list(d.notes, '')}</div>` : ''}</div>
     ${G.recruits > 0 ? `<div class="card"><h3>Replacements · ${G.recruits} to assign</h3><p class="muted">Pick the class of each new recruit.</p>
       <div class="class-pick">${Object.entries(CLASSES).map(([id, c]) => `<button class="btn class-card" type="button" data-enlist="${id}">${classChip(id)}<small>${c.ability}</small></button>`).join('')}</div></div>` : ''}
@@ -5083,8 +5119,8 @@ function helpHtml() {
     ['Alert', `How awake the enemy is, 0 to ${ALERT_MAX}. At ${ALERT_TIER} they are alerted and shoot back harder; at ${ALERT_MAX} a quick reaction force forces you out.`],
     ['Time', 'Every action, route and rest spends time. When it runs out, the team has to leave.'],
     ['Difficulty', 'How many successes (dice showing 5 or 6) a test needs. One short is a success at a cost you choose.'],
-    ['Push', 'Re-roll the misses once. A success at a cost pushes free; a failure costs 1 Nerve (or once a mission, a lieutenant giving the order). Every 1 on the new dice is something going wrong: a radio call, a bite, a jam, a dropped magazine.'],
-    ['Nerve', 'Grit for pushing failures, brought to the team by rank: Private 0, Private First Class and Corporal 1, Sergeant and Staff Sergeant 2, Lieutenant 3. Shown next to Alert and Time.'],
+    ['Push', 'Re-roll the misses once, for 1 Nerve (or once a mission, a lieutenant giving the order). No Nerve, no push. Every 1 on the new dice is something going wrong: a radio call, a bite, a jam, a dropped magazine.'],
+    ['Nerve', 'Grit for pushing a roll, brought to the team by rank: Private 0, Private First Class and Corporal 1, Sergeant and Staff Sergeant 2, Lieutenant 3. Shown next to Alert and Time.'],
     ['Rank', 'Promotions add dice (Corporal +1, Staff Sergeant +2) and Nerve. A sergeant leading has the best-armoured supporter step in front of the first hit; a lieutenant gives one free push a mission. A better barracks hires higher ranks.'],
     ['Ways out', 'After a failure at a stage: a detour to the other entry, a breaching charge, a specialist doing what they do best, or forcing it. Each passes the stage at a price in time, fatigue, wounds or gear, and lost gear is gone for good.'],
     ['Lead and support', `The lead rolls their own dice for the skill and takes the first hit; each of up to ${MAX_SUPPORT} supporters adds 1 die.`],
@@ -5105,7 +5141,7 @@ function helpHtml() {
         <li><b>Commit operators.</b> Tap an operator to add or stand them down; Make lead picks who rolls. More bodies make Stealth noisier (Scouts and infiltrators excepted), and only committed operators get shot.</li>
         <li><b>Everyone carries a handgun.</b> A primary weapon is optional. A lead with only the handgun rolls ${HANDGUN_PENALTY} Assault die fewer, except in close quarters or as a CQB specialist.</li>
         <li><b>Spend gear</b> for extra dice, then execute. Every 5 or 6 is a success. Meet the difficulty to succeed; one short is a success at a cost you choose.</li>
-        <li><b>Push</b> to re-roll the misses: free on a success at a cost, 1 <b>Nerve</b> on a failure (Nerve comes with rank), and every 1 rolled costs you something. A <b>failure</b> costs time and raises the alarm, and offers the <b>ways out</b> on the spot: go round, blow through, let a specialist do it, or force it, each at a price. An approach marked <b>No real chance as you are</b> (under 5%) needs gear the team lacks or one of these desperate measures; when nothing at a stage can work, they open without a failure.</li></ol></div>
+        <li><b>Push</b> to re-roll the misses for 1 <b>Nerve</b> (Nerve comes with rank), and every 1 rolled costs you something. A <b>failure</b> costs time and raises the alarm, and offers the <b>ways out</b> on the spot: go round, blow through, let a specialist do it, or force it, each at a price. An approach marked <b>No real chance as you are</b> (under 5%) needs gear the team lacks or one of these desperate measures; when nothing at a stage can work, they open without a failure.</li></ol></div>
       <div><h3>Glossary</h3><dl class="gloss">${terms.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl></div>
     </div>`;
 }
@@ -5118,6 +5154,84 @@ function openHelp() {
   d.showModal();
 }
 $('#help').addEventListener('click', (e) => { if (e.target === e.currentTarget) e.currentTarget.close(); }); // a tap on the backdrop closes it
+
+// ------------------------------------------------------------------ operator details: a click on any living operator's portrait
+/** What an operator says at base when you look them up, by personality and how they are. {fallen}: lost on the last mission. */
+const BASE_LINES = {
+  STOIC: { FIT: "Kit is clean. I am ready when you are.", TIRED: "I can go. I would rather sleep first.", WOUNDED: "It knits. Put me back on the board when it does.", BED: "The doctor says rest. I am resting. Aggressively.", GRIEF: "{fallen} knew the risks. So do I. Next op." },
+  JOKER: { FIT: "Reporting for duty. And for snacks. Mostly snacks.", TIRED: "I am so tired I laughed at my own joke. Twice.", WOUNDED: "Doc says I will live. I asked for a second opinion. Same answer, sadly.", BED: "Room service here is terrible. Five stars.", GRIEF: "{fallen} used to laugh at my worst jokes. Nobody laughs now." },
+  FATALIST: { FIT: "Another day borrowed. Let us spend it.", TIRED: "Tired. The grave will be restful, at least.", WOUNDED: "Missed me by a few centimetres. Next time it will not.", BED: "They patch us up so we can be broken somewhere new.", GRIEF: "{fallen} went first. The rest of us are just waiting our turn." },
+  ROOKIE: { FIT: "When is the next op? I have been practising my knots.", TIRED: "Is it always this exhausting? Nobody told me it was this exhausting.", WOUNDED: "It hurts more than in training. A lot more.", BED: "The nurse says I am lucky. I do not feel lucky.", GRIEF: "{fallen} was teaching me. Who teaches me now?" },
+  GEARHEAD: { FIT: "Stripped, oiled, zeroed. My rifle is happier than I am.", TIRED: "Even the drones need charging. So do I.", WOUNDED: "Worst part is I cannot hold a screwdriver steady.", BED: "Brought my toolkit to the ward. The nurse confiscated it.", GRIEF: "I cleaned {fallen}'s gear last night. It seemed wrong to leave it dirty." },
+  GLORY: { FIT: "Put me on the hard one. The one they write about.", TIRED: "Heroes need sleep too. Do not tell anyone.", WOUNDED: "Scars make better stories. This one will be a classic.", BED: "Lying in a bed while somebody else gets the glory. Torture.", GRIEF: "{fallen} deserved a medal. I will make sure people remember." },
+  GUARDIAN: { FIT: "Whoever goes out next, I want to be next to them.", TIRED: "I am tired, but put me in if someone needs covering.", WOUNDED: "I cannot cover anyone like this. That is the worst of it.", BED: "While I lie here, who is watching their backs?", GRIEF: "I should have been there for {fallen}. I should have been closer." },
+  SUPERSTITIOUS: { FIT: "Same socks, same knife, same left boot first. We are good.", TIRED: "Bad luck to go out tired. Everybody knows that.", WOUNDED: "I broke the ritual. Of course I got hit.", BED: "Third bed from the door. Never the third bed. Move me.", GRIEF: "{fallen} forgot the charm. I keep telling myself that was it." },
+  MERC: { FIT: "Paid up and ready. Point me at a payday.", TIRED: "Overtime rates apply when I am this tired.", WOUNDED: "Is this covered? Tell me this is covered.", BED: "Medical leave. On full pay, I trust.", GRIEF: "{fallen} had money owed. Make sure it reaches the family." },
+  PLANNER: { FIT: "I have three plans for the next op, and a fourth for when they fail.", TIRED: "My plans are getting sloppy. That means I need sleep.", WOUNDED: "I did not plan for this. I will next time.", BED: "Using the bed rest to rework our exfil drills.", GRIEF: "I keep replaying {fallen}'s last stage. Where was the gap?" },
+  LONER: { FIT: "Fine. Just leave me alone until we go.", TIRED: "Tired. Quiet. Leave it there.", WOUNDED: "It is nothing. Stop looking at it.", BED: "Too many people in this ward. Too much talking.", GRIEF: "I did not know {fallen} well. I wish I had bothered." },
+  JUNKIE: { FIT: "Base is boring. When do we go out again?", TIRED: "Running on fumes. Feels kind of good, honestly.", WOUNDED: "That was a rush. Shame about the hole.", BED: "Bed rest. The worst drug there is.", GRIEF: "{fallen} lived loud. Felt the same pull I do. Look where it went." },
+  HOMESICK: { FIT: "Got a letter from home. I am good. I am really good.", TIRED: "Tired. Missing my own bed most of all.", WOUNDED: "Do not tell my mother about this one.", BED: "The ward smells like the hospital back home. Not in a good way.", GRIEF: "Somebody has to write to {fallen}'s family. Let it be someone who knew them." },
+  PHILOSOPHER: { FIT: "A quiet day is a gift. I am unwrapping it slowly.", TIRED: "Fatigue is just the body keeping score.", WOUNDED: "Pain is information. Today it is saying a great deal.", BED: "Lying still teaches you how loud your thoughts are.", GRIEF: "{fallen} is beyond all this now. I cannot decide if I envy them." },
+  AVENGER: { FIT: "Give me the next op. Somebody out there still owes us.", TIRED: "I will sleep when the list is shorter.", WOUNDED: "Every stitch is another name on the list.", BED: "Bed rest. Fine. It gives me time to plan.", GRIEF: "{fallen} goes on the list. The list gets paid." },
+  PERFECTIONIST: { FIT: "Drilled the entry procedure twelve times today. Thirteen tomorrow.", TIRED: "I am making mistakes. Tired people make mistakes. I hate mistakes.", WOUNDED: "I was half a second slow. I keep going over it.", BED: "The stitches are uneven. I asked them to redo them.", GRIEF: "One mistake took {fallen}. I am still looking for whose." },
+  OPTIMIST: { FIT: "Good day today. Coffee is hot, sky is clear, we are all here.", TIRED: "A bit tired, but nothing a good night will not fix.", WOUNDED: "Could have been worse! Honestly, could have been much worse.", BED: "Clean sheets, three meals. Practically a holiday.", GRIEF: "I keep thinking {fallen} will walk in, late as always." },
+  VETERAN: { FIT: "Seen worse bases, worse food, worse officers. This will do.", TIRED: "My knees know the weather before the met team does.", WOUNDED: "Another one for the collection. I stopped counting years ago.", BED: "I know this ward. I know which bed creaks.", GRIEF: "Another name for the wall. They do not get easier, they just get familiar." },
+  BELIEVER: { FIT: "Whatever comes next, it is worth doing. Send me.", TIRED: "Tired, but the work does not stop because we are.", WOUNDED: "A small price. The cause is bigger than one body.", BED: "I pray, I heal, I go back out.", GRIEF: "{fallen} believed in this. We honour that by finishing it." },
+  QUIET: { FIT: "Ready.", TIRED: "Tired.", WOUNDED: "Healing.", BED: "Resting.", GRIEF: "{fallen}." },
+};
+const BASE_MOOD = { FIT: 'good', TIRED: 'neutral', WOUNDED: 'bad', BED: 'neutral', GRIEF: 'bad' };
+/** How an operator is at base, most pressing first, and who they are grieving if anyone was lost on the last mission. */
+function baseStatus(s) {
+  const lost = (G.memorial || []).filter((r) => r.n === G.flown);
+  const mate = lost.find((r) => (s.bonds || []).some((id) => soldier(id)?.name === r.name)) || lost[0];
+  const state = inBed(s.id) ? 'BED' : s.recovery ? 'WOUNDED' : lost.length ? 'GRIEF' : soldierFat(s) ? 'TIRED' : 'FIT';
+  return { state, fallen: mate ? mate.name.split(' ')[0] : '' };
+}
+/** The base line as a speech bubble for the details window. */
+function baseSayHtml(s) {
+  const { state, fallen } = baseStatus(s), line = (BASE_LINES[s.persona] || BASE_LINES.STOIC)[state].replace(/\{fallen\}/g, fallen);
+  return `<div class="bubble ${BASE_MOOD[state]} oi-say" role="status"><b>${ico({ good: 'check', bad: 'warn', neutral: 'radio' }[BASE_MOOD[state]])}${esc(s.name)}</b><span>${esc(line)}</span></div>`;
+}
+/** Everything about one operator, as things stand now: in an operation their live state, in the briefing their planned gear. */
+function opInfoHtml(sid) {
+  const s = soldier(sid), ri = rankIdx(s.xp), nx = nextXp(s.xp), inOp = G.phase === 'OPERATION' && !!G.battle;
+  const u = inOp ? G.battle.units.find((x) => x.sid === sid) : null;
+  const planned = G.phase === 'BRIEFING' && draft.team.includes(sid) ? draft.loadouts[sid] : null;
+  const gear = u ? { weapon: u.weapon, armor: u.armor, kit: u.kit, utility: u.util } : planned;
+  const live = u && active(u), dice = (k) => (live ? opDice(u, k) : diceFor(s.cls, s.xp, gear ? [gear.weapon, gear.armor, gear.kit] : [], k));
+  const fat = u ? fatState(u) : soldierFat(s), fatN = u ? u.fat : s.fatigue || 0;
+  const status = u ? (u.dead ? '<span class="stamp mini">KIA</span>' : u.missing ? '<span class="stamp mini">MIA</span>' : injHtml(u))
+    : s.recovery ? `<span class="chip warn">Recovering · ${s.recovery} mission${s.recovery > 1 ? 's' : ''}</span>${s.healing?.length ? ` <span class="muted">${s.healing.map(esc).join(', ')}</span>` : ''}` : '<span class="unhurt">Fit for duty</span>';
+  const slot = (label, it, fallback) => `<div class="oi-gear"><span class="muted">${label}</span><b>${it ? ITEMS[it].label : fallback}</b>${it ? `<small>${esc(itemSummary(it))}</small>` : ''}</div>`;
+  return `<div class="help-head"><h2 id="opinfo-title">${esc(s.name)}</h2><button class="btn ghost icon" type="button" id="opinfo-close" aria-label="Close">${ico('cross')}</button></div>
+    <div class="help-body">
+      ${G.phase === 'BASE' ? baseSayHtml(s) : ''}
+      <div class="oi-top"><img class="face f90" src="img/operators/${s.face}.jpg" width="90" height="90" alt="">
+        <div><div class="idn-name">${rankHtml(s.xp)}<span class="muted">${RANKS[ri][1]}</span></div>
+          <div class="idn-chips">${classChip(s.cls)}${specChip(s)}<span class="muted">${PERSONAS[s.persona].label}</span>${traitChips(s)}</div>
+          <div class="oi-status">${status}<span class="fat fat-${fat}">${FAT_LABEL[fat]} · fatigue ${fatN}</span>${RANK_NERVE[ri] ? `<span class="chip nerve-chip">${ico('star')}Nerve ${RANK_NERVE[ri]}</span>` : ''}</div></div></div>
+      <div><h3>Skills ${live ? '<small class="muted">as they are now: gear, injuries, fatigue</small>' : gear ? '<small class="muted">with the planned gear</small>' : '<small class="muted">without gear</small>'}</h3>
+        <div class="oi-skills">${Object.keys(SKILLS).map((k) => `<div>${skillTag(k)}<b>${dice(k)}</b><small>dice</small></div>`).join('')}</div></div>
+      <div><h3>Gear</h3>${gear ? `<div class="oi-gearlist">${slot('Weapon', gear.weapon, 'Handgun only')}${slot('Armour', gear.armor, 'None')}${slot('Kit', gear.kit, 'None')}${slot('Utility', gear.utility, 'None')}</div>`
+        : '<p class="muted" style="margin:0">Not kitted out: gear is chosen in the briefing.</p>'}</div>
+      <div><h3>Abilities</h3><p style="margin:0">${CLASSES[s.cls].ability} <span class="spec-desc">${SPECS[s.spec].desc}</span></p></div>
+      <div><h3>Record</h3><dl class="gloss"><dt>Experience</dt><dd>${s.xp} XP${nx > 0 ? `, ${nx - s.xp} to ${RANKS[ri + 1][1]}` : ', highest rank'}</dd><dt>Operations</dt><dd>${s.missions}</dd><dt>Kills</dt><dd>${s.kills}${u ? ` (${u.kills} this mission)` : ''}</dd></dl></div>
+    </div>`;
+}
+function openOpInfo(sid) {
+  if (!soldier(sid)) return;
+  const d = $('#opinfo');
+  d.innerHTML = opInfoHtml(sid);
+  $('#opinfo-close').addEventListener('click', () => d.close());
+  closeMenu();
+  sfx('click');
+  if (!d.open) d.showModal();
+}
+$('#opinfo').addEventListener('click', (e) => { if (e.target === e.currentTarget) e.currentTarget.close(); });
+// Caught before anything else, so a portrait inside a card or button opens the details instead of toggling the card.
+const faceClick = (e) => { const f = e.target.closest?.('.face[data-sid]'); if (!f || f.closest('#opinfo')) return; e.preventDefault(); e.stopPropagation(); openOpInfo(+f.dataset.sid); };
+document.addEventListener('click', faceClick, true);
+document.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('.face[data-sid]')) faceClick(e); }, true);
 
 // ------------------------------------------------------------------ boot
 const menuOpen = () => !$('#menu').hidden;
@@ -5179,6 +5293,7 @@ function start(data) {
   if (!G || G.v !== 4 || G.mode !== 'ops') newCampaign((Math.random() * 2 ** 31) | 0);
   G.nemeses ??= []; G.captives ??= []; // saves from before officer fates
   G.memorial ??= []; // saves from before the memorial wall: the fallen are back-filled from the roster when it is drawn
+  for (const k of Object.keys(G.armory || {})) if (!(G.armory[k] >= 0)) G.armory[k] = 0; // a save hurt by a half-applied launch: never negative gear
   for (const s of G.roster) if (!s.face) s.face = freeFace(s); // saves from before portraits
   window.claude?.hot?.snapshot?.(() => ({ save: JSON.stringify(G) }));
   refresh();
