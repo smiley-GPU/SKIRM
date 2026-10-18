@@ -1,4 +1,4 @@
-# SKIRMISH: modern tactical special operations (proof of concept)
+# LAST SEASON: modern tactical special operations (proof of concept)
 
 A campaign of small special-operations missions, played as an **ops board**: each mission is a route of decision stages resolved with dice and visible odds.
 

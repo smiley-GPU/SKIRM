@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>SKIRMISH Ops Board</title>
+<title>LAST SEASON Ops Board</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -66,7 +66,7 @@ button, select, input { font: inherit; }
 }
 .brand { font: 700 22px/1 var(--display); letter-spacing: 0.22em; }
 .brand span { font: 500 14px/1 var(--body); letter-spacing: 0.02em; color: var(--muted); margin-left: 8px; }
-.phases { display: flex; gap: 4px; align-items: center; flex: 1; min-width: 0; font-size: 13px; font-weight: 600; }
+.phases { display: flex; gap: 4px; align-items: center; flex: 1; min-width: 0; overflow: hidden; font-size: 13px; font-weight: 600; }
 .phases span { color: var(--dim); padding: 4px 10px; border-radius: 99px; white-space: nowrap; }
 .phases span.done { color: var(--muted); }
 .phases span.on { color: var(--accent-ink); background: var(--accent); }
@@ -710,6 +710,7 @@ dialog.sheet { margin: 0 0 0 auto; width: min(620px, 100vw); height: 100dvh; max
   .ops-body.with-drawer { grid-template-columns: minmax(0, 1fr); }
   .drawer { position: static; max-height: none; }
   .log ol { max-height: 320px; }
+  .brand { letter-spacing: 0.14em; } .brand span { display: none; } /* the name and the phase steps share the bar */
 }
 @media (max-width: 980px) {
   .base, .brief-grid { grid-template-columns: 1fr; }
@@ -756,7 +757,7 @@ dialog.sheet { margin: 0 0 0 auto; width: min(620px, 100vw); height: 100dvh; max
 <body>
 <div id="app">
   <header class="top">
-    <div class="brand">SKIRMISH <span>ops board</span></div>
+    <div class="brand">LAST SEASON <span>ops board</span></div>
     <nav class="phases" id="phases" aria-label="Mission phase"></nav>
     <div class="stats" id="stats"></div>
     <div class="top-actions">
@@ -4581,8 +4582,8 @@ function startWeather() {
 /** Title card on load: the key art, the name, and the way in. The test hook skips it. */
 function showTitle() {
   const el = document.createElement('div');
-  el.className = 'title'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'SKIRMISH');
-  el.innerHTML = `${artSlot('KEYART', 'key')}<div class="title-in"><div class="title-logo">SKIRMISH</div><p>Special operations, one decision at a time.</p>
+  el.className = 'title'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'LAST SEASON');
+  el.innerHTML = `${artSlot('KEYART', 'key')}<div class="title-in"><div class="title-logo">LAST SEASON</div><p>Special operations, one decision at a time.</p>
     <button class="btn primary big" type="button">${G.flown || G.phase !== 'BASE' ? 'Continue campaign' : 'Start campaign'}</button></div>`;
   document.body.append(el);
   const go = el.querySelector('button');
