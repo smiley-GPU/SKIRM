@@ -526,8 +526,8 @@ body { background-image: var(--grain); }
 /* rain, storms and smoke darken the scene under them: the art loses light and colour, the map dims */
 .banner.wx-rain, .banner.wx-smoke { --bri: 0.62; --sat: 0.75; }
 .banner.wx-storm { --bri: 0.48; --sat: 0.65; --con: 1.12; }
-.tmap:is(.wx-rain, .wx-smoke) :is(.grid, .minor, .major, .sea, .shore, .river, .field, .tree, .block) { opacity: 0.65; } /* terrain only: the route stays bright */
-.tmap.wx-storm :is(.grid, .minor, .major, .sea, .shore, .river, .field, .tree, .block) { opacity: 0.5; }
+.tmap:is(.wx-rain, .wx-smoke) :is(.grid, .minor, .major, .shore, .shade, .water, .cover, .trees, .field, .block, .stream, .road, .track) { opacity: 0.65; } /* terrain only: the route stays bright */
+.tmap.wx-storm :is(.grid, .minor, .major, .shore, .shade, .water, .cover, .trees, .field, .block, .stream, .road, .track) { opacity: 0.5; }
 .tmap:is(.wx-rain, .wx-storm, .wx-smoke) { --bg-map: #0f1110; } .tmap.tod-NIGHT:is(.wx-rain, .wx-storm, .wx-smoke) { --bg-map: #050c08; }
 .banner canvas.wx, .tmap canvas.wx { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 3; pointer-events: none; }
 .card > .banner.bleed { margin: -18px -20px 14px; border-radius: var(--r-lg) var(--r-lg) 0 0; }
@@ -543,32 +543,68 @@ body { background-image: var(--grain); }
 .hpic.art { padding: 0; }
 .hpic.redacted { background: repeating-linear-gradient(45deg, #07090c 0 6px, #0d1014 6px 12px); color: var(--dim); font: 700 34px/1 var(--display); }
 .foe { display: flex; gap: 12px; align-items: flex-start; margin: 0 0 18px; } .foe .sit-text { margin: 0; }
-/* tactical map: day reads like a printed sheet, dusk warm, night through night vision */
-.tmap { --ink: 214, 190, 136; --bg-map: #191b16; --water: rgba(80, 130, 150, 0.35); position: relative; margin-bottom: 12px; border-radius: var(--r); overflow: hidden; background: var(--bg-map); border: 1px solid var(--line-soft); }
-.tmap.tod-DUSK { --ink: 236, 160, 100; --bg-map: #1d1612; --water: rgba(120, 100, 130, 0.35); }
-.tmap.tod-NIGHT { --ink: 120, 235, 150; --bg-map: #07120b; --water: rgba(60, 160, 120, 0.25); }
-.tmap::after { content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 2; background: radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.45)); }
-.tmap svg { display: block; width: 100%; height: auto; }
+/* tactical map: day reads like a printed sheet, dusk warm, night through night vision; red is hostile, cyan friendly */
+.tmap { --ink: 214, 190, 136; --bg-map: #191b16; --water: rgba(80, 130, 150, 0.45); --foe: #f0716a; position: relative; border-radius: var(--r) var(--r) 0 0; overflow: hidden; background: var(--bg-map); border: 1px solid var(--line-soft); border-bottom: 0; }
+.tmap.tod-DUSK { --ink: 236, 160, 100; --bg-map: #1d1612; --water: rgba(90, 120, 140, 0.5); }
+.tmap.tod-NIGHT { --ink: 120, 235, 150; --bg-map: #07120b; --water: rgba(60, 160, 120, 0.35); }
+.tmap::after { content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 2; background: radial-gradient(ellipse at center, transparent 60%, rgba(0, 0, 0, 0.4)); }
+.tmap-scroll { overflow-x: auto; scrollbar-width: thin; }
+.tmap svg { display: block; width: 100%; height: auto; max-height: 300px; }
+.tmap text { font-family: var(--mono); }
+.tmap .shade { opacity: 0.6; }
+.tmap .water { fill: var(--water); }
+.tmap .cover { fill: rgba(var(--ink), 0.07); }
+.tmap .trees circle { fill: rgba(var(--ink), 0.16); }
+.tmap .reed { stroke: rgba(var(--ink), 0.3); stroke-width: 1; }
+.tmap .orchard circle { fill: rgba(var(--ink), 0.3); }
+.tmap .field { fill: none; stroke: rgba(var(--ink), 0.2); stroke-dasharray: 4 3; } .tmap .field.alt { fill: rgba(var(--ink), 0.035); }
+.tmap .block { fill: rgba(var(--ink), 0.12); stroke: rgba(var(--ink), 0.32); }
+.tmap .minor { stroke: rgba(var(--ink), 0.2); fill: none; stroke-width: 0.9; }
+.tmap .major { stroke: rgba(var(--ink), 0.45); fill: none; stroke-width: 1.4; }
+.tmap .shore { stroke: rgba(var(--ink), 0.6); fill: none; stroke-width: 1.4; }
+.tmap .cliff { stroke: rgba(var(--ink), 0.45); stroke-width: 1.1; fill: none; }
+.tmap .stream { fill: none; stroke: var(--water); stroke-width: 1.1; opacity: 0.8; stroke-linecap: round; stroke-linejoin: round; } .tmap .stream.big { stroke-width: 2.2; }
+.tmap .stream.wadi { stroke: rgba(var(--ink), 0.4); stroke-dasharray: 5 4; stroke-width: 1.4; }
+.tmap .road { fill: none; stroke: rgba(var(--ink), 0.55); stroke-width: 4.5; stroke-linecap: round; stroke-linejoin: round; }
+.tmap .road-in { fill: none; stroke: var(--bg-map); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.tmap .track { fill: none; stroke: rgba(var(--ink), 0.5); stroke-width: 1.3; stroke-dasharray: 6 3; }
 .tmap .grid path { stroke: rgba(var(--ink), 0.08); }
-.tmap .grid text, .tmap .scale text, .tmap .compass text { fill: rgba(var(--ink), 0.55); font: 600 10px var(--mono); }
+.tmap .grid text, .tmap .scale text, .tmap .compass text { fill: rgba(var(--ink), 0.55); font-size: 9px; }
 .tmap .compass text { text-anchor: middle; } .tmap .compass path { fill: rgba(var(--ink), 0.6); }
 .tmap .scale path { stroke: rgba(var(--ink), 0.6); fill: none; stroke-width: 1.5; }
-.tmap .minor { stroke: rgba(var(--ink), 0.2); fill: none; stroke-width: 1; }
-.tmap .major { stroke: rgba(var(--ink), 0.42); fill: none; stroke-width: 1.4; }
-.tmap .sea { fill: var(--water); } .tmap .shore { fill: none; stroke: rgba(var(--ink), 0.5); stroke-width: 1.5; }
-.tmap .river { fill: none; stroke: var(--water); stroke-width: 9; stroke-linecap: round; stroke-linejoin: round; }
-.tmap .field { fill: rgba(var(--ink), 0.03); stroke: rgba(var(--ink), 0.22); stroke-dasharray: 4 3; }
-.tmap .tree { fill: rgba(var(--ink), 0.16); }
-.tmap .block { fill: rgba(var(--ink), 0.1); stroke: rgba(var(--ink), 0.3); }
+.tmap .clab { fill: rgba(var(--ink), 0.7); font-size: 8px; text-anchor: middle; paint-order: stroke; stroke: var(--bg-map); stroke-width: 3px; }
+.tmap .spot { fill: rgba(var(--ink), 0.85); font-size: 9px; paint-order: stroke; stroke: var(--bg-map); stroke-width: 3px; }
+.tmap .pl { stroke: rgba(var(--ink), 0.28); stroke-dasharray: 10 4 2 4; }
+.tmap .pltxt { fill: rgba(var(--ink), 0.6); letter-spacing: 0.08em; }
+.tmap .feat { fill: none; stroke: var(--foe); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.tmap .feat.mine { stroke-dasharray: 3 3; fill: rgba(240, 113, 106, 0.08); } .tmap .feat.open { stroke-dasharray: 1 4; } .tmap .feat.patrol { stroke-dasharray: 6 4; }
+.tmap .cone { fill: rgba(240, 113, 106, 0.1); stroke: rgba(240, 113, 106, 0.35); stroke-width: 1; }
+.tmap .burn { fill: url(#m-burn); stroke: rgba(240, 150, 80, 0.6); stroke-dasharray: 2 3; } .tmap .burnline { stroke: rgba(240, 150, 80, 0.45); stroke-width: 2; }
+.tmap .ftxt { fill: var(--foe); text-anchor: middle; font-weight: 600; paint-order: stroke; stroke: var(--bg-map); stroke-width: 3px; }
+.tmap .compound rect { fill: rgba(var(--ink), 0.12); stroke: var(--foe); stroke-width: 1.6; } .tmap .compound .bld { fill: rgba(240, 113, 106, 0.3); stroke-width: 0.8; }
 .tmap .leg { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-dasharray: 7 6; stroke-linecap: round; }
-.tmap .leg.done { stroke-dasharray: none; opacity: 0.55; }
+.tmap .leg.done { stroke-dasharray: none; opacity: 0.6; }
+.tmap .leg.alt { stroke-width: 1.8; stroke-dasharray: 3 5; opacity: 0.85; }
+.tmap .leg.unk { opacity: 0.4; } .tmap .leg.under { stroke-dasharray: 2 4; } .tmap .leg.out { stroke-dasharray: 4 6; opacity: 0.7; }
+.tmap .rlab { fill: var(--accent); text-anchor: middle; font-weight: 600; letter-spacing: 0.05em; paint-order: stroke; stroke: var(--bg-map); stroke-width: 3px; }
 .tmap .wp circle { fill: var(--bg-map); stroke: var(--accent); stroke-width: 2; }
-.tmap .wp text { fill: var(--fg); font: 700 13px var(--body); text-anchor: middle; }
-.tmap .wp .lbl { fill: rgba(var(--ink), 0.75); font: 600 10px var(--mono); letter-spacing: 0.06em; }
+.tmap .wp text { fill: var(--fg); font-family: var(--body); font-weight: 700; text-anchor: middle; }
+.tmap .wp .lbl { fill: rgba(var(--ink), 0.85); font-family: var(--mono); font-weight: 600; letter-spacing: 0.05em; paint-order: stroke; stroke: var(--bg-map); stroke-width: 3px; }
+.tmap .wp.fork circle { stroke-dasharray: 3 2; }
 .tmap .wp.done circle { fill: var(--accent-soft); opacity: 0.8; }
 .tmap .wp.cur circle { fill: var(--accent); } .tmap .wp.cur text:not(.lbl) { fill: var(--accent-ink); }
 .tmap .wp.skipped { opacity: 0.4; }
 .tmap .ping { fill: none !important; stroke: var(--accent); transform-box: fill-box; transform-origin: center; animation: ping 1.8s ease-out infinite; }
+.tmap .hostile path:first-child { fill: rgba(240, 113, 106, 0.25); stroke: var(--foe); stroke-width: 1.6; }
+.tmap .hostile text { fill: #ffd9d4; font-family: var(--body); font-weight: 700; text-anchor: middle; }
+.tmap .hostile .off { fill: var(--gold); stroke: var(--bg-map); stroke-width: 1; }
+.tmap .fr rect { fill: var(--bg-map); stroke: var(--accent); stroke-width: 1.6; } .tmap .fr text { fill: var(--accent); font-weight: 700; text-anchor: middle; }
+.tmap-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-bottom: 12px; padding: 7px 12px; font: 11px var(--mono); color: var(--muted); background: var(--panel-2); border: 1px solid var(--line-soft); border-top: 0; border-radius: 0 0 var(--r) var(--r); }
+.tmap-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.tmap-legend i { font-style: normal; }
+.lg-foe { width: 9px; height: 9px; transform: rotate(45deg); border: 1.5px solid var(--bad); background: var(--bad-soft); }
+.lg-off { color: var(--gold); } .lg-fr { color: var(--accent); border: 1px solid var(--accent); border-radius: 3px; padding: 0 3px; font-size: 10px; }
+.lg-alt { width: 18px; border-top: 2px dotted var(--accent); }
 @keyframes ping { from { transform: scale(1); opacity: 0.9; } to { transform: scale(2.4); opacity: 0; } }
 /* title card */
 .title { position: fixed; inset: 0; z-index: 90; display: grid; align-items: end; background: var(--bg); }
@@ -578,6 +614,7 @@ body { background-image: var(--grain); }
 .title-logo { font: 700 clamp(56px, 12vw, 128px)/0.9 var(--display); letter-spacing: 0.24em; }
 .title-in p { margin: 0 0 14px; color: var(--muted); font-size: 18px; }
 @media (prefers-reduced-motion: reduce) { .tmap .ping { animation: none; } }
+@media (max-width: 640px) { .tmap svg { min-width: 760px; max-height: none; } } /* phones pan the map sideways; it opens on the current stage */
 @media (max-width: 560px) {
   .card > .banner.bleed { margin: -14px -14px 12px; border-radius: var(--r) var(--r) 0 0; }
   .brief-head > .banner.bleed { width: calc(100% + 28px); }
@@ -3036,88 +3073,454 @@ const emblem = (f) => `<svg class="emblem" viewBox="0 0 40 40" aria-hidden="true
 /** Unknown intel is a redaction bar; the reason is spelled out on hover and for screen readers. */
 const redact = (len, why) => `<span class="redact" style="width:${len}ch" role="img" aria-label="Redacted: ${esc(why)}" title="${esc(why)}"></span>`;
 
-// ------------------------------------------------------------------ tactical map: contour lines from seeded noise, the route on top
+// ------------------------------------------------------------------ tactical map
+/* Built in layers from a seed of the mission (never the game's dice) and cached:
+   1. terrain shaped for the region, 2. water running downhill, 3. roads, streets and settlement,
+   4. insertion, stages and extraction placed where their situation belongs, 5. paths shaped by each approach route,
+   6. drawing: hillshade, water, cover, contours with heights, phase lines, routes and simplified military symbols.
+   The world is always MW×MH units on a grid of MSTEP, so the briefing and the operation show the same ground. */
 const hash32 = (s) => { let h = 2166136261; for (const c of s) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return h >>> 0; };
 const prng = (seed) => () => { seed = (seed + 0x6d2b79f5) >>> 0; let t = seed; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
-/** How each location reads on the map: hill frequency (across, down), contour count, and the features it draws. */
-const MAP_LOOK = {
-  FARMLAND: { fx: 2, fy: 1.6, levels: 6, fields: true }, HIGHLANDS: { fx: 3, fy: 2.4, levels: 11 }, COAST: { fx: 2.2, fy: 1.8, levels: 6, sea: true },
-  RIVER: { fx: 2.2, fy: 1.8, levels: 6, river: true }, DESERT: { fx: 1.2, fy: 4, levels: 6 }, FOREST: { fx: 2.4, fy: 2, levels: 7, trees: true },
-  URBAN: { fx: 1.4, fy: 1.2, levels: 3, blocks: true },
+const MW = 1000, MH = 250, MSTEP = 10, MC = MW / MSTEP + 1, MR = MH / MSTEP + 1, MN = MC * MR;
+const vnoise = (seed) => {
+  const h = (i, j) => { let x = Math.imul(i, 374761393) ^ Math.imul(j, 668265263) ^ seed; x = Math.imul(x ^ (x >>> 13), 1274126177); return ((x ^ (x >>> 16)) >>> 0) / 4294967296; };
+  return (x, y) => { const i = Math.floor(x), j = Math.floor(y), s = (t) => t * t * (3 - 2 * t), a = s(x - i), b = s(y - j);
+    return (h(i, j) * (1 - a) + h(i + 1, j) * a) * (1 - b) + (h(i, j + 1) * (1 - a) + h(i + 1, j + 1) * a) * b; };
 };
-// Marching squares: which cell edges (top, right, bottom, left) a contour crosses, by corner pattern.
-const MS = ['', 'lb', 'br', 'lr', 'tr', 'lt br', 'tb', 'lt', 'lt', 'tb', 'tr lb', 'tr', 'lr', 'br', 'lb', ''];
-const mapCache = new Map();
-function terrain(m, W, H) {
-  const key = `${m.codename}:${m.n}:${m.loc}:${W}x${H}`;
-  if (mapCache.has(key)) return mapCache.get(key);
-  const look = MAP_LOOK[m.loc] || MAP_LOOK.FARMLAND, r = prng(hash32(`${m.codename}:${m.n}`)), f1 = (n) => +n.toFixed(1);
-  const lattice = (gx, gy) => { const g = Array.from({ length: (gy + 1) * (gx + 1) }, r); return (u, v) => {
-    const x = u * gx, y = v * gy, i = Math.min(gx - 1, x | 0), j = Math.min(gy - 1, y | 0), s = (t) => t * t * (3 - 2 * t), a = s(x - i), b = s(y - j), at = (p, q) => g[q * (gx + 1) + p];
-    return (at(i, j) * (1 - a) + at(i + 1, j) * a) * (1 - b) + (at(i, j + 1) * (1 - a) + at(i + 1, j + 1) * a) * b; }; };
-  const gx = Math.max(2, Math.round(look.fx * W / 300)), gy = Math.max(2, Math.round(look.fy * H / 300));
-  const n1 = lattice(gx, gy), n2 = lattice(gx * 2, gy * 2), n3 = lattice(3, 2);
-  const step = 14, cols = Math.ceil(W / step) + 1, rows = Math.ceil(H / step) + 1, field = [];
-  for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) { const u = i / (cols - 1), v = j / (rows - 1); field.push(n1(u, v) + 0.4 * n2(u, v)); }
-  const lo = Math.min(...field), hi = Math.max(...field), at = (i, j) => (field[j * cols + i] - lo) / (hi - lo);
-  let minor = '', major = '';
-  for (let l = 1; l <= look.levels; l++) {
-    const L = l / (look.levels + 1);
-    let d = '';
-    for (let j = 0; j < rows - 1; j++) for (let i = 0; i < cols - 1; i++) {
-      const a = at(i, j), b = at(i + 1, j), c = at(i + 1, j + 1), e = at(i, j + 1);
-      const segs = MS[(a > L) << 3 | (b > L) << 2 | (c > L) << 1 | (e > L)];
-      if (!segs) continue;
-      const x = i * step, y = j * step, t = (p, q) => (L - p) / (q - p);
-      const pt = { t: [x + step * t(a, b), y], r: [x + step, y + step * t(b, c)], b: [x + step * t(e, c), y + step], l: [x, y + step * t(a, e)] };
-      for (const s of segs.split(' ')) { const [p, q] = [pt[s[0]], pt[s[1]]]; d += `M${f1(p[0])} ${f1(p[1])}L${f1(q[0])} ${f1(q[1])}`; }
-    }
-    if (l % 3 === 0) major += d; else minor += d;
-  }
-  let feat = '', x0 = W * 0.08;
-  if (look.sea) { // a coastline down the left edge; the route comes in from the water
-    const pts = Array.from({ length: 9 }, (_, k) => [f1(W * (0.07 + 0.08 * n3(0.2, k / 8))), f1(k * H / 8)]);
-    feat += `<path class="sea" d="M0 0L${pts.map((p) => p.join(' ')).join('L')}L0 ${H}Z"/><path class="shore" d="M${pts.map((p) => p.join(' ')).join('L')}"/>`;
-    x0 = W * 0.2;
-  }
-  if (look.river) { // a river winding across the map
-    const pts = Array.from({ length: 13 }, (_, k) => [f1(k * W / 12), f1(H * (0.2 + 0.6 * n3(k / 12, 0.5)))]);
-    feat += `<path class="river" d="M${pts.map((p) => p.join(' ')).join('L')}"/>`;
-  }
-  if (look.fields) for (let k = 0; k < 16; k++) { // a patchwork of fields
-    const w = 50 + r() * 90, h = 30 + r() * 50;
-    feat += `<rect class="field" x="${f1(r() * (W - w))}" y="${f1(r() * (H - h))}" width="${f1(w)}" height="${f1(h)}" transform="rotate(${f1(r() * 16 - 8)} ${W / 2} ${H / 2})"/>`;
-  }
-  if (look.trees) for (let k = 0; k < 220; k++) { // tree cover on the middle slopes
-    const x = r() * W, y = r() * H, v = at(Math.round(x / step), Math.round(y / step));
-    if (v > 0.25 && v < 0.75) feat += `<circle class="tree" cx="${f1(x)}" cy="${f1(y)}" r="${f1(2 + r() * 2.5)}"/>`;
-  }
-  if (look.blocks) for (let y = 12; y < H - 30; y += 46) for (let x = 12; x < W - 40; x += 62) { // city blocks between streets
-    if (r() < 0.2) continue;
-    feat += `<rect class="block" x="${f1(x + r() * 6)}" y="${f1(y + r() * 6)}" width="${f1(36 + r() * 14)}" height="${f1(24 + r() * 10)}"/>`;
-  }
-  const t = { minor, major, feat, x0, ys: Array.from({ length: 8 }, () => H * (0.3 + 0.38 * r())) };
-  mapCache.set(key, t);
-  return t;
+const fbm = (n, x, y, oct = 4) => { let v = 0, amp = 0.5, f = 1, tot = 0; for (let o = 0; o < oct; o++) { v += amp * n(x * f, y * f); tot += amp; amp *= 0.5; f *= 2.03; } return v / tot; };
+const sstep = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+const gauss = (d, w) => Math.exp(-(d * d) / (2 * w * w));
+const nxw = (k) => (k % MC) * MSTEP, nyw = (k) => Math.floor(k / MC) * MSTEP;
+const f1 = (v) => +v.toFixed(1);
+
+/** Each region: elevation range and contour interval (m), relief for the hillshade, standing-water level, and its landform. */
+const REGION = {
+  FARMLAND: { elev: [140, 260, 10], z: 3, water: -1, shape: (x, y, n, n2) => 0.8 * fbm(n, x / 330, y / 330, 4) + 0.2 * fbm(n2, x / 110, y / 110, 3) },
+  HIGHLANDS: { elev: [1400, 2600, 100], z: 4.5, water: -1,
+    shape: (x, y, n, n2, f) => 0.65 * (1 - Math.abs(2 * fbm(n, x / 240, y / 240, 5) - 1)) + 0.35 * fbm(n2, x / 520, y / 520, 3) - 0.5 * gauss(y - f.valley(x), 38) },
+  COAST: { elev: [0, 180, 20], z: 4, water: 0.06, shape: (x, y, n, n2, f) => sstep(-30, 170, x - f.shore(y)) * (0.3 + 0.7 * fbm(n, x / 280, y / 280, 4)) },
+  RIVER: { elev: [0, 30, 5], z: 1.5, water: 0.16,
+    shape: (x, y, n, n2, f) => 0.35 + 0.5 * fbm(n, x / 380, y / 380, 3) - f.channels.reduce((s, c) => Math.max(s, 0.5 * gauss(y - c(x), 10)), 0) },
+  DESERT: { elev: [600, 760, 20], z: 1.6, water: -1,
+    shape: (x, y, n, n2, f) => 0.6 * fbm(n, x / 460, y / 460, 3) + 0.4 * sstep(0.35, 0.65, fbm(n2, x / 420 + 9, y / 420, 2)) * (0.5 + 0.5 * Math.sin((x * f.wc + y * f.ws) / 28 + 5 * fbm(n2, x / 260, y / 260, 2))) },
+  FOREST: { elev: [300, 520, 20], z: 2.5, water: -1, shape: (x, y, n, n2) => 0.85 * fbm(n, x / 260, y / 260, 5) + 0.15 * fbm(n2, x / 80, y / 80, 2) },
+  URBAN: { elev: [80, 120, 10], z: 1, water: -1, shape: (x, y, n, n2) => 0.6 * fbm(n, x / 600, y / 600, 3) + 0.4 * fbm(n2, x / 220, y / 220, 2) },
+};
+/** Chamfer distance, in grid steps, from every node to the nearest node where src is true. */
+function distField(src) {
+  const d = new Float32Array(MN).fill(1e9);
+  for (let k = 0; k < MN; k++) if (src(k)) d[k] = 0;
+  const relax = (k, i, j, di, dj, w) => { const ii = i + di, jj = j + dj; if (ii >= 0 && jj >= 0 && ii < MC && jj < MR) { const v = d[jj * MC + ii] + w; if (v < d[k]) d[k] = v; } };
+  for (let j = 0; j < MR; j++) for (let i = 0; i < MC; i++) { const k = j * MC + i; relax(k, i, j, -1, 0, 1); relax(k, i, j, 0, -1, 1); relax(k, i, j, -1, -1, 1.414); relax(k, i, j, 1, -1, 1.414); }
+  for (let j = MR - 1; j >= 0; j--) for (let i = MC - 1; i >= 0; i--) { const k = j * MC + i; relax(k, i, j, 1, 0, 1); relax(k, i, j, 0, 1, 1); relax(k, i, j, 1, 1, 1.414); relax(k, i, j, -1, 1, 1.414); }
+  return d;
 }
-/** The tactical map: terrain for the location, tinted for the time of day, the route and its stages, the weather over it. */
-function mapHtml(m, stages, curIdx, wx, wide = 1000, H = 250) {
-  const phone = innerWidth < 640, W = phone ? 440 : wide, t = terrain(m, W, H), n = stages.length, x1 = W * 0.93;
-  const p = stages.map((_, i) => [Math.round(t.x0 + (x1 - t.x0) * i / Math.max(1, n - 1)), Math.round(t.ys[i])]);
-  const leg = (i) => { const [a, b] = [p[i], p[i + 1]], mx = (a[0] + b[0]) / 2; return `M${a[0]} ${a[1]}C${mx} ${a[1]} ${mx} ${b[1]} ${b[0]} ${b[1]}`; };
-  const grid = Array.from({ length: Math.floor(W / 100) }, (_, k) => `<path d="M${(k + 1) * 100} 0V${H}"/><text x="${(k + 1) * 100 + 4}" y="12">${String(31 + k).padStart(2, '0')}</text>`).join('')
-    + [1, 2].map((k) => `<path d="M0 ${k * 100}H${W}"/><text x="4" y="${k * 100 - 4}">${['K', 'L'][k - 1]}</text>`).join('');
-  const nodes = stages.map((st, i) => {
-    const [x, y] = p[i], state = st.skipped ? 'skipped' : i < curIdx ? 'done' : i === curIdx ? 'cur' : '';
-    return `<g class="wp ${state}" transform="translate(${x} ${y})">${state === 'cur' ? '<circle class="ping" r="13"/>' : ''}<circle r="13"/><text dy="4.5">${st.skipped ? "×" : i + 1}</text>${phone ? "" : `<text class="lbl" dy="31">${KIND[st.kind].toUpperCase()}</text>`}</g>`;
-  }).join('');
-  return `<div class="tmap tod-${m.env.time} wx-${WX_KIND[wx] || "clear"}">
-    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Tactical map: ${n} stages${curIdx >= 0 ? `, now at stage ${curIdx + 1}` : ''}, ${LOCATIONS[m.loc].label.toLowerCase()}, ${{ DAY: 'day', DUSK: 'dusk', NIGHT: 'night' }[m.env.time]}">
-      <g class="grid">${grid}</g>${t.feat}<path class="minor" d="${t.minor}"/><path class="major" d="${t.major}"/>
-      ${p.slice(0, -1).map((_, i) => `<path class="leg ${i < curIdx ? 'done' : ''}" d="${leg(i)}"/>`).join('')}${nodes}
-      <g class="compass" transform="translate(${W - 28} 30)"><path d="M0-14L5 6 0 2-5 6Z"/><text y="18">N</text></g>
-      <g class="scale" transform="translate(16 ${H - 16})"><path d="M0 0H80M0-4V0M40-3V0M80-4V0"/><text x="86" y="3">1 km</text></g>
-    </svg>${MAP_WX.includes(WX_KIND[wx]) ? `<canvas class="wx" data-wx="${wx}"></canvas>` : ''}</div>`; // no rain on a map sheet
+/** Cheapest 8-way path on the grid; goal is a node or a test. Costs per step must stay at or above 0.25. */
+function astar(from, goal, cost) {
+  const isGoal = typeof goal === 'number' ? (k) => k === goal : goal, gx = typeof goal === 'number' ? nxw(goal) : null, gy = typeof goal === 'number' ? nyw(goal) : null;
+  const g = new Float32Array(MN).fill(1e9), prev = new Int32Array(MN).fill(-1), closed = new Uint8Array(MN), heap = [];
+  const est = (k) => (gx == null ? 0 : (Math.hypot(nxw(k) - gx, nyw(k) - gy) / MSTEP) * 0.25);
+  const push = (f, k) => { heap.push([f, k]); let i = heap.length - 1; while (i > 0) { const p = (i - 1) >> 1; if (heap[p][0] <= heap[i][0]) break; [heap[p], heap[i]] = [heap[i], heap[p]]; i = p; } };
+  const pop = () => { const top = heap[0], last = heap.pop(); if (heap.length) { heap[0] = last; let i = 0; for (;;) { const l = 2 * i + 1, r = l + 1; let s = i; if (l < heap.length && heap[l][0] < heap[s][0]) s = l; if (r < heap.length && heap[r][0] < heap[s][0]) s = r; if (s === i) break; [heap[s], heap[i]] = [heap[i], heap[s]]; i = s; } } return top; };
+  g[from] = 0; push(est(from), from);
+  while (heap.length) {
+    const k = pop()[1];
+    if (closed[k]) continue;
+    closed[k] = 1;
+    if (isGoal(k)) { const path = []; for (let c = k; c !== -1; c = prev[c]) path.push(c); return path.reverse(); }
+    const i = k % MC, j = (k / MC) | 0;
+    for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) {
+      const ii = i + di, jj = j + dj;
+      if ((!di && !dj) || ii < 0 || jj < 0 || ii >= MC || jj >= MR) continue;
+      const q = jj * MC + ii;
+      if (closed[q]) continue;
+      const v = g[k] + (di && dj ? 1.414 : 1) * cost(q);
+      if (v < g[q]) { g[q] = v; prev[q] = k; push(v + est(q), q); }
+    }
+  }
+  return [from];
+}
+/** Grid nodes to a smooth world-space polyline (two rounds of corner cutting). */
+function smoothPts(nodes) {
+  let p = nodes.map((k) => [nxw(k), nyw(k)]);
+  for (let r = 0; r < 2 && p.length > 2; r++) {
+    const q = [p[0]];
+    for (let i = 0; i < p.length - 1; i++) { const [a, b] = [p[i], p[i + 1]]; q.push([a[0] * 0.75 + b[0] * 0.25, a[1] * 0.75 + b[1] * 0.25], [a[0] * 0.25 + b[0] * 0.75, a[1] * 0.25 + b[1] * 0.75]); }
+    q.push(p[p.length - 1]); p = q;
+  }
+  return p;
+}
+const ptsD = (p) => (p.length ? `M${p.map(([x, y]) => `${f1(x)} ${f1(y)}`).join('L')}` : '');
+const MAP_CODES = { ins: { FOOT: 'SP', GROUND: 'SP', MRAP: 'SP', LSV: 'SP', HELO: 'LZ', HALO: 'DZ', BOAT: 'LS' }, ext: { FOOT: 'RV', GROUND: 'EP', MRAP: 'EP', LSV: 'EP', HELO: 'PZ', BOAT: 'PZ' } };
+const PHASE_NAMES = ['AMBER', 'BLUE', 'COPPER', 'DIAMOND', 'EMERALD', 'FLINT'];
+
+const mapCache = new Map();
+/** The whole map model for a mission and its vehicles: terrain, water, settlement, placed stages and every path. */
+function mapModel(m, ins, ext) {
+  const key = `${m.codename}:${m.n}:${m.loc}:${ins}:${ext}`;
+  if (mapCache.has(key)) return mapCache.get(key);
+  const R = REGION[m.loc] || REGION.FARMLAND, seed = hash32(`${m.codename}:${m.n}:${m.loc}`), r = prng(seed), n = vnoise(seed), n2 = vnoise(seed ^ 0x9e3779b9);
+  // 1. terrain
+  const wind = r() * Math.PI, f = {
+    valley: (x) => MH * 0.55 + 45 * (2 * fbm(n2, x / 300, 5.1, 3) - 1),
+    shore: (y) => 120 + 70 * (2 * fbm(n2, 2.3, y / 110, 3) - 1),
+    wc: Math.cos(wind), ws: Math.sin(wind),
+  };
+  const main = (x) => MH * 0.5 + 50 * (2 * fbm(n2, x / 260, 3.7, 3) - 1);
+  f.channels = [main, (x) => main(x) - Math.max(0, 430 - x) * 0.3 + 12 * (fbm(n, x / 90, 8.8, 2) - 0.5), (x) => main(x) + Math.max(0, 430 - x) * 0.27 + 12 * (fbm(n, x / 90, 4.4, 2) - 0.5)];
+  const h = new Float32Array(MN);
+  for (let k = 0; k < MN; k++) h[k] = R.shape(nxw(k), nyw(k), n, n2, f);
+  let lo = Infinity, hi = -Infinity;
+  for (const v of h) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
+  for (let k = 0; k < MN; k++) h[k] = (h[k] - lo) / (hi - lo || 1);
+  const water = new Uint8Array(MN), slope = new Float32Array(MN);
+  for (let k = 0; k < MN; k++) water[k] = h[k] < R.water ? 1 : 0;
+  let smax = 1e-6;
+  for (let k = 0; k < MN; k++) {
+    const i = k % MC, j = (k / MC) | 0;
+    let s = 0;
+    for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const ii = i + di, jj = j + dj; if (ii >= 0 && jj >= 0 && ii < MC && jj < MR) s = Math.max(s, Math.abs(h[k] - h[jj * MC + ii])); }
+    slope[k] = s; smax = Math.max(smax, s);
+  }
+  for (let k = 0; k < MN; k++) slope[k] /= smax;
+  // 2. water runs downhill: each node drains to its lowest neighbour; flow adds up from the highest node down
+  const down = new Int32Array(MN).fill(-1), acc = new Float32Array(MN).fill(1);
+  for (let k = 0; k < MN; k++) {
+    if (water[k]) continue;
+    const i = k % MC, j = (k / MC) | 0;
+    let best = h[k], to = -1;
+    for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) { const ii = i + di, jj = j + dj; if ((di || dj) && ii >= 0 && jj >= 0 && ii < MC && jj < MR && h[jj * MC + ii] < best) { best = h[jj * MC + ii]; to = jj * MC + ii; } }
+    down[k] = to;
+  }
+  const order = Array.from({ length: MN }, (_, k) => k).sort((a, b) => h[b] - h[a]);
+  for (const k of order) if (down[k] >= 0) acc[down[k]] += acc[k];
+  const T = m.loc === 'URBAN' ? 90 : 26, stream = new Uint8Array(MN);
+  for (let k = 0; k < MN; k++) stream[k] = !water[k] && acc[k] >= T ? 1 : 0;
+  const streams = [], seen = new Uint8Array(MN);
+  for (const k of order) {
+    if (!stream[k] || seen[k]) continue;
+    const line = [k]; seen[k] = 1;
+    let c = down[k];
+    while (c >= 0) { line.push(c); if (seen[c] || water[c] || !stream[c]) break; seen[c] = 1; c = down[c]; }
+    if (line.length > 2) streams.push({ pts: smoothPts(line), big: acc[line[line.length - 1]] > T * 4 });
+  }
+  const wet = (k) => stream[k] || water[k];
+  const dWet = distField(wet), dWater = distField((k) => water[k]), dLand = distField((k) => !water[k]);
+  // 3. roads, streets and settlement
+  const urban = m.loc === 'URBAN', street = new Uint8Array(MN), blocks = [];
+  let road = new Uint8Array(MN), roads = [];
+  if (urban) {
+    const xs = [], ys = [];
+    for (let x = 30 + r() * 30; x < MW - 20; x += 80 + r() * 50) xs.push(x);
+    for (let y = 20 + r() * 15; y < MH - 10; y += 45 + r() * 25) ys.push(y);
+    for (let k = 0; k < MN; k++) { const x = nxw(k), y = nyw(k); street[k] = xs.some((a) => Math.abs(x - a) <= 5) || ys.some((b) => Math.abs(y - b) <= 5) ? 1 : 0; }
+    const cx = [0, ...xs, MW], cy = [0, ...ys, MH];
+    for (let a = 0; a < cx.length - 1; a++) for (let b = 0; b < cy.length - 1; b++) {
+      if (r() < 0.12) continue; // a square or a ruin
+      const x0 = cx[a] + 7, x1 = cx[a + 1] - 7, y0 = cy[b] + 7, y1 = cy[b + 1] - 7;
+      if (x1 - x0 < 10 || y1 - y0 < 8) continue;
+      if (x1 - x0 > 60 && r() < 0.6) { const mid = x0 + (x1 - x0) * (0.4 + r() * 0.2); blocks.push([x0, y0, mid - 3, y1], [mid + 3, y0, x1, y1]); } else blocks.push([x0, y0, x1, y1]);
+    }
+    road = street;
+  } else {
+    const coast = m.loc === 'COAST';
+    const roadCost = (k) => 1 + 30 * slope[k] + (water[k] ? 40 : 0) + (stream[k] ? 4 : 0);
+    let from = coast ? Math.round(MC * (0.35 + 0.25 * r())) : Math.round(MR * (0.2 + 0.6 * r())) * MC;
+    if (water[from]) from = Array.from({ length: MN }, (_, k) => k).find((k) => !water[k] && (coast ? k < MC : k % MC === 0)) ?? from;
+    const path = astar(from, coast ? (k) => k >= MN - MC : (k) => k % MC === MC - 1, roadCost);
+    for (const k of path) road[k] = 1;
+    roads.push({ pts: smoothPts(path), main: true });
+  }
+  let dRoad = distField((k) => road[k]);
+  // forest cover and fields come before placement, since they shape where a helicopter can land
+  const canopy = new Uint8Array(MN);
+  if (m.loc === 'FOREST' || m.loc === 'HIGHLANDS' || m.loc === 'RIVER') {
+    const dense = m.loc === 'FOREST' ? 0.32 : m.loc === 'HIGHLANDS' ? 0.62 : 0.6;
+    for (let k = 0; k < MN; k++) canopy[k] = !water[k] && !road[k] && fbm(n2, nxw(k) / 140 + 30, nyw(k) / 140, 3) > dense && h[k] < 0.9 ? 1 : 0;
+  }
+  // 4. placement: lower score is better; standing water is never a place to stand
+  const bestIn = (fi0, fi1, fj0, fj1, score, allowWater = false) => {
+    let best = -1, bs = Infinity;
+    for (let j = Math.max(0, Math.round(MR * fj0)); j <= Math.min(MR - 1, Math.round(MR * fj1)); j++)
+      for (let i = Math.max(0, Math.round(MC * fi0)); i <= Math.min(MC - 1, Math.round(MC * fi1)); i++) {
+        const k = j * MC + i;
+        if (water[k] && !allowWater) continue;
+        const s = score(k);
+        if (s < bs) { bs = s; best = k; }
+      }
+    return best >= 0 ? best : Math.round(MR * (fj0 + fj1) / 2) * MC + Math.round(MC * (fi0 + fi1) / 2);
+  };
+  const jitter = () => r() * 0.35;
+  const O = bestIn(0.6, 0.7, 0.28, 0.72, (k) => (urban ? (street[k] ? 5 : 0) : slope[k] * 3 + Math.min(1, dRoad[k] / 6) * 0.6) + jitter());
+  if (!urban) { // a track from the compound to the road
+    const path = astar(O, (k) => road[k] === 1, (k) => 1 + 30 * slope[k] + (water[k] ? 40 : 0));
+    if (path.length > 1) { roads.push({ pts: smoothPts(path), main: false }); for (const k of path) road[k] = 2; dRoad = distField((k) => road[k] > 0); }
+  }
+  const flat = (k) => slope[k] * 2 + (canopy[k] ? 2 : 0) + (urban && street[k] ? 1 : 0) + jitter();
+  const place = (veh, east) => {
+    const a = east ? 0.62 : 0, b = east ? 1 : 0.38, edge = (k) => (east ? MC - 1 - (k % MC) : k % MC) * 0.12; // nearest dry ground to the map edge
+    // a boat lands on water just off the shore, as far west (or east, to leave) as the water allows
+    if (veh === 'BOAT' && R.water > 0) return bestIn(east ? 0.5 : 0, east ? 1 : 0.4, 0.05, 0.95, (k) => (water[k] ? 0 : 99) + Math.min(6, dLand[k]) * 0.6 + (east ? 1 - (k % MC) / MC : (k % MC) / MC) * 3 + jitter() * 0.2, true);
+    if (veh === "HELO" || veh === "HALO") return bestIn(a, b, 0.15, 0.85, (k) => flat(k) + edge(k) * 0.5 + (k % MC < 2 || k % MC > MC - 3 ? 1 : 0));
+    if (['GROUND', 'MRAP', 'LSV'].includes(veh)) { const rs = Array.from({ length: MN }, (_, k) => k).filter((k) => road[k] === 1); if (rs.length) return rs.reduce((p, q) => ((east ? q % MC > p % MC : q % MC < p % MC) ? q : p)); }
+    return bestIn(a, b, 0.2, 0.8, (k) => edge(k) + slope[k] + jitter());
+  };
+  const I = place(ins || 'FOOT', false), E = place(ext || 'FOOT', true);
+  // stage slots: where each stage happens, with both candidates for a fork, plus nominal spots for unscouted ones
+  const perims = m.route.filter((st) => st.kind === 'PERIMETER').length, perimX = perims > 1 ? [0.34, 0.5] : [0.43];
+  const SPOT = {
+    TOWER: (k) => -h[k], ROOFTOP: (k) => (street[k] ? 5 : 0) - h[k] * 0.3, CLIFF: (k) => -slope[k], RIVERX: (k) => dWet[k] - Math.min(2, acc[k] / 60),
+    DOCKS: (k) => dWater[k] + (dWater[k] > 30 ? 10 : 0), MINES: (k) => slope[k] + (canopy[k] ? 1 : 0), OPENGROUND: (k) => slope[k] + (canopy[k] ? 2 : 0),
+    FIRELINE: (k) => (canopy[k] ? 0 : 1), CHECKPOINT: (k) => dRoad[k] * 2,
+  };
+  const slots = [];
+  let pi = 0;
+  m.route.forEach((st, s) => {
+    if (st.kind === 'APPROACH') { const k = bestIn(0.19, 0.25, 0.3, 0.7, (q) => slope[q] + jitter()); slots.push({ cands: [k], nominal: [k] }); return; }
+    if (st.kind === 'PERIMETER') {
+      const fx = perimX[Math.min(pi++, perimX.length - 1)], bands = [[0.1, 0.46], [0.54, 0.9]];
+      slots.push({
+        cands: st.choices.map((c, i) => bestIn(fx - 0.05, fx + 0.05, ...bands[i], (k) => (SPOT[c] || ((q) => dRoad[q] + jitter() * 2))(k) + jitter() * 0.3)),
+        nominal: st.choices.map((_, i) => Math.round(MR * (bands[i][0] + bands[i][1]) / 2) * MC + Math.round(MC * fx)),
+      });
+      return;
+    }
+    if (st.kind === 'OBJECTIVE') { slots.push({ cands: [O], nominal: [O] }); return; }
+    if (st.kind === 'OPTIONAL') {
+      const up = O / MC / MR > 0.5, k = bestIn(0.76, 0.82, up ? 0.12 : 0.55, up ? 0.45 : 0.88, (q) => slope[q] + jitter());
+      slots.push({ cands: [k], nominal: [k] }); return;
+    }
+    const k = bestIn(0.84, 0.9, 0.2, 0.8, (q) => slope[q] + Math.abs((q / MC | 0) - (E / MC | 0)) * 0.05 + jitter());
+    slots.push({ cands: [k], nominal: [k] });
+  });
+  // 5. paths: each approach route has its own character; legs between stages take the easiest ground
+  const wetPref = (k) => 0.3 + Math.min(1, dWet[k] / 3) * 1.5, roadPref = (k) => 0.3 + Math.min(1, dRoad[k] / 2) * 1.5;
+  const PREF = {
+    RIDGE: (k) => 0.3 + 1.6 * (1 - h[k]) ** 2, RIVERBED: wetPref, WADI: wetPref, GULLY: wetPref, CULVERT: wetPref, CANAL: wetPref,
+    REEDS: (k) => (h[k] < R.water + 0.14 ? 0.3 : 1.6), TRACK: roadPref, TRAIL: roadPref, ORCHARD: (k) => 0.5 + slope[k],
+    GOATPATH: (k) => 0.4 + 2 * Math.abs(h[k] - 0.6), CLIFFPATH: (k) => 0.3 + Math.min(1, dWater[k] / 3) * 1.4, BEACH: (k) => 0.3 + Math.min(1, dWater[k] / 2) * 1.6,
+    DUNES: () => 0.9, ALLEYS: (k) => (street[k] ? 0.5 : 3), ROOFTOPS: (k) => (street[k] ? 2.5 : 0.5), SEWER: (k) => (street[k] ? 0.5 : 4),
+  };
+  const WATER_OK = ['BEACH', 'REEDS', 'CANAL', 'CULVERT', 'RIVERBED'];
+  const routeCost = (c) => (k) => (PREF[c] || ((q) => 0.6 + slope[q]))(k) + (c === 'DUNES' ? 0.3 : c === 'RIDGE' ? 1 : 2) * slope[k] + (water[k] ? (WATER_OK.includes(c) ? 2 : 12) : 0) + (canopy[k] ? 0.2 : 0);
+  const legCost = urban ? (k) => (street[k] ? 0.6 : 2.5) : (k) => 0.7 + 0.5 * Math.min(1, dRoad[k] / 3) + 3 * slope[k] + (water[k] ? 12 : 0) + (canopy[k] ? 0.3 : 0);
+  const straight = (a, b) => { const out = [], steps = Math.max(2, Math.round(Math.hypot(nxw(b) - nxw(a), nyw(b) - nyw(a)) / MSTEP)); for (let t = 0; t <= steps; t++) out.push(Math.round((nyw(a) + (nyw(b) - nyw(a)) * t / steps) / MSTEP) * MC + Math.round((nxw(a) + (nxw(b) - nxw(a)) * t / steps) / MSTEP)); return out; };
+  const approach = m.route[0].choices.map((c) => {
+    const nodes = c === 'FIREBREAK' ? straight(I, slots[0].cands[0]) : astar(I, slots[0].cands[0], routeCost(c));
+    if (c === 'FIREBREAK') for (const k of nodes) { canopy[k] = 0; if (k + 1 < MN) canopy[k + 1] = 0; }
+    return { c, pts: c === 'FIREBREAK' ? nodes.map((k) => [nxw(k), nyw(k)]) : smoothPts(nodes), under: c === 'SEWER' || c === 'CULVERT' && urban };
+  });
+  const legs = new Map(), leg = (a, b) => { const key2 = `${a}>${b}`; if (!legs.has(key2)) legs.set(key2, smoothPts(astar(a, b, legCost))); return legs.get(key2); };
+  for (let s = 1; s < slots.length; s++) for (const a of slots[s - 1].cands) for (const b of slots[s].cands) leg(a, b);
+  const optIdx = m.route.findIndex((st) => st.kind === 'OPTIONAL');
+  if (optIdx > 0) leg(O, slots[optIdx + 1].cands[0]); // the way past a skipped target
+  const out = smoothPts(astar(slots[slots.length - 1].cands[0], E, (k) => (water[k] ? (ext === 'BOAT' ? 1 : 12) : legCost(k))));
+  // clear cover around the compound and the landing sites, then scatter trees, reeds, fields and orchards
+  const clear = (c, rad) => { for (let k = 0; k < MN; k++) if (Math.hypot(nxw(k) - nxw(c), nyw(k) - nyw(c)) < rad) canopy[k] = 0; };
+  clear(O, 45); clear(I, 30); clear(E, 30);
+  const trees = [], reeds = [], fields = [], orchard = [];
+  for (let t = 0; t < 520; t++) { const x = r() * MW, y = r() * MH, k = Math.round(y / MSTEP) * MC + Math.round(x / MSTEP); if (canopy[k]) trees.push([f1(x), f1(y), f1(1.4 + r() * 2)]); }
+  if (m.loc === 'RIVER') for (let t = 0; t < 700; t++) { const x = r() * MW, y = r() * MH, k = Math.round(y / MSTEP) * MC + Math.round(x / MSTEP); if (!water[k] && h[k] < R.water + 0.12) reeds.push([f1(x), f1(y)]); }
+  if (m.loc === 'FARMLAND') {
+    const cw = 80, ch = 55, cols = Math.ceil(MW / cw) + 1, rows = Math.ceil(MH / ch) + 1, cor = [];
+    for (let j = 0; j <= rows; j++) for (let i = 0; i <= cols; i++) cor.push([i * cw + (r() - 0.5) * 30, j * ch + (r() - 0.5) * 22]);
+    for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
+      const q = [cor[j * (cols + 1) + i], cor[j * (cols + 1) + i + 1], cor[(j + 1) * (cols + 1) + i + 1], cor[(j + 1) * (cols + 1) + i]];
+      const c = [(q[0][0] + q[2][0]) / 2, (q[0][1] + q[2][1]) / 2];
+      if (Math.hypot(c[0] - nxw(O), c[1] - nyw(O)) < 50 || r() < 0.15) continue;
+      fields.push({ d: `M${q.map((p) => p.map(f1).join(' ')).join('L')}Z`, alt: r() < 0.5 });
+    }
+    for (let y = nyw(O) - 34; y <= nyw(O) + 34; y += 9) for (let x = nxw(O) - 95; x <= nxw(O) - 30; x += 9) orchard.push([f1(x), f1(y)]);
+  }
+  // cliffs: short ticks pointing downhill where the ground is steepest
+  const cliffs = [];
+  if (['HIGHLANDS', 'COAST'].includes(m.loc)) for (let k = 0; k < MN; k++) {
+    if (slope[k] < 0.62 || water[k]) continue;
+    const i = k % MC, j = (k / MC) | 0, gx = (h[Math.min(MN - 1, k + 1)] - h[Math.max(0, k - 1)]), gy = (h[Math.min(MN - 1, k + MC)] - h[Math.max(0, k - MC)]), len = Math.hypot(gx, gy) || 1;
+    if ((i + j) % 2) continue;
+    cliffs.push(`M${nxw(k)} ${nyw(k)}l${f1((-gx / len) * 6)} ${f1((-gy / len) * 6)}`);
+  }
+  // 6a. contours: elevation from the region's range, labelled every fifth line, never under water
+  const [e0, e1, iv] = R.elev, toE = (v) => e0 + v * (e1 - e0);
+  let minor = '', major = '', shore = '';
+  const labels = [], MSQ = ['', 'lb', 'br', 'lr', 'tr', 'lt br', 'tb', 'lt', 'lt', 'tb', 'tr lb', 'tr', 'lr', 'br', 'lb', ''];
+  const trace = (L, onSeg) => {
+    let d = '';
+    for (let j = 0; j < MR - 1; j++) for (let i = 0; i < MC - 1; i++) {
+      const a = h[j * MC + i], b = h[j * MC + i + 1], c = h[(j + 1) * MC + i + 1], e = h[(j + 1) * MC + i];
+      const segs = MSQ[(a > L) << 3 | (b > L) << 2 | (c > L) << 1 | (e > L)];
+      if (!segs) continue;
+      const x = i * MSTEP, y = j * MSTEP, t = (p, q) => (L - p) / (q - p);
+      const pt = { t: [x + MSTEP * t(a, b), y], r: [x + MSTEP, y + MSTEP * t(b, c)], b: [x + MSTEP * t(e, c), y + MSTEP], l: [x, y + MSTEP * t(a, e)] };
+      for (const s of segs.split(' ')) { const [p, q] = [pt[s[0]], pt[s[1]]]; d += `M${f1(p[0])} ${f1(p[1])}L${f1(q[0])} ${f1(q[1])}`; onSeg?.(p, q); }
+    }
+    return d;
+  };
+  const stagePts = slots.flatMap((sl) => sl.cands).map((k) => [nxw(k), nyw(k)]);
+  for (let E2 = Math.ceil(e0 / iv) * iv; E2 < e1; E2 += iv) {
+    const L = (E2 - e0) / (e1 - e0);
+    if (L <= R.water || L <= 0.001) continue;
+    const idx = E2 % (iv * 5) === 0;
+    const d = trace(L, idx ? (p, q) => {
+      const mx = (p[0] + q[0]) / 2, my = (p[1] + q[1]) / 2;
+      if (labels.length >= 7 || my < 18 || my > MH - 18 || mx < 40 || mx > MW - 40) return;
+      if (labels.some((l) => Math.hypot(l.x - mx, l.y - my) < 170) || stagePts.some(([x, y]) => Math.hypot(x - mx, y - my) < 45)) return;
+      let a = (Math.atan2(q[1] - p[1], q[0] - p[0]) * 180) / Math.PI; if (a > 90) a -= 180; if (a < -90) a += 180;
+      labels.push({ x: f1(mx), y: f1(my), a: f1(a), t: E2 });
+    } : null);
+    if (idx) major += d; else minor += d;
+  }
+  if (R.water > 0) shore = trace(R.water);
+  // spot heights: the summit and up to two other peaks
+  const peaks = [];
+  for (const k of order) {
+    if (peaks.length >= 3 || water[k]) continue;
+    const x = nxw(k), y = nyw(k);
+    if (x < 30 || x > MW - 30 || y < 36 || y > MH - 24) continue; // clear of the grid and phase-line labels
+    if (peaks.some((p) => Math.hypot(p.x - x, p.y - y) < 220) || stagePts.some(([sx, sy]) => Math.hypot(sx - x, sy - y) < 40)) continue;
+    peaks.push({ x, y, t: Math.round(toE(h[k])), top: !peaks.length });
+  }
+  // 6b. rasters for the hillshade, standing water and cover, drawn once to small canvases
+  const raster = (fill) => {
+    const c = document.createElement('canvas'); c.width = MC; c.height = MR;
+    const g = c.getContext('2d'), img = g.createImageData(MC, MR);
+    for (let k = 0; k < MN; k++) { const [rr, gg, bb, aa] = fill(k); img.data.set([rr, gg, bb, aa], k * 4); }
+    g.putImageData(img, 0, 0);
+    return c.toDataURL();
+  };
+  const L3 = [-0.6, -0.6, 0.53], s0 = L3[2];
+  const shade = raster((k) => {
+    const i = k % MC, j = (k / MC) | 0, hx = h[j * MC + Math.min(MC - 1, i + 1)] - h[j * MC + Math.max(0, i - 1)], hy = h[Math.min(MR - 1, j + 1) * MC + i] - h[Math.max(0, j - 1) * MC + i];
+    const nxv = -hx * R.z, nyv = -hy * R.z, len = Math.hypot(nxv, nyv, 1), v = (nxv * L3[0] + nyv * L3[1] + L3[2]) / len - s0;
+    return water[k] ? [0, 0, 0, 0] : v > 0 ? [255, 255, 255, Math.min(150, v * 190)] : [0, 0, 0, Math.min(190, -v * 300)];
+  });
+  const waterMask = R.water > 0 ? raster((k) => (water[k] ? [255, 255, 255, 255] : [0, 0, 0, 0])) : null;
+  const coverMask = canopy.some((v) => v) ? raster((k) => (canopy[k] ? [255, 255, 255, 255] : [0, 0, 0, 0])) : null;
+  const model = { R, I, E, O, slots, approach, legs, leg, out, optIdx, streams, roads, blocks, trees, reeds, fields, orchard, cliffs, minor, major, shore, labels, peaks, shade, waterMask, coverMask, water, iv, dWater };
+  if (mapCache.size > 24) mapCache.delete(mapCache.keys().next().value);
+  mapCache.set(key, model);
+  return model;
+}
+
+/** Stage features in simplified military style, drawn at the stage's spot. */
+function featSvg(c, x, y, k, md) {
+  const T = (s) => `<text class="ftxt" x="${f1(x - 21 * k)}" y="${f1(y + 3.5 * k)}" style="font-size:${f1(9 * k)}px">${s}</text>`; // left of the node: the label sits below, hostiles up right
+  const cone = (len) => `<path class="cone" d="M${x} ${y}L${f1(x - len)} ${f1(y - len * 0.42)}A${f1(len * 1.08)} ${f1(len * 1.08)} 0 0 0 ${f1(x - len)} ${f1(y + len * 0.42)}Z"/>`;
+  switch (c) {
+    case 'TOWER': case 'ROOFTOP': return cone(70) + `<path class="feat" d="M${x - 5} ${y + 6}L${x} ${y - 7}L${x + 5} ${y + 6}Z"/>`;
+    case 'MINES': return `<circle class="feat mine" cx="${x}" cy="${y}" r="${f1(24 * k)}"/>`;
+    case 'OPENGROUND': return `<circle class="feat open" cx="${x}" cy="${y}" r="${f1(30 * k)}"/>`;
+    case 'FIRELINE': return `<circle class="burn" cx="${x}" cy="${y}" r="${f1(30 * k)}"/>`;
+    case 'PATROL': return `<ellipse class="feat patrol" cx="${x}" cy="${y}" rx="${f1(28 * k)}" ry="${f1(14 * k)}"/>`;
+    case 'GATE': return `<path class="feat" d="M${x - 12} ${y - 9}L${x + 12} ${y + 9}M${x - 12} ${y - 13}v8M${x + 12} ${y + 5}v8"/>`;
+    case 'CLIFF': return `<path class="feat" d="M${x - 18} ${y + 10}l6-6l6 6l6-6l6 6l6-6"/>`;
+    case 'RIVERX': return `<path class="feat ford" d="M${x - 14} ${y - 6}q7-5 14 0t14 0M${x - 14} ${y + 6}q7-5 14 0t14 0"/>${T("FORD")}`;
+    case 'DOCKS': { const left = md.dWater[Math.round(y / MSTEP) * MC + Math.max(0, Math.round(x / MSTEP) - 2)] < md.dWater[Math.round(y / MSTEP) * MC + Math.min(MC - 1, Math.round(x / MSTEP) + 2)]; const dx = left ? -26 : 26;
+      return `<path class="feat" d="M${x} ${y}h${dx}M${x + dx} ${y - 6}v12"/>${T("PIER")}`; }
+    case 'CHECKPOINT': return T("CP");
+    case 'DOGS': return T("K9");
+    case 'SENTRY': return T("OP");
+    default: return '';
+  }
+}
+
+/** The tactical map for a mission: terrain, settlement, the route with both choices at each fork, stage features,
+    hostiles as far as intel tells, phase lines, insertion and extraction. Read-only. */
+function mapHtml(m, stages, curIdx, wx, opt = {}) {
+  const ins = opt.ins || m.ins || 'FOOT', ext = opt.ext || m.ext || 'FOOT', md = mapModel(m, ins, ext), k = opt.k || 1;
+  const phone = innerWidth < 640, sk = phone ? 1.3 : k, P = (q) => [nxw(q), nyw(q)];
+  const battle = !!G.battle && G.phase === 'OPERATION';
+  const enemy = enemyKnown(m), off = m.officer && !m.officer.dead && m.officer.stage >= 0 && enemy.officer ? m.officer.stage : -1;
+  // what each stage shows: the picked candidate, both candidates of an open fork, or unscouted spots
+  const view = stages.map((st, s) => {
+    const sl = md.slots[s], reached = s <= curIdx, kn = knowledge(st, reached);
+    const named = st.kind === 'OBJECTIVE' || st.kind === 'APPROACH' || st.kind === 'EXFIL' || (st.kind === 'OPTIONAL' && st.choices[0] !== 'CACHE') || kn.types;
+    const idx = st.kind === 'APPROACH' ? [0] : st.pick != null ? [st.pick] : st.choices.map((_, i) => i); // the approach ends at one rally point
+    return { st, s, named, nums: kn.nums, idx, pts: idx.map((i) => (named ? sl.cands[i] : sl.nominal[i])), skipped: !!st.skipped };
+  });
+  const legClass = (s, many) => (s <= curIdx ? 'leg done' : many ? 'leg alt' : 'leg');
+  let legsSvg = '';
+  view[0].st.choices.forEach((c, i) => {
+    if (view[0].st.pick != null && view[0].st.pick !== i) return;
+    const a = md.approach[i], many = view[0].st.pick == null;
+    legsSvg += `<path class="${legClass(1, many)} ${a.under ? 'under' : ''}" d="${ptsD(a.pts)}"/>`;
+    if (many || curIdx < 1) { const mid = a.pts[Math.floor(a.pts.length * (i ? 0.62 : 0.4))]; legsSvg += `<text class="rlab" x="${f1(mid[0])}" y="${f1(mid[1] + (i ? 15 : -8) * sk)}" style="font-size:${f1(10 * sk)}px">${many ? `${'AB'[i]} · ` : ''}${ROUTES[c].label.toUpperCase()}</text>`; }
+  });
+  for (let s = 1; s < view.length; s++) {
+    const v = view[s];
+    if (v.skipped) continue;
+    let prev = view[s - 1];
+    if (prev.skipped) prev = view[s - 2];
+    const many = prev.pts.length > 1 || v.pts.length > 1;
+    for (const a of prev.pts) for (const b of v.pts) {
+      const known = prev.named && v.named, pts = known ? md.leg(a, b) : null;
+      legsSvg += pts ? `<path class="${legClass(s, many)}" d="${ptsD(pts)}"/>`
+        : `<path class="${legClass(s, true)} unk" d="M${nxw(a)} ${nyw(a)}C${(nxw(a) + nxw(b)) / 2} ${nyw(a)} ${(nxw(a) + nxw(b)) / 2} ${nyw(b)} ${nxw(b)} ${nyw(b)}"/>`;
+    }
+  }
+  legsSvg += `<path class="leg out" d="${ptsD(md.out)}"/>`;
+  // stage nodes, features and hostiles
+  let feats = '', nodes = '', foes = '';
+  for (const v of view) {
+    const { st, s } = v, state = v.skipped ? 'skipped' : s < curIdx ? 'done' : s === curIdx ? 'cur' : '';
+    v.idx.forEach((ci, n2) => {
+      const q = v.pts[n2], [x, y] = P(q), c = st.choices[ci], fork = v.idx.length > 1;
+      if (v.named && st.kind === 'PERIMETER') feats += featSvg(c, x, y, sk, md);
+      const lbl = st.kind === 'APPROACH' ? 'RP' : st.kind === 'EXFIL' ? 'EXFIL' : !v.named ? '?' : st.kind === 'OBJECTIVE' || st.kind === 'OPTIONAL' ? (c === 'HVT' ? 'HVT' : c === 'INTEL' ? 'INTEL' : 'CACHE') : SIT[c].label.toUpperCase();
+      nodes += `<g class="wp ${state} ${fork ? 'fork' : ''}" transform="translate(${x} ${y})">${state === 'cur' ? `<circle class="ping" r="${f1(11 * sk)}"/>` : ''}<circle r="${f1((fork ? 9 : 11) * sk)}"/>
+        <text dy="${f1(4 * sk)}" style="font-size:${f1((fork ? 10 : 12) * sk)}px">${s + 1}${fork ? "AB"[n2] : ""}</text><text class="lbl" dy="${f1(26 * sk)}" style="font-size:${f1(9 * sk)}px">${lbl}</text></g>`;
+      if (st.kind === 'APPROACH' || s < curIdx || v.skipped) return;
+      const sit = SIT[c], count = sit ? (battle ? foesOf(st, sit) : sit.foes) : 0, hasOff = off === s;
+      if (!v.named || (!count && !hasOff)) return;
+      const fx = x + 15 * sk, fy = y - 15 * sk, rr = 8 * sk;
+      foes += `<g class="hostile" transform="translate(${f1(fx)} ${f1(fy)})"><path d="M0 ${f1(-rr)}L${f1(rr)} 0L0 ${f1(rr)}L${f1(-rr)} 0Z"/><text dy="${f1(3.4 * sk)}" style="font-size:${f1(9 * sk)}px">${v.nums ? count : '?'}</text>${hasOff ? `<path class="off" transform="translate(0 ${f1(-rr - 6 * sk)}) scale(${f1(sk * 0.55)})" d="M0-9l2.6 5.6 6 .7-4.5 4.1 1.2 6L0 4.4-5.3 7.4l1.2-6L-8.6-2.7l6-.7z"/>` : ''}</g>`;
+    });
+  }
+  // the compound at the objective, and a smaller one for a second target
+  const compound = (q, big) => { const [x, y] = P(q), w = big ? 40 : 28, hh = big ? 28 : 20;
+    return `<g class="compound"><rect x="${x - w / 2}" y="${y - hh / 2}" width="${w}" height="${hh}"/><rect class="bld" x="${x - w / 2 + 5}" y="${y - hh / 2 + 5}" width="${w * 0.35}" height="${hh * 0.4}"/><rect class="bld" x="${x + 2}" y="${y}" width="${w * 0.3}" height="${hh * 0.32}"/></g>`; };
+  let sites = compound(md.O, true);
+  if (md.optIdx > 0 && !view[md.optIdx].skipped && view[md.optIdx].named) sites += view[md.optIdx].st.choices[0] === 'CACHE' ? (() => { const [x, y] = P(md.slots[md.optIdx].cands[0]); return `<path class="feat" d="M${x - 9} ${y - 7}h18v14h-18zM${x - 9} ${y - 7}l18 14M${x + 9} ${y - 7}l-18 14"/>`; })() : compound(md.slots[md.optIdx].cands[0], false);
+  const fr = (q, code) => { const w = 22 * sk, hh = 13 * sk, x = Math.min(MW - w / 2 - 3, Math.max(w / 2 + 3, nxw(q))), y = Math.min(MH - hh / 2 - 3, Math.max(hh / 2 + 3, nyw(q))); return `<g class="fr" transform="translate(${x} ${y})"><rect x="${f1(-w / 2)}" y="${f1(-hh / 2)}" width="${f1(w)}" height="${f1(hh)}" rx="3"/><text dy="${f1(3.4 * sk)}" style="font-size:${f1(9 * sk)}px">${code}</text></g>`; };
+  // phase lines between consecutive stages
+  const anchors = view.filter((v) => !v.skipped).map((v) => v.pts.reduce((a, q) => a + nxw(q), 0) / v.pts.length);
+  const phases = anchors.slice(0, -1).map((x, i) => { const px = f1((x + anchors[i + 1]) / 2); return `<path class="pl" d="M${px} 0V${MH}"/><text class="pltxt" x="${f1(px + 3)}" y="24" style="font-size:${f1(8 * sk)}px">PL ${PHASE_NAMES[i] || i + 1}</text>`; }).join('');
+  const grid = Array.from({ length: 9 }, (_, i) => `<path d="M${(i + 1) * 100} 0V${MH}"/><text x="${(i + 1) * 100 + 3}" y="11">${31 + i}</text>`).join('') + [1, 2].map((i) => `<path d="M0 ${i * 100}H${MW}"/><text x="3" y="${i * 100 - 3}">${'KL'[i - 1]}</text>`).join('');
+  const night = { DAY: 'day', DUSK: 'dusk', NIGHT: 'night' }[m.env.time];
+  const svg = `<svg viewBox="0 0 ${MW} ${MH}" role="img" aria-label="Tactical map of ${esc(m.area)}: ${stages.length} stages${curIdx >= 0 ? `, now at stage ${curIdx + 1}` : ''}, ${night}">
+    <defs>${md.waterMask ? `<mask id="m-water"><image href="${md.waterMask}" width="${MW}" height="${MH}" preserveAspectRatio="none"/></mask>` : ''}${md.coverMask ? `<mask id="m-cover"><image href="${md.coverMask}" width="${MW}" height="${MH}" preserveAspectRatio="none"/></mask>` : ''}
+      <pattern id="m-burn" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><path d="M0 0V6" class="burnline"/></pattern></defs>
+    <image class="shade" href="${md.shade}" width="${MW}" height="${MH}" preserveAspectRatio="none"/>
+    ${md.coverMask ? `<rect class="cover" width="${MW}" height="${MH}" mask="url(#m-cover)"/>` : ''}
+    ${md.fields.map((fl) => `<path class="field ${fl.alt ? 'alt' : ''}" d="${fl.d}"/>`).join('')}
+    ${md.blocks.map(([x0, y0, x1, y1]) => `<rect class="block" x="${f1(x0)}" y="${f1(y0)}" width="${f1(x1 - x0)}" height="${f1(y1 - y0)}"/>`).join('')}
+    ${md.waterMask ? `<rect class="water" width="${MW}" height="${MH}" mask="url(#m-water)"/>` : ''}
+    <path class="minor" d="${md.minor}"/><path class="major" d="${md.major}"/>${md.shore ? `<path class="shore" d="${md.shore}"/>` : ''}
+    <path class="cliff" d="${md.cliffs.join('')}"/>
+    <g class="trees">${md.trees.map(([x, y, rr]) => `<circle cx="${x}" cy="${y}" r="${rr}"/>`).join('')}</g>
+    <path class="reed" d="${md.reeds.map(([x, y]) => `M${x} ${y}v-4`).join('')}"/>
+    <g class="orchard">${md.orchard.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.6"/>`).join('')}</g>
+    ${md.streams.map((st) => `<path class="stream ${st.big ? 'big' : ''} ${m.loc === 'DESERT' ? 'wadi' : ''}" d="${ptsD(st.pts)}"/>`).join('')}
+    ${md.roads.map((rd) => `<path class="${rd.main ? 'road' : 'track'}" d="${ptsD(rd.pts)}"/>${rd.main ? `<path class="road-in" d="${ptsD(rd.pts)}"/>` : ''}`).join('')}
+    <g class="grid">${grid}</g>${phases}
+    ${md.labels.map((l) => `<text class="clab" transform="translate(${l.x} ${l.y}) rotate(${l.a})">${l.t}</text>`).join('')}
+    ${md.peaks.map((p) => `<text class="spot" x="${p.x}" y="${p.y}">${p.top ? '▲' : '·'} ${p.t}</text>`).join('')}
+    ${feats}${legsSvg}${sites}${fr(md.I, MAP_CODES.ins[ins] || 'SP')}${fr(md.E, MAP_CODES.ext[ext] || 'RV')}${nodes}${foes}
+    <g class="compass" transform="translate(${MW - 24} 28)"><path d="M0-13L5 6 0 2-5 6Z"/><text y="17">N</text></g>
+    <g class="scale" transform="translate(${MW - 170} ${MH - 14})"><path d="M0 0H100M0-4V0M50-3V0M100-4V0"/><text x="106" y="3">500 m</text></g>
+  </svg>`;
+  const legend = `<div class="tmap-legend"><span><i class="lg-foe"></i>Hostiles</span><span><i class="lg-off">★</i>Officer</span><span><i class="lg-fr">${MAP_CODES.ins[ins] || 'SP'}</i>Insertion</span><span><i class="lg-fr">${MAP_CODES.ext[ext] || 'RV'}</i>Extraction</span><span><i class="lg-alt"></i>Route option</span><span>PL Phase line</span><span>Contours ${md.iv} m</span></div>`;
+  return `<div class="tmap tod-${m.env.time} wx-${WX_KIND[wx] || 'clear'}"><div class="tmap-scroll">${svg}</div>${MAP_WX.includes(WX_KIND[wx]) ? `<canvas class="wx" data-wx="${wx}"></canvas>` : ''}</div>${legend}`;
+}
+/** Checks for the test hook: every stage, insertion and extraction on the map, on dry ground where it should be, with paths. */
+function mapCheck(m, ins = m.ins || 'FOOT', ext = m.ext || 'FOOT') {
+  const md = mapModel(m, ins, ext), out = [], inside = (q) => q >= 0 && q < MN;
+  md.slots.forEach((sl, s) => sl.cands.forEach((q, i) => { if (!inside(q)) out.push(`stage ${s + 1}${'AB'[i]} off the map`); else if (md.water[q]) out.push(`stage ${s + 1}${'AB'[i]} in water`); }));
+  if (!inside(md.I) || (md.water[md.I] && ins !== 'BOAT')) out.push('insertion misplaced');
+  if (!inside(md.E) || (md.water[md.E] && ext !== 'BOAT')) out.push('extraction misplaced');
+  md.approach.forEach((a) => { if (a.pts.length < 2) out.push(`no path for ${a.c}`); });
+  for (let s = 1; s < md.slots.length; s++) for (const a of md.slots[s - 1].cands) for (const b of md.slots[s].cands) if (md.leg(a, b).length < 2 && a !== b) out.push(`no leg into stage ${s + 1}`);
+  return out;
 }
 
 // ------------------------------------------------------------------ weather over the map and the banners
@@ -3387,7 +3790,7 @@ function renderBriefing() {
           ${enemyFacts(m).map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}<dt>Threat</dt><dd>${threat(m)}</dd>${tot}</dl>
         <ul class="objectives"><li><span class="tag primary">Primary</span><b>${OBJ[m.primary].label}</b>${OBJ[m.primary].desc}</li>
           <li><span class="tag">Secondary</span><b>${OBJ[m.secondary].label}</b>${OBJ[m.secondary].desc}</li></ul></div></div>
-      <div class="col"><div class="card"><h3>Operation plan</h3>${mapHtml(m, m.route, -1, m.env.forecast, 720, 250)}${routeHtml(m.route, -1)}
+      <div class="col"><div class="card"><h3>Operation plan</h3>${mapHtml(m, m.route, -1, m.env.forecast, { ins: draft.insertion, ext: draft.extraction, k: 1.5 })}${routeHtml(m.route, -1)}
         ${m.intel.some((i) => ['SATELLITE', 'HUMINT', 'UAV'].includes(i)) ? '' : '<p class="muted" style="margin:8px 0 0">Entry points are unscouted. Buy intel to see what is waiting.</p>'}</div>
         <div class="card"><h3>Intelligence</h3>${intelRows}${humint}</div></div></div>`,
     () => `<div class="card"><h3>Team <span class="count">${draft.team.length}/${MAX_TEAM}</span></h3>
@@ -3438,6 +3841,12 @@ function fadeRoutes() {
     const fade = () => { r.classList.toggle('fade-l', r.scrollLeft > 4); r.classList.toggle('fade-r', r.scrollLeft + r.clientWidth < r.scrollWidth - 4); };
     fade();
     r.addEventListener('scroll', fade, { passive: true });
+  }
+  for (const s of document.querySelectorAll('.tmap-scroll')) { // a map wider than the screen opens on the current stage
+    const cur = s.querySelector('.wp.cur') || s.querySelector('.wp');
+    if (!cur || s.scrollWidth <= s.clientWidth) continue;
+    const a = cur.getBoundingClientRect(), b = s.getBoundingClientRect();
+    s.scrollLeft += a.left + a.width / 2 - (b.left + b.width / 2);
   }
 }
 
@@ -3533,7 +3942,7 @@ function statusHtml() {
     ${reinf}${b.drone.up ? `<span class="chip ok">Drone up${b.drone.strike ? ' · strike ready' : ''}</span>` : ''}
     <span class="grow"></span>
     <button class="btn ghost" type="button" data-act="drawer" aria-pressed="${ui.drawer}">${ico('log')}${ui.drawer ? 'Hide log' : 'Log & objectives'}</button>
-  </div>${mapHtml(m, b.stages, b.stage, m.env.weather, 1150, 190)}${routeHtml(b.stages, b.stage)}</div>`;
+  </div>${mapHtml(m, b.stages, b.stage, m.env.weather)}${routeHtml(b.stages, b.stage)}</div>`;
 }
 function tagsOf(opt, foes) {
   const t = [];
@@ -3910,7 +4319,7 @@ function start(data) {
 if (/[?&]test\b/.test(location.search)) {
   window.SKIRM = { get G() { return G; }, newCampaign, chooseMission, backToBase, upgradeDept, toggleBed, fabricate, repair, rest, vehBlock, intelCost, fatState,
     DEPTS, FAB, VEH, LOCATIONS, WEATHER, SPECS, KITS, INTEL, hireCaptive, tradeCaptive, OFFICER_TRAITS, buyIntel, launch, proceed, enlist, chooseRoute, chooseFork, execute, push, resolve, skip, abort,
-    fieldCare, treat, launchDrone, canLead, opDice, chooseLine, interlude, PERSONAS, TOPICS, LINES, TRAITS, worstNeed, fieldCareNeed, INJURIES, bestLead, odds, difficulty, poolOf, previewOf, cur, sitOf, active, team, outcomeOf, foesOf, Rule, CLASSES, ITEMS, SIT, available, refresh };
+    fieldCare, treat, launchDrone, canLead, opDice, chooseLine, mapCheck, mapHtml, interlude, PERSONAS, TOPICS, LINES, TRAITS, worstNeed, fieldCareNeed, INJURIES, bestLead, odds, difficulty, poolOf, previewOf, cur, sitOf, active, team, outcomeOf, foesOf, Rule, CLASSES, ITEMS, SIT, available, refresh };
 }
 window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
 })();
