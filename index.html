@@ -1090,6 +1090,7 @@ const RECOVERY = { 0: 0, 1: 0, 2: 1, 3: 2, 4: 3 }; // 4 = was knocked unconsciou
 const RANKS = [['PVT', 'Private', 0], ['PFC', 'Private First Class', 20], ['CPL', 'Corporal', 50], ['SGT', 'Sergeant', 90], ['SSG', 'Staff Sergeant', 140], ['LT', 'Lieutenant', 200]];
 const RANK_NERVE = [0, 1, 1, 2, 2, 3]; // Nerve each rank brings to a mission: the team's pool, spent to push a failed roll
 const SGT = 3, LT = 5; // rank indexes: a sergeant leading has someone step in front of the first hit; a lieutenant gives one free push (orders)
+const QRF_STAGES = 2; // stages the team has to finish the job once the QRF is called, before it arrives
 const MAX_TEAM = 4, MAX_SUPPORT = 2, BASE_TIME = 9, ALERT_TIER = 3, ALERT_MAX = 6, STEALTH_LIMIT = 2, BLEED_STAGES = 2;
 const RECRUIT_COST = 3, ROSTER_MIN = 6;
 const rosterMax = () => 6 + 2 * G.base.lv.BARRACKS;
@@ -2190,7 +2191,7 @@ const extVeh = (m) => (vehUsable(m.ext, m.env.weather) ? m.ext : 'FOOT');
 function difficulty(st, sit, opt, ids) {
   const b = B(), m = G.mission, mods = [{ label: 'Base', v: opt.diff }];
   const add = (label, v) => { if (v) mods.push({ label, v }); };
-  add('Enemy experience', Math.floor((m.n - 1) / 3));
+  add('Enemy experience', Math.min(3, Math.floor((m.n + 1) / 3))); // from mission 2, +1 every three missions, at most +3
   for (const e of envMods(m.env, opt.skill)) add(e.label, e.v);
   add('Approach route', st.mod?.[opt.skill] || 0);
   if (opt.skill === 'STEALTH') {
@@ -2211,6 +2212,7 @@ function difficulty(st, sit, opt, ids) {
   if (off?.grudge) add(`${off.name}, back with a grudge`, 1);
   if (st.kind === 'EXFIL') { const v = extVeh(m), x = VEH[v].exfil; add(`${VEH[v].label}${v !== m.ext ? ' (no pickup in this weather)' : ''}`, (x.all || 0) + (x[opt.skill] || 0)); }
   if (st.kind === 'EXFIL') { add('Out of time', b.overtime ? 1 : 0); add('QRF on your heels', b.qrf ? 1 : 0); }
+  else add('QRF closing in', b.qrfIn != null ? 2 : 0);
   for (const om of omens()) {
     const who = omenName(om);
     if (om?.topic === 'THREAT' && !om.officer && om.sit !== 'HVT' && !om.beaten && st.pick != null && st.choices[st.pick] === om.sit) add(`${SIT[om.sit].label}, as ${who} feared`, 1);
@@ -2298,7 +2300,8 @@ function injEffect(w) {
 /** Hidden severity of a fresh hit: 2d6 + modifiers - armour. */
 function severity(u, mod) {
   const s = d6() + d6() + mod - dr(u);
-  return s >= LETHAL_AT ? 4 : s >= CRITICAL_AT ? 3 : s >= SERIOUS_AT ? 2 : 1;
+  const k = alerted() ? 1 : 0; // once the area is alerted, every bad hit lands a step worse
+  return s >= LETHAL_AT - k ? 4 : s >= CRITICAL_AT - k ? 3 : s >= SERIOUS_AT ? 2 : 1;
 }
 /** Where a hit of this severity really lands: a full tier pushes it up. 4 = unconscious, 5 = killed. */
 function landsAt(u, tier) {
@@ -2576,6 +2579,7 @@ function applyRoll(cost) {
     else if (foes) { raise(2 + extra, 'Spotted!'); failFire(foes, members, ids, leadId); }
     else if (sit.hazard) { const t = active(lead) ? lead : pick(members.filter(active)); if (t) { log('Something gives way.', 'alert'); hurt(t, 2, undefined, 'is caught out'); } }
     else raise(1 + extra, 'Too much noise.');
+    if (b.qrfIn != null && !foes) { log('The lead elements of the QRF open up.', 'alert'); failFire(1, members, ids, leadId); } // under the QRF every failure is a firefight
     const fatal = !pushed && cost !== 'WAY' && !b.accepted && quirkOn('FATALIST');
     if (fatal) { b.accepted = true; b.nerve = (b.nerve || 0) + 1; b.nerveMax = Math.max(b.nerveMax || 0, b.nerve); quirk(fatal, `the team takes the failure as it comes: +1 Nerve (${b.nerve}/${b.nerveMax}).`); }
     return settle(false);
@@ -3251,12 +3255,10 @@ function settle(cleared) {
   if (b.done) return finish();
   if (!team().some(active)) { log('Nobody is left standing.', 'kill'); return finish(); }
   const exfilAt = b.stages.findIndex((s) => s.kind === 'EXFIL');
-  if (b.alert >= ALERT_MAX && b.stage < exfilAt) {
-    log('Quick reaction force inbound! Abandon everything and get to the extraction point.', 'crit');
-    b.qrf = true; // they are on the team's heels at the exfil
-    for (let i = b.stage + (cleared ? 1 : 0); i < exfilAt; i++) { b.stages[i].skipped = true; b.stages[i].abandoned = true; }
-    b.stage = exfilAt - 1;
-    cleared = true;
+  if (b.qrfIn != null && cleared && b.stage < exfilAt && --b.qrfIn <= 0) { qrfArrives(b.stage + 1); cleared = true; }
+  if (b.alert >= ALERT_MAX && b.stage < exfilAt && b.qrfIn == null && !b.qrf) { // the QRF is called: a few stages to finish the job under fire, or run
+    b.qrfIn = QRF_STAGES; b.qrf = true;
+    log(`Quick reaction force called in! They will be here in ${QRF_STAGES} stages. Push for the job under fire, or run for the extraction point now.`, 'crit');
   }
   if (cleared) advance();
   flushCues();
@@ -3267,11 +3269,28 @@ function settle(cleared) {
     for (let i = b.stage; i < at; i++) { b.stages[i].skipped = true; b.stages[i].abandoned = true; }
     if (b.stage < at) { b.stage = at; cur().seen = true; }
     b.overtime = true;
-    log('The extraction window has closed. Leave everything else: one hard push for the extraction point, no clock left.', 'crit');
+    log('Out of time. Leave everything else: one hard push for the extraction point, no clock left.', 'crit');
   } else if (!cleared && waysOut().length) { // a failure ran the clock out: a way past is still possible, or let the window close
     b.timeUp = true;
     log('The extraction window is closing. Take a way past now, or let it close.', 'alert');
   } else if (!cleared || b.overtime) timeOut();
+}
+/** The QRF is here: every stage from `from` to the exfil is abandoned, and the team is at the extraction point. */
+function qrfArrives(from) {
+  const b = B(), at = b.stages.findIndex((s) => s.kind === 'EXFIL');
+  b.qrfIn = null;
+  for (let i = from; i < at; i++) { b.stages[i].skipped = true; b.stages[i].abandoned = true; }
+  b.stage = at - 1;
+  log('The quick reaction force is here. Everything left is abandoned: get to the extraction point.', 'crit');
+}
+/** Run for the extraction point before the QRF arrives. */
+function runForIt() {
+  needPlan();
+  const b = B();
+  if (b.qrfIn == null) fail('Nothing to run from yet.');
+  qrfArrives(b.stage);
+  advance();
+  flushCues();
 }
 /** The window closes: everyone left standing must get out on foot. */
 function timeOut() {
@@ -3322,6 +3341,7 @@ function rest() {
   if (b.time <= REST_TIME) fail('There is no time left to rest.');
   b.time -= REST_TIME;
   b.lastResult = null;
+  if (b.qrfIn != null && --b.qrfIn <= 0) { qrfArrives(b.stage); return settle(true); } // resting while the QRF closes in
   const joker = quirkOn('JOKER'), gain = REST_GAIN + (joker ? 1 : 0);
   for (const u of team().filter(active)) u.fat = Math.max(0, u.fat - gain);
   log(`The team goes to ground and catches its breath (-${REST_TIME} time).`, 'good');
@@ -3431,7 +3451,7 @@ function topicsFor(u, phase, speakers) {
   }
   const fallen = team().filter((x) => x.dead || x.missing);
   if (fallen.length && lacks('GRIT')) add('LOST', { fallen: firstName(pick(fallen)) });
-  if ((u.weaponWins >= 2 || (u.weaponWins && u.kills)) && s.signature !== u.weapon) add('SIGNATURE', { weapon: WEAPON_NAME[u.weapon], weaponId: u.weapon });
+  if (u.weapon && (u.weaponWins >= 2 || (u.weaponWins && u.kills)) && s.signature !== u.weapon) add('SIGNATURE', { weapon: WEAPON_NAME[u.weapon], weaponId: u.weapon }); // a weapon left behind on the way cannot become a signature
   if (u.wasOut && lacks('SURVIVOR')) add('SURVIVOR');
   if (!b.alerted && b.done && u.tests > 0 && lacks('SHADOW')) add('GHOST');
   const tom = threatOmen();
@@ -3940,7 +3960,9 @@ function eventsHtml() {
 /* Critical events (the QRF, the window closing, an abort, a death) also open a stamped situation report that has to be
    dismissed, on whatever screen comes next. Like the bubbles, nothing is replayed after a reload. */
 const SITREPS = [
-  [/Quick reaction force/, 'QRF inbound', 'Every stage before the extraction is abandoned. Get the team out.'],
+  [/Quick reaction force called/, 'QRF called', `They arrive in ${QRF_STAGES} stages. Push for the job under fire (every stage 2 harder, every failure a firefight), or run for the extraction point now.`],
+  [/quick reaction force is here/, 'QRF on site', 'Every stage left before the extraction is abandoned. Get the team out.'],
+  [/^Out of time/, 'Out of time', 'Everything left is abandoned. One hard roll at the extraction point, with no clock.'],
   [/extraction window/, 'Window closed', 'No pickup is coming. Everyone still out there walks, and not all of them may make it.'],
   [/aborted/, 'Mission aborted', 'The team breaks contact on foot. Nothing more gets done tonight.'],
   [/KIA|could not be recovered/, 'KIA', 'An operator will not be coming home.'],
@@ -5009,6 +5031,7 @@ function statusHtml() {
     <div class="meter"><span class="label">${ico('alert')}Alert <b>${b.alert}/${ALERT_MAX} · ${alertState}</b></span>${pips(b.alert, ALERT_MAX, 'alert', (i) => `${i < b.alert ? 'on' : ''} ${i >= ALERT_TIER && i < b.alert ? 'hot' : ''} ${i === ALERT_TIER ? 'tier' : ''}`)}</div>
     <div class="meter"><span class="label">${ico('time')}Time <b>${b.time} left</b></span>${pips(b.time, b.timeMax, 'time', (i) => (i < b.time ? 'on' : ''))}</div>
     ${b.nerveMax ? `<div class="meter" title="Nerve: spent to push a failed roll. Each operator brings it by rank."><span class="label">${ico('star')}Nerve <b>${b.nerve}/${b.nerveMax}</b></span>${pips(b.nerve, b.nerveMax, 'nerve', (i) => (i < b.nerve ? 'on' : ''))}</div>` : ''}
+    ${b.qrfIn != null ? `<span class="chip bad qrf-chip" title="Every stage is 2 harder and every failure a firefight until they arrive">${ico('alert')}QRF in ${b.qrfIn} stage${b.qrfIn > 1 ? 's' : ''}</span>` : ''}
     <span class="chip ${WEATHER[m.env.weather].tire ? 'warn' : ''}" title="${esc(envSummary(m.env))}">${ico('cloud')}${WEATHER[m.env.weather].label}</span>
     ${m.intel.includes('METEO') && m.env.turnTo ? `<span class="chip warn">Turning: ${WEATHER[m.env.turnTo].label.toLowerCase()} at stage ${m.env.turnAt + 1}</span>` : ''}
     ${reinf}${b.drone.up ? `<span class="chip ok">Drone up${b.drone.strike ? ' · strike ready' : ''}</span>` : ''}
@@ -5202,6 +5225,7 @@ function trayHtml(st, sit) {
         <button class="btn" type="button" data-act="rest" ${b.time > REST_TIME && team().some((u) => active(u) && u.fat) ? '' : 'disabled'} title="Everyone sheds ${REST_GAIN} fatigue">Rest · ${REST_TIME} time</button>
         ${st.kind === 'OPTIONAL' ? '<button class="btn" type="button" data-act="skip">Skip target</button>' : ''}
         ${b.timeUp ? '<button class="btn danger" type="button" data-act="close">Let the window close</button>' : ''}
+        ${b.qrfIn != null && !b.timeUp ? '<button class="btn danger" type="button" data-act="run">Run for the exfil</button>' : ''}
         <button class="btn primary big" type="button" data-act="exec" ${why ? 'disabled' : ''}>Execute · ${b.overtime ? 'no clock' : `${cost} time`}</button>
       </div>
       ${why ? `<span class="why" role="status">${ico('warn')} ${why}</span>` : ''}
@@ -5293,6 +5317,7 @@ $('#view').addEventListener('click', (e) => {
   if (a === 'lead') { plan.lead = n('id'); sfx('click'); return refresh(); }
   if (a === 'close') { sfx('click'); return run(closeWindow); }
   if (a === 'undo') { sfx('click'); return run(undo); }
+  if (a === 'run') { sfx('click'); return run(runForIt); }
   if (a === 'gear') { const id = n('id'); plan.gear = plan.gear.includes(id) ? plan.gear.filter((x) => x !== id) : [...plan.gear, id]; sfx('click'); return refresh(); }
   if (a === 'strike') { plan.strike = !plan.strike; sfx('click'); return refresh(); }
   if (a === 'abort') { if (!plan.abortArmed) { plan.abortArmed = true; return refresh(); } return run(abort); }
@@ -5362,7 +5387,7 @@ const GLOSSARY = {
 function helpHtml() {
   const terms = [
     ['RP', GLOSSARY.RP], ['BP', GLOSSARY.BP],
-    ['Alert', `How awake the enemy is, 0 to ${ALERT_MAX}. At ${ALERT_TIER} they are alerted and shoot back harder; at ${ALERT_MAX} a quick reaction force forces you out, and the exfil is 1 harder with them on your heels.`],
+    ['Alert', `How awake the enemy is, 0 to ${ALERT_MAX}. At ${ALERT_TIER} they are alerted and shoot back harder; at ${ALERT_MAX} a quick reaction force is called: you have ${QRF_STAGES} stages to finish the job (every test 2 harder, every failure a firefight) before everything left is abandoned, or you run for the exfil now; the exfil is 1 harder with them on your heels. Once alerted, bad hits also land a step worse.`],
     ['Time', 'Every action, route and rest spends time. Clear a stage with the last of it and the team drops everything for one hard roll at the exfil (1 harder, no clock). Run out on a failure and you can still take a way past, or let the window close and walk out.'],
     ['Difficulty', 'How many successes (dice showing 5 or 6) a test needs. One short is a success at a cost you choose. In the breakdown, red dots are what makes it harder (one per extra success needed) and green +1 is what helps.'],
     ['Back', 'Until something really happens at a stage (a roll, a rest, a way past), you can go back to the ways in or the route and choose again.'],
@@ -5554,7 +5579,7 @@ function start(data) {
 if (/[?&]test\b/.test(location.search)) {
   window.SKIRM = { get G() { return G; }, newCampaign, chooseMission, backToBase, upgradeDept, toggleBed, fabricate, repair, rest, vehBlock, intelCost, fatState,
     DEPTS, FAB, VEH, LOCATIONS, WEATHER, SPECS, KITS, INTEL, hireCaptive, tradeCaptive, OFFICER_TRAITS, buyIntel, launch, proceed, enlist, chooseRoute, chooseFork, execute, push, resolve, skip, abort,
-    fieldCare, treat, launchDrone, canLead, opDice, chooseLine, mapCheck, mapHtml, waysOut, wayOut, failWay, bestOdds, gearChoices, ready, SAVE_LINES, MEMORIAL, interlude, PERSONAS, TOPICS, LINES, TRAITS, worstNeed, fieldCareNeed, INJURIES, bestLead, odds, difficulty, poolOf, previewOf, cur, sitOf, active, team, outcomeOf, foesOf, Rule, CLASSES, ITEMS, SIT, available, refresh, knockOut, cleanWork, growUp, interDone, omens, leadBonuses, unitById, closeWindow, undo, openFile };
+    fieldCare, treat, launchDrone, canLead, opDice, chooseLine, mapCheck, mapHtml, waysOut, wayOut, failWay, bestOdds, gearChoices, ready, SAVE_LINES, MEMORIAL, interlude, PERSONAS, TOPICS, LINES, TRAITS, worstNeed, fieldCareNeed, INJURIES, bestLead, odds, difficulty, poolOf, previewOf, cur, sitOf, active, team, outcomeOf, foesOf, Rule, CLASSES, ITEMS, SIT, available, refresh, knockOut, cleanWork, growUp, interDone, omens, leadBonuses, unitById, closeWindow, undo, openFile, runForIt };
 }
 window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
 })();
