@@ -2301,8 +2301,8 @@ function injEffect(w) {
 /** Hidden severity of a fresh hit: 2d6 + modifiers - armour. */
 function severity(u, mod) {
   const s = d6() + d6() + mod - dr(u);
-  const k = alerted() ? 1 : 0; // once the area is alerted, every bad hit lands a step worse
-  return s >= LETHAL_AT - k ? 4 : s >= CRITICAL_AT - k ? 3 : s >= SERIOUS_AT ? 2 : 1;
+  const k = alerted() ? 1 : 0; // once the area is alerted, a bad hit turns critical a step sooner
+  return s >= LETHAL_AT ? 4 : s >= CRITICAL_AT - k ? 3 : s >= SERIOUS_AT ? 2 : 1;
 }
 /** Where a hit of this severity really lands: a full tier pushes it up. 4 = unconscious, 5 = killed. */
 function landsAt(u, tier) {
@@ -2522,7 +2522,7 @@ function push() {
   }
   cleanWork(r);
 }
-const BURN_NERVE = 2, BURN_STEP = 0, BURN_PER_ROLL = 99; // Nerve for one automatic success (dearer than a push, but certain); each later burn in a mission costs BURN_STEP more
+const BURN_NERVE = 2, BURN_STEP = 0, BURN_PER_ROLL = 1; // Nerve for one automatic success (dearer than a push, but certain); each later burn in a mission costs BURN_STEP more
 const burnCost = () => BURN_NERVE + (B().burned || 0) * BURN_STEP;
 /** Burn Nerve after the roll for one automatic success, as often as the team can afford. No complications. */
 function burn() {
@@ -5147,13 +5147,13 @@ function planSceneHtml(st, sit) {
     ${locked.length ? `<p class="locked-line">${ico('cross')}<span>Not available with this team: ${locked.join(' · ')}</span></p>` : ''}`;
 }
 /** After a failure: the ways past this stage, each with its price. Ways that cost gear ask which piece first. */
-function waysHtml(roll = false) { // roll: on a failed roll, before the failure is accepted
-  const ws = waysOut(roll);
+function waysHtml() { // after a failure here, or when nothing at this stage can work
+  const ws = waysOut();
   if (!ws.length) return '';
-  const st = cur(), failedHere = roll || st.failed, act = roll ? 'fway' : 'way';
+  const st = cur(), failedHere = st.failed, act = 'way';
   const picking = ws.find((w) => w.id === plan.way && w.pick && gearChoices(w.pick).length);
   const ask = { DIVER: 'What does the water ruin?', LINGUIST: 'What goes as the bribe?', FORCE: 'What is lost forcing the way through?' };
-  return `<section class="ways" aria-label="Ways past this stage"><div class="ways-head">${ico('warn')}<b>${roll ? 'Failed. Take a way past it now' : failedHere ? 'Stopped here. Ways past this stage' : 'No way through as you are. Desperate measures'}</b><small>${roll ? 'The failure lands first, then the way is taken. Or accept the failure and try again.' : failedHere ? 'Each gets the team through at a price. Or try again.' : 'Nothing here can work for this team as it is. Each of these gets through at a price.'}</small></div>
+  return `<section class="ways" aria-label="Ways past this stage"><div class="ways-head">${ico('warn')}<b>${failedHere ? 'Stopped here. Ways past this stage' : 'No way through as you are. Desperate measures'}</b><small>${failedHere ? 'Each gets the team through at a price. Or try again.' : 'Nothing here can work for this team as it is. Each of these gets through at a price.'}</small></div>
     <div class="ways-list">${ws.map((w) => `<button class="way ${plan.way === w.id ? 'on' : ''} ${w.id === 'FORCE' ? 'force' : ''}" type="button" data-act="${act}" data-id="${w.id}" aria-pressed="${plan.way === w.id}">
       <b>${esc(w.label)}${w.uid != null ? ` <span class="muted">· ${esc(firstName(unitById(w.uid)))}</span>` : ''}</b><span class="price">${esc(w.price)}</span><small>${esc(w.desc)}</small></button>`).join('')}</div>
     ${picking ? `<div class="waypick"><span>${ask[picking.id]}</span>${gearChoices(picking.pick).map((c) => `<button class="btn" type="button" data-act="${act}gear" data-uid="${c.uid}" data-slot="${c.slot}">${esc(firstName(unitById(c.uid)))}: ${ITEMS[c.it].label}</button>`).join('')}<button class="btn ghost" type="button" data-act="${act}" data-id="">Cancel</button></div>` : ''}</section>`;
@@ -5353,15 +5353,6 @@ $('#view').addEventListener('click', (e) => {
     return run(() => wayOut(id));
   }
   if (a === 'waygear') { const id = plan.way; plan.way = null; sfx('select'); return run(() => wayOut(id, { uid: n('uid'), slot: el.dataset.slot })); }
-  if (a === 'fway') { // from the failed roll: the failure lands, then the way is taken
-    const id = el.dataset.id, w = waysOut(true).find((x) => x.id === id);
-    if (!w) { plan.way = null; return refresh(); }
-    sfx('select');
-    if (w.pick && gearChoices(w.pick).length) { plan.way = plan.way === id ? null : id; return refresh(); }
-    plan.way = null;
-    return run(() => failWay(id));
-  }
-  if (a === 'fwaygear') { const id = plan.way; plan.way = null; sfx('select'); return run(() => failWay(id, { uid: n('uid'), slot: el.dataset.slot })); }
   if (a === 'accept' || a === 'cost') {
     run(() => resolve(a === 'cost' ? el.dataset.c : undefined));
     const lines = G.battle?.lastResult?.lines || [];
@@ -5406,12 +5397,12 @@ const GLOSSARY = {
 function helpHtml() {
   const terms = [
     ['RP', GLOSSARY.RP], ['BP', GLOSSARY.BP],
-    ['Alert', `How awake the enemy is, 0 to ${ALERT_MAX}. At ${ALERT_TIER} they are alerted and shoot back harder; at ${ALERT_MAX} a quick reaction force is called: you have ${QRF_STAGES} stages to finish the job (every test 2 harder, every failure a firefight) before everything left is abandoned, or you run for the exfil now; the exfil is 1 harder with them on your heels. Once alerted, bad hits also land a step worse.`],
+    ['Alert', `How awake the enemy is, 0 to ${ALERT_MAX}. At ${ALERT_TIER} they are alerted and shoot back harder; at ${ALERT_MAX} a quick reaction force is called: you have ${QRF_STAGES} stages to finish the job (every test 2 harder, every failure a firefight) before everything left is abandoned, or you run for the exfil now; the exfil is 1 harder with them on your heels. Once alerted, bad hits turn critical sooner.`],
     ['Time', 'Every action, route and rest spends time. Clear a stage with the last of it and the team drops everything for one hard roll at the exfil (1 harder, no clock). Run out on a failure and you can still take a way past, or let the window close and walk out.'],
     ['Difficulty', 'How many successes (dice showing 5 or 6) a test needs. One short is a success at a cost you choose. In the breakdown, red dots are what makes it harder (one per extra success needed) and green +1 is what helps.'],
     ['Back', 'Until something really happens at a stage (a roll, a rest, a way past), you can go back to the ways in or the route and choose again.'],
     ['Archive', 'At base, next to the memorial wall: a file for every mission, with the briefing as it stood and the after-action report.'],
-    ['Burn', `After a roll that fell short, burn ${BURN_NERVE} Nerve for one sure success (a gold star among the dice), as often as the team can afford. Dearer than a push, but nothing can go wrong.`],
+    ['Burn', `After a roll that fell short, burn ${BURN_NERVE} Nerve for one sure success (a gold star among the dice), once per roll. Dearer than a push, but nothing can go wrong.`],
     ['Push', 'Re-roll the misses once, for 1 Nerve (or once a mission, a lieutenant giving the order). No Nerve, no push. Every 1 on the new dice is something going wrong: a radio call, a bite, a jam, a dropped magazine.'],
     ['Nerve', 'Grit for pushing a roll, brought to the team by rank: Private 0, Private First Class and Corporal 1, Sergeant and Staff Sergeant 2, Lieutenant 3 (a true believer brings 1 more). Seeing a teammate knocked out or killed costs the team 1 Nerve. Shown next to Alert and Time.'],
     ['Quirk', 'Every personality bends one rule a little in their favour: the teal chip next to the personality. Hover or open an operator to read it; they say it out loud when it happens.'],
@@ -5435,7 +5426,7 @@ function helpHtml() {
         <li><b>Commit operators.</b> Tap an operator to add or stand them down; Make lead picks who rolls. More bodies make Stealth noisier (Scouts and infiltrators excepted), and only committed operators get shot.</li>
         <li><b>Everyone carries a handgun.</b> A primary weapon is optional. A lead with only the handgun rolls ${HANDGUN_PENALTY} Assault die fewer, except in close quarters or as a CQB specialist.</li>
         <li><b>Spend gear</b> for extra dice, then execute. Every 5 or 6 is a success. Meet the difficulty to succeed; one short is a success at a cost you choose.</li>
-        <li><b>Push</b> to re-roll the misses for 1 <b>Nerve</b> (Nerve comes with rank), and every 1 rolled costs you something. Or <b>burn</b> 2 Nerve for one sure success. A <b>failure</b> costs time and raises the alarm; take it, see what it cost, and then the <b>ways out</b> open: go round, blow through, let a specialist do it, or force it, each at a price. An approach marked <b>No real chance as you are</b> (under 5%) needs gear the team lacks or one of these desperate measures; when nothing at a stage can work, they open without a failure.</li></ol></div>
+        <li><b>Push</b> to re-roll the misses for 1 <b>Nerve</b> (Nerve comes with rank), and every 1 rolled costs you something. Or <b>burn</b> 2 Nerve for one sure success, once per roll. A <b>failure</b> costs time and raises the alarm; take it, see what it cost, and then the <b>ways out</b> open: go round, blow through, let a specialist do it, or force it, each at a price. An approach marked <b>No real chance as you are</b> (under 5%) needs gear the team lacks or one of these desperate measures; when nothing at a stage can work, they open without a failure.</li></ol></div>
       <div><h3>Glossary</h3><dl class="gloss">${terms.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl></div>
     </div>`;
 }
