@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>SKIRM Ops Board</title>
+<title>SKIRMISH Ops Board</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -331,6 +331,7 @@ main { flex: 1; min-height: 0; padding-block: 20px; padding-left: max(20px, env(
 .die { width: 52px; height: 52px; display: grid; place-items: center; border-radius: 12px; background: var(--panel-2); border: 1px solid var(--line); font: 700 24px var(--mono); color: var(--muted); transition: background 0.2s, border-color 0.2s, color 0.2s; }
 .die { position: relative; }
 .die.hit { background: var(--ok-soft); border-color: var(--ok); color: var(--ok); }
+.die.auto { color: var(--gold); border-color: var(--gold); background: var(--warn-soft); }
 .die.hit::after { content: "\2713"; position: absolute; top: 2px; right: 5px; font: 700 11px/1 var(--body); } /* a hit is marked, not only coloured */
 .die.re { box-shadow: 0 0 0 2px var(--warn); }
 .die.rolling { color: var(--fg); animation: tumble 0.18s linear infinite; }
@@ -628,7 +629,7 @@ body { background-image: var(--grain); }
 .title > .art { position: absolute; inset: 0; border: 0; }
 .title::after { content: ""; position: absolute; inset: 0; z-index: 2; background: linear-gradient(90deg, rgba(10, 12, 15, 0.9), rgba(10, 12, 15, 0.2) 70%), linear-gradient(0deg, rgba(10, 12, 15, 0.8), transparent 50%); }
 .title-in { position: relative; z-index: 3; display: grid; gap: 10px; justify-items: start; padding: max(32px, 6vw); }
-.title-logo { font: 700 clamp(56px, 12vw, 128px)/0.9 var(--display); letter-spacing: 0.24em; }
+.title-logo { font: 700 clamp(34px, 10vw, 128px)/0.9 var(--display); letter-spacing: 0.24em; }
 .title-in p { margin: 0 0 14px; color: var(--muted); font-size: 18px; }
 @media (prefers-reduced-motion: reduce) { .tmap .ping { animation: none; } }
 @media (max-width: 640px) { .tmap svg { min-width: 760px; max-height: none; } } /* phones pan the map sideways; it opens on the current stage */
@@ -755,7 +756,7 @@ dialog.sheet { margin: 0 0 0 auto; width: min(620px, 100vw); height: 100dvh; max
 <body>
 <div id="app">
   <header class="top">
-    <div class="brand">SKIRM <span>ops board</span></div>
+    <div class="brand">SKIRMISH <span>ops board</span></div>
     <nav class="phases" id="phases" aria-label="Mission phase"></nav>
     <div class="stats" id="stats"></div>
     <div class="top-actions">
@@ -2487,7 +2488,7 @@ function execute(o) {
   b.state = 'ROLLED';
   if (unitById(lead).weapon !== 'CARBINE') tire([unitById(lead)]); // leading a test takes it out of you (a light carbine excepted); a failure tires everyone committed
 }
-const successes = (r) => r.dice.filter((d) => d >= HIT).length;
+const successes = (r) => r.dice.filter((d) => d >= HIT).length + (r.auto || 0); // auto: successes bought with Nerve
 const outcomeOf = (r) => { const s = successes(r); return s >= r.diff || (r.clean && s === r.diff - 1) ? 'SUCCESS' : s === r.diff - 1 ? 'PARTIAL' : 'FAIL'; };
 /** A perfectionist leading turns the first success at a cost of the mission into a clean one. */
 function cleanWork(r) {
@@ -2519,6 +2520,23 @@ function push() {
     const [kind, text] = COMPLICATIONS[key] && chance(60) ? COMPLICATIONS[key] : pick(COMPLICATIONS._);
     r.comp.push(complication(kind, text, r));
   }
+  cleanWork(r);
+}
+const BURN_NERVE = 2, BURN_STEP = 0, BURN_PER_ROLL = 99; // Nerve for one automatic success (dearer than a push, but certain); each later burn in a mission costs BURN_STEP more
+const burnCost = () => BURN_NERVE + (B().burned || 0) * BURN_STEP;
+/** Burn Nerve after the roll for one automatic success, as often as the team can afford. No complications. */
+function burn() {
+  need('OPERATION');
+  const b = B(), r = b.roll;
+  if (b.state !== 'ROLLED') fail('Nothing to burn Nerve on.');
+  if (outcomeOf(r) === 'SUCCESS') fail('Already a success.');
+  const cost = burnCost();
+  if ((r.auto || 0) >= BURN_PER_ROLL) fail('No more Nerve can go into this roll.');
+  if ((b.nerve || 0) < cost) fail(`Burning takes ${cost} Nerve; ${b.nerve || 0} left.`);
+  b.nerve -= cost;
+  b.burned = (b.burned || 0) + 1;
+  r.auto = (r.auto || 0) + 1;
+  log(`${unitById(r.lead).name} grits their teeth and makes it happen: one sure success (Nerve ${b.nerve}/${b.nerveMax}).`, 'good');
   cleanWork(r);
 }
 /** What a pushed 1 costs, by situation; _ is anywhere. ALERT +1 alert, TIME -1 time, HIT a minor hit on the lead, GEAR a consumable lost. */
@@ -4563,8 +4581,8 @@ function startWeather() {
 /** Title card on load: the key art, the name, and the way in. The test hook skips it. */
 function showTitle() {
   const el = document.createElement('div');
-  el.className = 'title'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'SKIRM');
-  el.innerHTML = `${artSlot('KEYART', 'key')}<div class="title-in"><div class="title-logo">SKIRM</div><p>Special operations, one decision at a time.</p>
+  el.className = 'title'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'SKIRMISH');
+  el.innerHTML = `${artSlot('KEYART', 'key')}<div class="title-in"><div class="title-logo">SKIRMISH</div><p>Special operations, one decision at a time.</p>
     <button class="btn primary big" type="button">${G.flown || G.phase !== 'BASE' ? 'Continue campaign' : 'Start campaign'}</button></div>`;
   document.body.append(el);
   const go = el.querySelector('button');
@@ -5147,14 +5165,14 @@ function rollSceneHtml(st, sit) {
   const key = `${G.flown}:${b.stage}:${b.attempts}:${r.pushed}`;
   return `<div class="eyebrow">Stage ${b.stage + 1} · ${KIND[st.kind]} · ${esc(sit.label)}</div><h2>${esc(opt.label)}</h2>
     <p class="roll-sub">${esc(lead.name)} leads${r.ids.length > 1 ? ` with ${r.ids.length - 1} in support` : ''}: ${r.dice.length} dice, every 5 or 6 counts.</p>
-    <div class="dice" data-roll="${key}">${r.dice.map((d, i) => `<span class="die ${d >= HIT ? 'hit' : ''} ${r.rerolled.includes(i) ? 're' : ''}">${d}</span>`).join('')}</div>
+    <div class="dice" data-roll="${key}">${r.dice.map((d, i) => `<span class="die ${d >= HIT ? 'hit' : ''} ${r.rerolled.includes(i) ? 're' : ''}">${d}</span>`).join('')}${'<span class="die hit auto" title="Burned Nerve: a sure success">★</span>'.repeat(r.auto || 0)}</div>
     <div class="track">${Array.from({ length: r.diff }, (_, i) => `<i class="${i < s ? 'on' : ''}"></i>`).join('')}<span><b>${s}</b> of ${r.diff} needed</span></div>
     <div class="roll-after">
       <div class="outcome ${out}">${ico(OUT_ICON[out])}${OUT_WORD[out]}${r.pushed ? ' <small class="muted" style="font-size:14px">pushed</small>' : ''}</div>
       ${r.comp?.length ? `<ul class="comp" aria-label="What went wrong pushing it">${r.comp.map((c) => `<li>${ico('warn')}${esc(c)}</li>`).join('')}</ul>` : ''}
       ${out === 'PARTIAL' ? `<div class="costs">${Object.entries(COSTS).map(([k, c]) => `<button class="btn" type="button" data-act="cost" data-c="${k}"><b>${c.label}</b><small>${esc(costDesc(k, c))}</small></button>`).join('')}</div>` : ''}
       ${out === 'FAIL' && waysOut(true).length ? '<p class="muted fail-next">Take the failure first and see what it costs. Then the ways past this stage open.</p>' : ''}
-      <div class="actions-row">${out !== 'SUCCESS' && !r.pushed ? pushBtn(r, out, r.dice.length - s) : ''}<span class="grow"></span>
+      <div class="actions-row">${out !== 'SUCCESS' && !r.pushed ? pushBtn(r, out, r.dice.filter((d) => d < HIT).length) : ''}${out !== 'SUCCESS' && (b.nerve || 0) >= burnCost() && (r.auto || 0) < BURN_PER_ROLL ? `<button class="btn push-nerve" type="button" data-act="burn">${ico('star')}Burn ${burnCost()} Nerve: one sure success (${b.nerve} left)</button>` : ''}<span class="grow"></span>
         ${out === 'PARTIAL' ? '' : `<button class="btn primary big" type="button" data-act="accept">${out === 'SUCCESS' ? 'Continue' : 'Take the failure'}</button>`}</div>
     </div>`;
 }
@@ -5265,7 +5283,7 @@ function animateRoll() {
   ui.rolled = key;
   const dice = [...box.children], track = [...document.querySelectorAll('.track i')], count = $('.track b');
   const moving = r.pushed ? r.rerolled : r.dice.map((_, i) => i);
-  let hits = r.dice.filter((d, i) => d >= HIT && !moving.includes(i)).length, left = moving.length;
+  let hits = r.dice.filter((d, i) => d >= HIT && !moving.includes(i)).length + (r.auto || 0), left = moving.length;
   const paint = () => { track.forEach((t, i) => t.classList.toggle('on', i < hits)); count.textContent = hits; };
   const done = () => { after.classList.remove('pending'); const out = outcomeOf(r); sfx(out.toLowerCase()); if (out === 'FAIL') buzz(60); };
   if (!left) return;
@@ -5325,6 +5343,7 @@ $('#view').addEventListener('click', (e) => {
   if (a === 'fork') { sfx('click'); return run(() => chooseFork(n('i'))); }
   if (a === 'exec') return run(() => execute({ opt: plan.opt, ids: plan.ids, lead: previewOf(plan.opt).lead, gear: plan.gear, strike: plan.strike }));
   if (a === 'push') return run(push);
+  if (a === 'burn') { sfx('tick'); return run(burn); }
   if (a === 'way') { // a way that costs gear asks which piece first
     const id = el.dataset.id, w = waysOut().find((x) => x.id === id);
     if (!w) { plan.way = null; return refresh(); }
@@ -5392,6 +5411,7 @@ function helpHtml() {
     ['Difficulty', 'How many successes (dice showing 5 or 6) a test needs. One short is a success at a cost you choose. In the breakdown, red dots are what makes it harder (one per extra success needed) and green +1 is what helps.'],
     ['Back', 'Until something really happens at a stage (a roll, a rest, a way past), you can go back to the ways in or the route and choose again.'],
     ['Archive', 'At base, next to the memorial wall: a file for every mission, with the briefing as it stood and the after-action report.'],
+    ['Burn', `After a roll that fell short, burn ${BURN_NERVE} Nerve for one sure success (a gold star among the dice), as often as the team can afford. Dearer than a push, but nothing can go wrong.`],
     ['Push', 'Re-roll the misses once, for 1 Nerve (or once a mission, a lieutenant giving the order). No Nerve, no push. Every 1 on the new dice is something going wrong: a radio call, a bite, a jam, a dropped magazine.'],
     ['Nerve', 'Grit for pushing a roll, brought to the team by rank: Private 0, Private First Class and Corporal 1, Sergeant and Staff Sergeant 2, Lieutenant 3 (a true believer brings 1 more). Seeing a teammate knocked out or killed costs the team 1 Nerve. Shown next to Alert and Time.'],
     ['Quirk', 'Every personality bends one rule a little in their favour: the teal chip next to the personality. Hover or open an operator to read it; they say it out loud when it happens.'],
@@ -5415,7 +5435,7 @@ function helpHtml() {
         <li><b>Commit operators.</b> Tap an operator to add or stand them down; Make lead picks who rolls. More bodies make Stealth noisier (Scouts and infiltrators excepted), and only committed operators get shot.</li>
         <li><b>Everyone carries a handgun.</b> A primary weapon is optional. A lead with only the handgun rolls ${HANDGUN_PENALTY} Assault die fewer, except in close quarters or as a CQB specialist.</li>
         <li><b>Spend gear</b> for extra dice, then execute. Every 5 or 6 is a success. Meet the difficulty to succeed; one short is a success at a cost you choose.</li>
-        <li><b>Push</b> to re-roll the misses for 1 <b>Nerve</b> (Nerve comes with rank), and every 1 rolled costs you something. A <b>failure</b> costs time and raises the alarm; take it, see what it cost, and then the <b>ways out</b> open: go round, blow through, let a specialist do it, or force it, each at a price. An approach marked <b>No real chance as you are</b> (under 5%) needs gear the team lacks or one of these desperate measures; when nothing at a stage can work, they open without a failure.</li></ol></div>
+        <li><b>Push</b> to re-roll the misses for 1 <b>Nerve</b> (Nerve comes with rank), and every 1 rolled costs you something. Or <b>burn</b> 2 Nerve for one sure success. A <b>failure</b> costs time and raises the alarm; take it, see what it cost, and then the <b>ways out</b> open: go round, blow through, let a specialist do it, or force it, each at a price. An approach marked <b>No real chance as you are</b> (under 5%) needs gear the team lacks or one of these desperate measures; when nothing at a stage can work, they open without a failure.</li></ol></div>
       <div><h3>Glossary</h3><dl class="gloss">${terms.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl></div>
     </div>`;
 }
@@ -5579,7 +5599,7 @@ function start(data) {
 if (/[?&]test\b/.test(location.search)) {
   window.SKIRM = { get G() { return G; }, newCampaign, chooseMission, backToBase, upgradeDept, toggleBed, fabricate, repair, rest, vehBlock, intelCost, fatState,
     DEPTS, FAB, VEH, LOCATIONS, WEATHER, SPECS, KITS, INTEL, hireCaptive, tradeCaptive, OFFICER_TRAITS, buyIntel, launch, proceed, enlist, chooseRoute, chooseFork, execute, push, resolve, skip, abort,
-    fieldCare, treat, launchDrone, canLead, opDice, chooseLine, mapCheck, mapHtml, waysOut, wayOut, failWay, bestOdds, gearChoices, ready, SAVE_LINES, MEMORIAL, interlude, PERSONAS, TOPICS, LINES, TRAITS, worstNeed, fieldCareNeed, INJURIES, bestLead, odds, difficulty, poolOf, previewOf, cur, sitOf, active, team, outcomeOf, foesOf, Rule, CLASSES, ITEMS, SIT, available, refresh, knockOut, cleanWork, growUp, interDone, omens, leadBonuses, unitById, closeWindow, undo, openFile, runForIt };
+    fieldCare, treat, launchDrone, canLead, opDice, chooseLine, mapCheck, mapHtml, waysOut, wayOut, failWay, bestOdds, gearChoices, ready, SAVE_LINES, MEMORIAL, interlude, PERSONAS, TOPICS, LINES, TRAITS, worstNeed, fieldCareNeed, INJURIES, bestLead, odds, difficulty, poolOf, previewOf, cur, sitOf, active, team, outcomeOf, foesOf, Rule, CLASSES, ITEMS, SIT, available, refresh, knockOut, cleanWork, growUp, interDone, omens, leadBonuses, unitById, closeWindow, undo, openFile, runForIt, burn };
 }
 window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
 })();

@@ -1,4 +1,4 @@
-# SKIRM art guide
+# SKIRMISH art guide
 
 Direction: **classified dossier**. The dark interface is the desk; on it lie surveillance photos, mosaic personnel files, maps and stamped reports. Maps, weather, insignia, patches, emblems, stamps and redaction are drawn in code. Only the pictures below need making.
 
