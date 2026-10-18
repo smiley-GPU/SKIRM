@@ -209,6 +209,7 @@ main { flex: 1; min-height: 0; padding-block: 20px; padding-left: max(20px, env(
 .bad-text { color: var(--bad); } .warn-text { color: var(--warn); }
 .locked { opacity: 0.5; }
 .veh.locked { cursor: not-allowed; }
+.veh.broke .cost { color: var(--bad); } .veh.broke.on { border-color: var(--bad); box-shadow: inset 0 0 0 1px var(--bad); background: var(--bad-soft); }
 
 /* base */
 .base { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 18px; max-width: 1440px; margin: 0 auto; align-items: start; }
@@ -301,6 +302,10 @@ main { flex: 1; min-height: 0; padding-block: 20px; padding-left: max(20px, env(
 .tile .pct.lo { color: var(--bad); } .tile .pct.mid { color: var(--warn); } .tile .pct.hi { color: var(--ok); }
 .tile .foot { font-size: 13px; color: var(--muted); }
 .tile ul { margin: 0; padding-left: 18px; font-size: 14px; color: var(--muted); }
+.tile .entry-opts { list-style: none; padding: 0; display: grid; gap: 3px; }
+.entry-opts li { display: flex; gap: 6px; align-items: baseline; } .entry-opts .ico { align-self: center; width: 0.95em; height: 0.95em; color: var(--dim); }
+.entry-opts li.yes { color: var(--fg); } .entry-opts li.yes .ico { color: var(--ok); } .entry-opts li.yes em { color: #cdbdf8; font-style: normal; }
+.entry-opts li.no { color: var(--dim); } .entry-opts li.no > span { text-decoration: line-through; text-decoration-color: rgba(240, 113, 106, 0.6); } .entry-opts li.no .ico { color: var(--bad); } .entry-opts li.no em { font-style: normal; }
 .result { display: grid; gap: 6px; border-radius: var(--r); padding: 12px 14px; margin-bottom: 18px; background: var(--panel-2); border-left: 4px solid var(--line); animation: reveal 0.35s both; }
 .result.SUCCESS { border-left-color: var(--ok); } .result.PARTIAL { border-left-color: var(--warn); } .result.FAIL { border-left-color: var(--bad); }
 .result .rhead { display: flex; align-items: center; gap: 8px; font-weight: 700; }
@@ -4268,11 +4273,15 @@ function renderBriefing() {
       ${on ? `<div class="loadout four">${select(s.id, 'WEAPON', l.weapon)}${select(s.id, 'ARMOR', l.armor)}${select(s.id, 'KIT', l.kit)}${select(s.id, 'UTILITY', l.utility)}</div>
       <div class="loadout-hint">${[l.weapon, l.armor, l.kit, l.utility].filter(Boolean).map((x) => `${ITEMS[x].label}: ${itemSummary(x)}`).concat(l.weapon ? [] : [handgunNote(s)]).join(' · ')}</div>` : ''}</div>`;
   }).join('');
+  // Each ride is priced against the other leg as chosen now: picking an expensive ride in marks the rides out it leaves
+  // no RP for (and the other way round). The free walk always fits, so there is always a way to fix the budget.
   const vehicles = (f) => Object.entries(VEH).map(([id, v]) => { const why = vehBlock(m, id, f === 'insertion' ? 'ins' : 'ext');
     if (why && G.base.lv.LOG < v.lv) return ''; // not unlocked yet: shown in Logistics at base
-    const wx = vehWeather(id, m.env.forecast);
-    return `<label class="veh ${draft[f] === id ? 'on' : ''} ${why ? 'locked' : ''}"><input type="radio" id="${f}-${id}" name="${f}" value="${id}" ${draft[f] === id ? 'checked' : ''} ${why ? 'disabled' : ''}>
-      <span class="veh-head"><b>${v.label}</b><span class="cost">${v.cost ? v.cost + ' RP' : 'Free'}</span></span><small>${why ? `<span class="bad-text">${why}.</span> ` : ''}${typeof wx === 'number' && wx > 0 ? `<span class="warn-text">Forecast: riskier (+${wx}%).</span> ` : ''}${typeof wx === 'string' && f === 'extraction' ? `<span class="warn-text">The forecast weather would ground it: you might walk out.</span> ` : ''}${v.desc}</small></label>`; }).join('');
+    const wx = vehWeather(id, m.env.forecast), on = draft[f] === id, other = VEH[f === 'insertion' ? draft.extraction : draft.insertion];
+    const total = v.cost + other.cost, broke = !why && total > G.rp;
+    const money = broke ? `<span class="bad-text">${on ? 'Over budget' : 'Not enough RP'}: ${total} RP with the ${other.label.toLowerCase()} ${f === 'insertion' ? 'out' : 'in'}, you have ${G.rp}.${on ? '' : ` A cheaper ride ${f === 'insertion' ? 'out' : 'in'} would free it up.`}</span> ` : '';
+    return `<label class="veh ${on ? 'on' : ''} ${why || (broke && !on) ? 'locked' : ''} ${broke ? 'broke' : ''}"><input type="radio" id="${f}-${id}" name="${f}" value="${id}" ${on ? 'checked' : ''} ${why || (broke && !on) ? 'disabled' : ''}>
+      <span class="veh-head"><b>${v.label}</b><span class="cost">${v.cost ? v.cost + ' RP' : 'Free'}</span></span><small>${why ? `<span class="bad-text">${why}.</span> ` : ''}${money}${typeof wx === 'number' && wx > 0 ? `<span class="warn-text">Forecast: riskier (+${wx}%).</span> ` : ''}${typeof wx === 'string' && f === 'extraction' ? `<span class="warn-text">The forecast weather would ground it: you might walk out.</span> ` : ''}${v.desc}</small></label>`; }).join('');
   // gear the team's classes could carry that has run out, with the workshop's price when it can make more
   const wanted = new Set(draft.team.flatMap((id) => { const c = CLASSES[classOf(id)]; return [...c.weapons, ...c.armor, ...c.utility, ...KITS]; }));
   const shortages = [...wanted].filter((it) => !(G.armory[it] > 0) && FAB[it] && G.base.lv.ENG >= FAB[it][0]).map((it) => {
@@ -4488,8 +4497,15 @@ function forkHtml(st) {
   return `<div class="eyebrow">Stage ${b.stage + 1} · ${KIND[st.kind]}</div><h2>Choose your way in</h2><p class="sit-text">Two entry points. You can see both from here.</p>
     ${officerAt(st) ? foeRow(`OFF-${officerAt(st).trait}`, officerHtml(officerAt(st))) : ''}
     <div class="tiles">${st.choices.map((c, i) => { const s = SIT[c], f = foesOf(st, s);
-      return `<button class="tile" type="button" data-act="fork" data-i="${i}"><span class="row"><b>${s.label}</b>${hostiles(f)}</span><small>${s.text}</small>
-        ${s.hazard ? '<span class="tags"><span class="loud">Hazard</span></span>' : ''}<ul>${s.opts.map((o) => `<li>${SKILLS[o.skill].label} ${o.diff}: ${o.label}${o.need ? ` (${SPECS[o.need].label.toLowerCase()})` : ''}</li>`).join('')}</ul></button>`; }).join('')}</div>`;
+      // what this team can actually do here: specialist approaches are open (with who leads them) or closed (and why)
+      const lines = s.opts.map((o) => {
+        const why = lockReason(o), who = o.need && !why ? team().find((u) => ready(u) && canLead(u) && hasSpec(u.sid, o.need)) : null;
+        return `<li class="${why ? 'no' : o.need ? 'yes' : ''}">${ico(why ? 'cross' : o.need ? 'check' : 'next')}<span>${SKILLS[o.skill].label} ${o.diff}: ${o.label}${who ? ` <em>${SPECS[o.need].label.toLowerCase()}: ${esc(firstName(who))}</em>` : ''}</span>${why ? `<em>(${esc(why)})</em>` : ''}</li>`;
+      });
+      const open = s.opts.filter((o) => !lockReason(o)).length;
+      return `<button class="tile entry" type="button" data-act="fork" data-i="${i}"><span class="row"><b>${s.label}</b>${hostiles(f)}</span><small>${s.text}</small>
+        <span class="tags">${s.hazard ? '<span class="loud">Hazard</span>' : ''}<span class="${open < s.opts.length ? 'loud' : 'good'}">${open} of ${s.opts.length} approaches open to this team</span></span>
+        <ul class="entry-opts">${lines.join('')}</ul></button>`; }).join('')}</div>`;
 }
 const officerHtml = (o) => `<span class="chip bad">${ico('star')}${esc(o.name)} · ${OFFICER_TRAITS[o.trait].label}</span> ${OFFICER_TRAITS[o.trait].desc}${o.grudge ? ' Back with a grudge: 1 harder.' : o.returning ? ` Got away from you on ${esc(o.returning)}.` : ''} Take the position with an approach that kills for their ${ITEMS[o.loot].label.toLowerCase()}, though they may run, surrender or go out fighting.`;
 /** Who on the team could lead an option that needs a specialist. */
