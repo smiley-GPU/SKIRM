@@ -24,7 +24,9 @@ The summary line holds: missions and wins, KIA and MIA, missing operators found 
 | `soak-failways` | Takes a way past straight after every failure. |
 | `soak-ways` | Takes a random way past whenever stuck. |
 
-Baseline on 2026-10-19 (`sweep.sh soak-15`, milestone 2): 76% of ops succeed; missions 1–4 98%, 5–10 73%, 11–15 62%; KIA 51 + MIA 51, 4.8% of deployments. The bots always take a rescue when one is offered and push on to the holding site under QRF; with rescues switched off (`--patch "s/ALIVE: 50, REPORT/ALIVE: 0, REPORT/"`) missions 5–10 are back at 78%. Before milestone 2 (2026-10-18): 78%; 96%, 79%, 64%; KIA+MIA 4.9%, nearly all KIA.
+Baseline on 2026-10-19 after milestone 3 (rules and gear; the soak-15 bot also books and calls support assets): 77% of ops succeed; missions 1–4 99%, 5–10 74%, 11–15 62%; KIA 56 + MIA 71, 5.9% of deployments. By step: combat rules 78% (98 / 78 / 62%, 6.4% lost), wounds and healing 75% (98 / 72 / 61%, 6.9%; the same fresh seeds win 78% with or without the second wind).
+
+Earlier baseline on 2026-10-19 (`sweep.sh soak-15`, milestone 2): 76% of ops succeed; missions 1–4 98%, 5–10 73%, 11–15 62%; KIA 51 + MIA 51, 4.8% of deployments. The bots always take a rescue when one is offered and push on to the holding site under QRF; with rescues switched off (`--patch "s/ALIVE: 50, REPORT/ALIVE: 0, REPORT/"`) missions 5–10 are back at 78%. Before milestone 2 (2026-10-18): 78%; 96%, 79%, 64%; KIA+MIA 4.9%, nearly all KIA.
 
 Scars are checked by giving one to every operator and sweeping, e.g. `tools/sweep.sh soak-15 --patch "s/traits: \[\], bonds: \[\], signature: null, fatigue: 0 };/traits: [], bonds: [], signature: null, fatigue: 0, scars: ['RESTLESS'] };/"`. On 2026-10-19 all six land within about 2 points of the 76% baseline (Short fuse 76%, Night eyes 75%, Knows their faces 77%, Never again 74%, Scar tissue 76%, Restless 78%).
 
@@ -42,7 +44,7 @@ tools/page.sh quirktest --all # every line
 
 ```bash
 tools/shot.sh TITLE 500 800   # prints where the PNG was saved
-tools/shot.sh FILE            # BACK, DOTS, FAIL, WAYS, CLOSE, ARCH, FILE, TITLE; missing in action: WORD, STAND, STANDEND, MIA, HOME
+tools/shot.sh FILE            # BACK, DOTS, FAIL, WAYS, CLOSE, ARCH, FILE, TITLE; missing in action: WORD, STAND, STANDEND, MIA, HOME; gear: GEAR (loadout with tool, second utility, shotgun ammunition), SUPPORT (support assets in the briefing)
 ```
 
 ## Writing new ones

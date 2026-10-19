@@ -18,7 +18,7 @@
     const st = S.cur(), sit = S.sitOf(st), units = S.team().filter(S.ready), b = G().battle;
     let best = null;
     sit.opts.forEach((opt, i) => {
-      if (1 + (opt.time || 0) > b.time) return;
+      if (1 + (opt.time || 0) > b.time || S.lockReason(opt)) return;
       for (const ids of subsets(units.map((u) => u.id))) {
         const lead = S.bestLead(opt, ids);
         if (lead == null) continue;
@@ -70,7 +70,8 @@
       if (b.qrfIn != null) { const at = Math.max(b.stages.findIndex((s) => s.kind === "OBJECTIVE"), b.stages.findIndex((s) => s.choices[0] === "HOLD")); if (b.stage > at || at - b.stage + 1 > b.qrfIn) { S.runForIt(); stats.ran = (stats.ran || 0) + 1; continue; } }
       if (b.timeUp) { stats.timeUp = (stats.timeUp || 0) + 1; const ws = S.waysOut(), w = ws.find((x) => !x.pick) || ws[0]; if (w) { const gc = w.pick ? S.gearChoices(w.pick) : []; S.wayOut(w.id, gc.length ? { uid: gc[0].uid, slot: gc[0].slot } : null); } else S.closeWindow(); continue; }
       care();
-      { const p0 = bestPlan(), ld = p0 && S.team().find((u) => u.id === p0.lead); if (ld && S.fatState(ld) >= 2 && b.time > 3 && !S.restBlock()) { S.rest(); stats.rests++; continue; } }
+      for (const id of ['OVERWATCH', 'FIRE']) if (G().mission.assets?.includes(id) && !(b.called || []).includes(id) && S.sitOf(st) && S.foesOf(st, S.sitOf(st)) >= 2) { S.callSupport(id); stats.calls = (stats.calls || 0) + 1; }
+      { const p0 = bestPlan(), ld = p0 && S.team().find((u) => u.id === p0.lead); if (ld && S.fatState(ld) >= 2 && b.time > 3 && !S.restBlock()) { S.rest(); stats.rests++; continue; } const md = S.team().find((u) => u.cls === 'MEDIC' && S.active(u)); if (ld && S.fatState(ld) >= 2 && md && !b.secondWind) { S.secondWind(md.id); stats.winds = (stats.winds || 0) + 1; continue; } }
       const drone = S.team().find((u) => S.active(u) && u.util === 'DRONE');
       if (drone && !b.drone.used) S.launchDrone(drone.id);
       render();
@@ -130,6 +131,7 @@
         if (G().phase === "BRIEFING" && mi % 3 === 1) { document.querySelector("#back")?.click() ?? S.backToBase(); if (G().phase === "BASE") { const hurt = G().roster.find((s) => s.alive && (s.recovery || s.fatigue)); if (hurt && G().rp >= 2) try { S.toggleBed(hurt.id); } catch (e) {} S.chooseMission(0); S.refresh(); document.querySelector('[data-step="1"]')?.click(); const why = document.querySelector(".brief-bar .why")?.textContent || ""; if (/short/.test(why) && stats.errors.length < 40) stats.errors.push(`re-draft c${c} m${mi}: ${why.trim()}`); } }
         const m = G().mission;
         if (G().rp >= 7) S.buyIntel('METEO');
+        if (G().base.lv.CMD >= 2 && G().rp >= 12) { try { S.buyAsset(['FIRE', 'EW', 'OVERWATCH', 'ISR'][mi % 4]); stats.assets = (stats.assets || 0) + 1; } catch (e) { /* full or too dear */ } }
         if (G().rp >= 8 && G().base.lv.INTEL >= 2) S.buyIntel('SIGINT');
         const team = G().roster.filter(S.available).sort((a, c2) => a.fatigue - c2.fatigue).slice(0, 4).map((s) => s.id);
         if (!team.length) { stats.noTeam = (stats.noTeam || 0) + 1; break; } // nobody fit to deploy: the campaign ends here

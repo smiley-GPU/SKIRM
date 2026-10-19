@@ -11,7 +11,7 @@
     return team;
   };
   const go = () => { const it = S.interlude(); if (it) { S.chooseLine(0); if (!S.interDone(it)) S.chooseLine(it.opts.findIndex((o, k) => k !== it.pick && o.topic !== it.opts[it.pick].topic)); } S.proceed(); S.chooseRoute(0); if (S.cur().pick == null) S.chooseFork(0); };
-  const roll = (dice) => { const sit = S.sitOf(S.cur()), ids = S.team().filter(S.ready).map((u) => u.id); let opt = 0, lead = null; for (let k = 0; k < sit.opts.length && lead == null; k++) { const l = S.bestLead(sit.opts[k], ids); if (l != null && S.poolOf(sit.opts[k], [l], [], false, l).value > 0) { opt = k; lead = l; } } S.execute({ opt, ids: [lead], lead, gear: [] }); const r = B().roll; r.dice = dice(r.diff, r); return r; };
+  const roll = (dice) => { const sit = S.sitOf(S.cur()), ids = S.team().filter(S.ready).map((u) => u.id); let opt = 0, lead = null; for (let k = 0; k < sit.opts.length && lead == null; k++) { if (S.lockReason(sit.opts[k])) continue; const l = S.bestLead(sit.opts[k], ids); if (l != null && S.poolOf(sit.opts[k], [l], [], false, l).value > 0) { opt = k; lead = l; } } S.execute({ opt, ids: [lead], lead, gear: [] }); const r = B().roll; r.dice = dice(r.diff, r); return r; };
   const flop = (d, r) => { r.diff = 9; return [1]; };
   const logHas = (re) => B().log.some((e) => re.test(e.text));
   try {

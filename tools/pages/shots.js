@@ -1,5 +1,5 @@
 (() => { const S = window.SKIRM, G = () => S.G, B = () => S.G.battle, want = new URLSearchParams(location.search).get('shot'), $ = (q) => document.querySelector(q);
-  const exec = () => { const sit = S.sitOf(S.cur()), ids = S.team().filter(S.ready).map((u) => u.id); for (let k = 0; k < sit.opts.length; k++) { const l = S.bestLead(sit.opts[k], ids); if (l != null && S.poolOf(sit.opts[k], [l], [], false, l).value > 0) { S.execute({ opt: k, ids: [l], lead: l, gear: [] }); return B().roll; } } };
+  const exec = () => { const sit = S.sitOf(S.cur()), ids = S.team().filter(S.ready).map((u) => u.id); for (let k = 0; k < sit.opts.length; k++) { if (S.lockReason(sit.opts[k])) continue; const l = S.bestLead(sit.opts[k], ids); if (l != null && S.poolOf(sit.opts[k], [l], [], false, l).value > 0) { S.execute({ opt: k, ids: [l], lead: l, gear: [] }); return B().roll; } } };
   try {
     S.newCampaign(4242); G().rp = 30;
     if (['WORD', 'STAND', 'STANDEND', 'MIA'].includes(want)) { // missing in action: word on the board, the last stand, the barracks list
@@ -14,6 +14,12 @@
       return;
     }
     const team = G().roster.filter(S.available).slice(0, 4); team.forEach((s) => { if (s.persona === 'PHILOSOPHER') s.persona = 'QUIET'; });
+    if (want === 'GEAR' || want === 'SUPPORT') { // the briefing with the new slots, or the support assets
+      Object.assign(G().base.lv, { BARRACKS: 2, ENG: 3, CMD: 3 }); Object.assign(G().armory, { SHOTGUN: 1, REBREATHER: 1, STIM: 2 });
+      S.chooseMission(0); S.buyAsset('OVERWATCH'); S.refresh();
+      if (want === 'GEAR') { document.querySelector('[data-step="1"]')?.click(); const sel = document.querySelector('select[data-slot="WEAPON"]'); if (sel) { sel.value = 'SHOTGUN'; sel.dispatchEvent(new Event('change')); } }
+      return;
+    }
     S.chooseMission(0);
     const left = { ...G().armory }, lo = {};
     for (const s of team) { const c = S.CLASSES[s.cls], f = (p) => { const x = p.find((k) => (left[k] || 0) > 0) || null; if (x) left[x]--; return x; }; lo[s.id] = { weapon: f(c.weapons), armor: f(c.armor), utility: f(c.utility), kit: null }; }

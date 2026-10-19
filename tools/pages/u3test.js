@@ -6,7 +6,7 @@
     for (const s of team) { if (s.persona === 'PHILOSOPHER') s.persona = 'QUIET'; const c = S.CLASSES[s.cls], f = (p) => { const x = p.find((k) => (left[k] || 0) > 0) || null; if (x) left[x]--; return x; }; lo[s.id] = { weapon: f(c.weapons), armor: f(c.armor), utility: f(c.utility), kit: null }; }
     S.launch({ team: team.map((s) => s.id), loadouts: lo, insertion: 'FOOT', extraction: 'FOOT' }); S.chooseLine(0); S.proceed();
   };
-  const exec = () => { const sit = S.sitOf(S.cur()), ids = S.team().filter(S.ready).map((u) => u.id); for (let k = 0; k < sit.opts.length; k++) { const l = S.bestLead(sit.opts[k], ids); if (l != null && S.poolOf(sit.opts[k], [l], [], false, l).value > 0) { S.execute({ opt: k, ids: [l], lead: l, gear: [] }); return B().roll; } } };
+  const exec = () => { const sit = S.sitOf(S.cur()), ids = S.team().filter(S.ready).map((u) => u.id); for (let k = 0; k < sit.opts.length; k++) { if (S.lockReason(sit.opts[k])) continue; const l = S.bestLead(sit.opts[k], ids); if (l != null && S.poolOf(sit.opts[k], [l], [], false, l).value > 0) { S.execute({ opt: k, ids: [l], lead: l, gear: [] }); return B().roll; } } };
   const toPerimeter = () => { S.chooseRoute(0); };
   try {
     // Back: undo the route and the way in
@@ -85,6 +85,63 @@
       S.refresh(); ok('Under fire with enemies here: no rest, and the button says why', refused && $('[data-act="rest"]')?.disabled && /under fire/.test($('[data-act="rest"]')?.title || ''));
       S.cur().underFire = false; B().qrfIn = 2; ok('QRF closing in: no rest', /QRF/.test(S.restBlock())); B().qrfIn = null;
       S.cur().underFire = true; S.cur().foesCleared = true; ok('Enemies gone: rest again', S.restBlock() === ''); }
+    // Rules 2.0: wear-down, spotted, momentum
+    { const t = [[2, 0, 0], [3, 1, 1], [4, 1, 0], [4, 2, 1], [5, 2, 1], [5, 3, 2], [6, 3, 1], [6, 4, 2], [7, 4, 1], [7, 5, 2]];
+      ok('Wear earned scales with difficulty', t.every(([d, s, w]) => S.wearFor(s, d) === w), t.filter(([d, s, w]) => S.wearFor(s, d) !== w).join(' | '));
+      setup(); toPerimeter(); if (S.cur().pick == null) S.chooseFork(0); const st = S.cur(); st.choices[st.pick] = 'SENTRY'; G().mission.n = 9; // enemy experience +3
+      const sit = S.sitOf(st), k = sit.opts.findIndex((o) => o.skill === 'ASSAULT'), ids = S.team().filter(S.ready).map((u) => u.id), lead = S.bestLead(sit.opts[k], ids);
+      const foes0 = S.foesOf(st, sit), d0 = S.difficulty(st, sit, sit.opts[k], [lead]).value;
+      S.execute({ opt: k, ids: [lead], lead, gear: [] }); const r = B().roll, need = Math.max(1, Math.floor(r.diff / 2)); r.dice = r.dice.map((x, i) => (i < need ? 6 : 1)); r.auto = 0; r.diff = Math.max(r.diff, need + 2); S.resolve();
+      ok('A failed Assault with hits wears them down: fewer enemies, easier next try', st.wear >= 1 && S.foesOf(st, sit) === Math.max(1, foes0 - st.wear) && S.difficulty(st, sit, sit.opts[k], [lead]).value < d0, `wear ${st.wear} foes ${foes0}->${S.foesOf(st, sit)}`);
+      ok('Wear never takes off more than the enemy part', S.difficulty(st, sit, sit.opts[k], [lead]).mods.find((x) => x.label === 'Worn down').v >= -2);
+      ok('Seen here: Stealth closed at this stage', st.spotted && sit.opts.filter((o) => o.skill === 'STEALTH').every((o) => S.lockReason(o)));
+      const k2 = sit.opts.findIndex((o) => o.skill !== 'STEALTH' && !o.need); S.execute({ opt: k2, ids: [lead], lead, gear: [] }); const r2 = B().roll; r2.dice = r2.dice.map(() => 6); r2.diff = 1; const skill = sit.opts[k2].skill; S.resolve();
+      ok('A success with hits to spare carries momentum to the next stage', B().momentum?.skill === skill && B().momentum.stage === B().stage && S.leadBonuses(S.team().find(S.ready), skill).some((x) => x.label === 'Momentum')); }
+    // Wounds named by cause; the stim and the medic's second wind
+    { const W = window.LS_TEXT.WOUNDS, ids = Object.keys(S.INJURIES);
+      ok('Every wound has a name for every cause', ['GUN', 'BLAST', 'FALL', 'BURN'].every((k) => ids.every((id) => W[k][id])));
+      setup(); toPerimeter(); const u = S.team()[0]; u.inj = []; S.hurt(u, 0, 1, 'is hit', 'BURN');
+      const names = Object.values(W.BURN).map((x) => (Array.isArray(x) ? x[0] : x));
+      ok('A burn is named as a burn', u.inj.length === 1 && names.includes(S.injLabel(u.inj[0])), u.inj.map(S.injLabel).join());
+      S.team().forEach((x) => { x.fat = 4; }); u.util = 'STIM'; S.stim(u.id, u.id);
+      ok('A stim takes 2 fatigue off, and is used up', u.fat === 2 && !u.util);
+      const md = S.team().find((x) => x.cls === 'MEDIC'); if (md) { const before = S.team().filter(S.active).map((x) => x.fat); S.secondWind(md.id); let again = false; try { S.secondWind(md.id); } catch (e) { again = e instanceof S.Rule; }
+        ok('Second wind: everyone sheds 1, once a mission', S.team().filter(S.active).every((x, i) => x.fat === Math.max(0, before[i] - 1)) && again); } }
+    // Gear: tool slot, second utility, support assets, shotgun and ammunition, new consumables, the named-weapon pool
+    { S.newCampaign(5150); const g = G(); g.rp = 60; Object.assign(g.armory, { REBREATHER: 1, STIM: 2, TORCH: 1, SHOTGUN: 1 });
+      const team = g.roster.filter(S.available).slice(0, 4), base = (s) => ({ weapon: null, armor: null, kit: null, tool: null, utility: null, utility2: null, ammo: null });
+      const lo = Object.fromEntries(team.map((s) => [s.id, base(s)])), heavy = team.find((s) => s.cls === 'HEAVY') || team[0], medic = team.find((s) => s.cls === 'MEDIC');
+      const tryLaunch = () => { try { S.launch({ team: team.map((s) => s.id), loadouts: lo, insertion: 'FOOT', extraction: 'FOOT' }); return ''; } catch (e) { return e.message; } };
+      S.chooseMission(0); lo[heavy.id].kit = 'REBREATHER'; ok('A specialist tool no longer fits the kit slot', /can't carry Rebreather/.test(tryLaunch()));
+      lo[heavy.id].kit = null; lo[heavy.id].tool = 'REBREATHER'; lo[heavy.id].utility = 'FRAG'; lo[heavy.id].utility2 = 'STIM';
+      ok('A second utility needs Barracks level 2', /Barracks level 2/.test(tryLaunch())); g.base.lv.BARRACKS = 2;
+      let busy = ''; try { S.buyAsset('ISR'); } catch (e) { busy = e.message; } ok('Support assets need Operations level 2', /Operations level 2/.test(busy));
+      g.base.lv.CMD = 3; S.buyAsset('OVERWATCH'); S.buyAsset('FIRE'); let third = ''; try { S.buyAsset('EW'); } catch (e) { third = e.message; }
+      ok('Operations level 3 books two assets, 1 RP cheaper', g.mission.assets.length === 2 && /2 support assets/.test(third));
+      lo[heavy.id].weapon = 'SHOTGUN'; lo[heavy.id].ammo = 'BREACHING'; g.base.lv.ENG = 1; ok('Breaching rounds need Engineering level 2', /cannot load/.test(tryLaunch()));
+      g.base.lv.ENG = 3; const op = team.find((s) => s.cls === 'DRONE'); if (op) lo[op.id].utility = 'TORCH';
+      ok('The loadout launches: tool, two utilities, shotgun with breaching rounds', tryLaunch() === '', tryLaunch());
+      const it = S.interlude(); S.chooseLine(0); if (!S.interDone(it)) S.chooseLine(it.opts.findIndex((o, k) => k !== 0 && o.topic !== it.opts[0].topic)); S.proceed();
+      S.chooseRoute(0); if (S.cur().pick == null) S.chooseFork(0); const st = S.cur(); st.choices[st.pick] = 'SENTRY';
+      const hu = S.team().find((u) => u.sid === heavy.id), sit = S.sitOf(st);
+      ok('Tool, both utilities and the ammunition reach the field', hu.tool === 'REBREATHER' && hu.util === 'FRAG' && hu.util2 === 'STIM' && hu.ammo === 'BREACHING');
+      hu.fat = 4; S.stim(hu.id, hu.id); ok('The second utility can be used first: the stim goes, the frag stays', hu.util === 'FRAG' && !hu.util2 && hu.fat === 2);
+      ok('Shotgun: -1 at range, +2 in close quarters', S.shotgunMods(hu, 'ASSAULT', sit.opts.find((o) => o.skill === 'ASSAULT'))[0]?.v === -1 && S.shotgunMods(hu, 'ASSAULT', { skill: 'ASSAULT', close: true })[0]?.v === 2);
+      hu.ammo = 'SLUG'; ok('Slugs: no close-quarters bonus, no penalty', S.shotgunMods(hu, 'ASSAULT', { skill: 'ASSAULT', close: true }).every((x) => /officer/.test(x.label)));
+      hu.ammo = 'LESS'; ok('Less-lethal: +1 Stealth leading', S.shotgunMods(hu, 'STEALTH', null)[0]?.v === 1); hu.ammo = 'BREACHING';
+      const f0 = S.foesOf(st, sit); S.callSupport('OVERWATCH'); ok('Overwatch: one enemy down, +1 Recon die here', S.foesOf(st, sit) === f0 - 1 && S.leadBonuses(hu, 'RECON').some((x) => /Overwatch/.test(x.label)));
+      const a0 = B().alert; S.callSupport('FIRE'); ok('Fire mission: worn down by 2, alert +2', st.wear === 2 && B().alert === Math.min(6, a0 + 2));
+      st.failed = 1; const w = S.waysOut().find((x) => x.id === 'BLAST'); const a1 = B().alert;
+      ok('Breaching rounds open a quiet blast, without a charge', !!w && /breaching rounds/.test(w.price)); S.wayOut('BLAST'); ok('...and the charge-free blast raises no alert', B().breachRound && B().alert === a1);
+      g.legacy.push({ id: 'X1', base: 'CARBINE', label: 'X1' }, { id: 'X2', base: 'AK', label: 'X2' });
+      ok('Named weapons: two per class, then the class is closed', !S.namedOpen('SUPRIFLE') && S.namedOpen('SMG')); g.legacy = []; }
+    // Starting loadout: the best for the class's role, newest first, a signature weapon always first
+    { S.newCampaign(4242); Object.assign(G().armory, { AMR: 2, SUPRIFLE: 2, CERAMIC: 9, THERMAL: 2, LMG: 2, SHOTGUN: 1 }); S.chooseMission(0); S.refresh();
+      ok('No anti-materiel rifle for a Heavy', !S.CLASSES.HEAVY.weapons.includes('AMR') && S.bestFor('HEAVY', S.CLASSES.HEAVY.weapons)[0] === 'LMG');
+      ok('A Scout takes the newest weapon that serves its role', S.bestFor('SCOUT', S.CLASSES.SCOUT.weapons)[0] === 'SUPRIFLE');
+      ok('Newest armour', S.defaultLoadout('HEAVY').armor === 'CERAMIC');
+      const sc = G().roster.find((s) => s.cls === 'SCOUT'); sc.signature = 'DMR'; G().armory.DMR = 1;
+      ok('A signature weapon always comes first', S.defaultLoadout('SCOUT', sc).weapon === 'DMR'); S.backToBase(); }
     // Repairs: at Logistics, not Engineering
     { S.newCampaign(4242); G().base.damaged.HELO = true; S.refresh(); $('[data-tab="ENG"]')?.click(); const inEng = !!$('[data-repair]');
       $('[data-tab="LOG"]')?.click(); const btn = $('[data-repair="HELO"]'); ok('Damaged vehicles are repaired from Logistics', !inEng && !!btn);

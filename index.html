@@ -809,6 +809,7 @@ dialog.sheet { margin: 0 0 0 auto; width: min(620px, 100vw); height: 100dvh; max
 <script src="data/voices.js"></script>
 <script src="data/story.js"></script>
 <script src="data/missing.js"></script>
+<script src="data/wounds.js"></script>
 <script>
 'use strict';
 (() => {
@@ -844,21 +845,49 @@ const ITEMS = {
   AMR: { slot: 'WEAPON', label: 'Anti-materiel Rifle', dice: { RECON: 2, STEALTH: -1 } },
   CERAMIC: { slot: 'ARMOR', label: 'Ceramic Plate', dr: 2 }, // plate protection without the weight
   NVG: { slot: 'KIT', label: 'Night Vision', night: { ASSAULT: 1, STEALTH: 1, RECON: 1, TECH: 1 } }, // night: extra dice when the mission is at night
-  REBREATHER: { slot: 'KIT', label: 'Rebreather' }, // tools that lower the price of a specialist's way out (see WAY_TOOLS)
-  CLIMBKIT: { slot: 'KIT', label: 'Climbing Kit' },
-  CRYPTO: { slot: 'KIT', label: 'Encrypted Radio' },
+  REBREATHER: { slot: 'TOOL', label: 'Rebreather' }, // specialist tools: their own slot; they lower the price of a specialist's way out
+  CLIMBKIT: { slot: 'TOOL', label: 'Climbing Kit' },
+  CRYPTO: { slot: 'TOOL', label: 'Encrypted Radio' },
+  SHOTGUN: { slot: 'WEAPON', label: 'Shotgun' }, // its dice depend on the ammunition (AMMO) and on close quarters
+  BYPASS: { slot: 'UTILITY', label: 'Bypass Kit' },
+  TORCH: { slot: 'UTILITY', label: 'Cutting Torch' },
+  FPV: { slot: 'UTILITY', label: 'FPV Strike Drone' },
   FLASHBANG: { slot: 'UTILITY', label: 'Flashbang' },
   SMOKE: { slot: 'UTILITY', label: 'Smoke Grenade' },
+  STIM: { slot: 'UTILITY', label: 'Combat Stim' }, // one operator sheds STIM_GAIN fatigue, even under fire
 };
 // With only the handgun, a lead fighting at range rolls fewer dice. Close quarters (inside the objective, or an opt marked
 // close) and CQB specialists ignore it.
 const HANDGUN_PENALTY = 1;
-const KITS = ['SUPPRESSOR', 'OPTIC', 'TOOLKIT', 'GHILLIE', 'THERMAL', 'NVG', 'REBREATHER', 'CLIMBKIT', 'CRYPTO'];
-const GEAR_USE = { // consumables spent inside a test
+const KITS = ['SUPPRESSOR', 'OPTIC', 'TOOLKIT', 'GHILLIE', 'THERMAL', 'NVG'];
+const TOOLS = ['REBREATHER', 'CLIMBKIT', 'CRYPTO']; // the Tool slot: anyone may carry one; a specialist makes it pay
+const GEAR_USE = { // consumables spent inside a test; time: extra time it takes
   FRAG: { skills: ['ASSAULT'], dice: 2 },
   BREACH: { skills: ['TECH', 'ASSAULT'], dice: 2, alert: 1 },
   FLASHBANG: { skills: ['ASSAULT'], dice: 1 },
+  BYPASS: { skills: ['TECH'], dice: 1 },
+  TORCH: { skills: ['TECH'], dice: 2, time: 1 },
+  FPV: { skills: ['ASSAULT'], dice: 3, alert: 1 },
 };
+// Shotgun ammunition, chosen per operator at loadout; lv = Engineering level that makes it.
+const AMMO = {
+  BUCK: { label: 'Buckshot', lv: 1, desc: '+2 Assault dice in close quarters, 1 fewer at range' },
+  BREACHING: { label: 'Breaching rounds', lv: 2, desc: 'as buckshot, and once a mission blasts a way through without a charge, quietly' },
+  LESS: { label: 'Less-lethal', lv: 2, desc: 'as buckshot, +1 Stealth die leading (silent takedowns), and officers surrender more often' },
+  SLUG: { label: 'Slugs', lv: 3, desc: 'no close-quarters bonus and no penalty at range; +1 Assault die where an officer is' },
+};
+// Support assets, booked in the briefing: one per mission from Operations level 2, two (each 1 RP cheaper) at level 3.
+const ASSETS = {
+  OVERWATCH: { label: 'Overwatch team', cost: 3, desc: 'A sniper pair you call onto one stage: one enemy there goes down, and +1 Recon die at that stage.' },
+  ISR: { label: 'ISR orbit', cost: 3, desc: 'A drone over the target all mission: every stage is seen, and the first Recon test gets +1 die.' },
+  EW: { label: 'Electronic warfare', cost: 3, desc: 'Their radios are jammed: the first 2 times the alert rises, it rises 1 less.' },
+  FIRE: { label: 'Fire mission', cost: 4, desc: 'Mortars you call onto one stage: the enemy there is worn down by 2 at once, but the alert jumps by 2.' },
+};
+const EW_RISES = 2;
+const hasAsset = (id) => !!G.mission?.assets?.includes(id);
+// Named weapons: two per weapon class in the whole campaign, legacy weapons and (later) officers' and bosses' alike.
+const WEAPON_CLASS = { CARBINE: 'RIFLE', AK: 'RIFLE', SUPRIFLE: 'RIFLE', SMG: 'SMG', DMR: 'MARKSMAN', AMR: 'MARKSMAN', LMG: 'LMG', SHOTGUN: 'SHOTGUN' };
+const NAMED_PER_CLASS = 2;
 // Transport. lv = Logistics level needed; ins/ext = usable that way; water = only where the location has water.
 const VEH = {
   FOOT: { label: 'On Foot', lv: 1, cost: 0, risk: 10, time: 0, ins: true, ext: true, exfil: { STEALTH: -1, ASSAULT: 1 }, desc: 'Free and rarely detected, but the walk tires everyone. Exfil: Stealth -1, Assault +1 with no fire support.' },
@@ -1075,22 +1104,22 @@ const SPECS = {
   ENDURANCE: { label: 'Endurance', desc: 'Tires later (Tired at 4, Exhausted at 6). Heat and smoke do not wear them down.' },
 };
 // Fatigue: actions, failures, weather and carrying the wounded wear operators down; tired leads roll fewer dice.
-const TIRED_AT = 3, SPENT_AT = 5, FAT_MAX = 6, REST_TIME = 1, REST_GAIN = 2;
+const TIRED_AT = 3, SPENT_AT = 5, FAT_MAX = 6, REST_TIME = 1, REST_GAIN = 2, STIM_GAIN = 2, WIND_GAIN = 1; // a stim: one operator; second wind: the whole team, once a mission
 // Base departments. Upgrading costs Base Points (BP), earned on missions; day-to-day spending is Requisition (RP).
 const DEPTS = {
-  CMD: { label: 'Operations', desc: 'Mission planning and the mission board.', lv: ['2 missions on the board', '3 missions on the board', '3 missions, and +3 RP for every mission flown'] },
+  CMD: { label: 'Operations', desc: 'Mission planning, the mission board and support assets.', lv: ['2 missions on the board', '3 missions on the board, and one support asset per mission (overwatch, ISR orbit, electronic warfare, fire mission)', '3 missions, two support assets per mission at 1 RP less each, and +3 RP for every mission flown'] },
   INTEL: { label: 'Intelligence', desc: 'Intel options and weather forecasting.', lv: ['Satellite, deep intel, weather recon. Forecasts 60% reliable', '+ signals intercept and informants. Forecasts 75% reliable', '+ UAV overflight, all intel 1 RP cheaper. Forecasts 90% reliable'] },
   MED: { label: 'Medical', desc: 'Treatment beds for the wounded and the worn out.', lv: ['1 bed: treated operators recover twice as fast', '2 beds', '3 beds, and treatment heals fully in one mission'] },
-  ENG: { label: 'Engineering', desc: 'Fabrication and weapon kits.', lv: ['Consumables (grenades, charges, medkits, flashbangs, smoke) and weapon kits', '+ weapons, armour, ghillie suits and specialist tools (rebreather, climbing kit, encrypted radio)', '+ thermal sights, drones, night vision, ceramic plate, suppressed and anti-materiel rifles'] },
+  ENG: { label: 'Engineering', desc: 'Fabrication and weapon kits.', lv: ['Consumables (grenades, charges, medkits, flashbangs, smoke, stims, bypass kits), weapon kits and buckshot', '+ weapons, shotguns, armour, ghillie suits, cutting torches, specialist tools (rebreather, climbing kit, encrypted radio), breaching and less-lethal rounds', '+ thermal sights, drones, FPV strike drones, night vision, ceramic plate, suppressed and anti-materiel rifles, slugs'] },
   LOG: { label: 'Logistics', desc: 'Vehicles, air support and repairs to damaged vehicles.', lv: ['On foot, convoy, helicopter', '+ light strike vehicle and boats', '+ HALO parachute and armoured MRAP'] },
-  BARRACKS: { label: 'Barracks', desc: 'Housing, rest and recruitment.', lv: ['Roster of 8, recruits join as Privates', 'Roster of 10, operators rest faster, and you can hire Privates First Class', 'Roster of 12, you can hire Corporals, and recruiting costs 1 less'] },
+  BARRACKS: { label: 'Barracks', desc: 'Housing, rest, recruitment and load-carrying training.', lv: ['Roster of 8, recruits join as Privates', 'Roster of 10, operators rest faster, carry a second utility item, and you can hire Privates First Class', 'Roster of 12, you can hire Corporals, and recruiting costs 1 less'] },
 };
 const UPGRADE_BP = [0, 0, 5, 10]; // cost to reach level 2 and 3
 const FAB = { // workshop: [Engineering level, RP]
   FRAG: [1, 2], BREACH: [1, 2], MEDKIT: [1, 2], SUPPRESSOR: [1, 3], OPTIC: [1, 3], TOOLKIT: [1, 3],
   CARBINE: [2, 3], SMG: [2, 3], VEST: [2, 2], PLATE: [2, 5], DMR: [2, 4], LMG: [2, 4], GHILLIE: [2, 4],
   THERMAL: [3, 5], DRONE: [3, 5], NVG: [3, 5], CERAMIC: [3, 6], SUPRIFLE: [3, 6], AMR: [3, 6],
-  FLASHBANG: [1, 2], SMOKE: [1, 2], REBREATHER: [2, 3], CLIMBKIT: [2, 3], CRYPTO: [2, 3],
+  FLASHBANG: [1, 2], SMOKE: [1, 2], STIM: [1, 2], BYPASS: [1, 2], TORCH: [2, 3], SHOTGUN: [2, 3], FPV: [3, 4], REBREATHER: [2, 3], CLIMBKIT: [2, 3], CRYPTO: [2, 3],
 };
 const REPAIR_COST = 3, TREAT_COST = 1;
 const KIND = { APPROACH: 'Approach', PERIMETER: 'Perimeter', OBJECTIVE: 'Objective', OPTIONAL: 'Optional', EXFIL: 'Exfil' };
@@ -1137,13 +1166,13 @@ const recruitCost = (rank = 0) => RECRUIT_COST - (G.base.lv.BARRACKS >= 3 ? 1 : 
 // Class = permanent role fixed at recruitment: dice per skill, minor injuries shrugged off (grit), what gear it may carry
 // (default-pick order; any class can fit any kit), and the specialties it usually trains in.
 const CLASSES = {
-  HEAVY: { label: 'Heavy', grit: 4, dice: { ASSAULT: 3, STEALTH: 1, RECON: 1, TECH: 2 }, weapons: ['LMG', 'CARBINE', 'AK', 'AMR'], armor: ['PLATE', 'VEST', 'CERAMIC'], utility: ['BREACH', 'FRAG', 'FLASHBANG', 'SMOKE'], kits: ['TOOLKIT', 'THERMAL', 'OPTIC', 'SUPPRESSOR', 'GHILLIE', 'NVG', 'CLIMBKIT', 'REBREATHER', 'CRYPTO'], specs: ['DEMOLITIONS', 'CQB', 'ENDURANCE', 'MOUNTAINEER'],
+  HEAVY: { label: 'Heavy', grit: 4, dice: { ASSAULT: 3, STEALTH: 1, RECON: 1, TECH: 2 }, weapons: ['LMG', 'CARBINE', 'AK', 'SHOTGUN'], armor: ['PLATE', 'VEST', 'CERAMIC'], utility: ['BREACH', 'FRAG', 'FLASHBANG', 'SMOKE', 'STIM', 'BYPASS', 'TORCH'], kits: ['TOOLKIT', 'THERMAL', 'OPTIC', 'SUPPRESSOR', 'GHILLIE', 'NVG'], specs: ['DEMOLITIONS', 'CQB', 'ENDURANCE', 'MOUNTAINEER'],
     ability: 'Breacher: a Breaching Charge adds +2 dice to a Tech or Assault test (loud: raises alert). Tough: takes one more knock before a hit turns serious.' },
-  SCOUT: { label: 'Scout', grit: 3, dice: { ASSAULT: 2, STEALTH: 3, RECON: 3, TECH: 1 }, weapons: ['DMR', 'SMG', 'CARBINE', 'AK', 'SUPRIFLE', 'AMR'], armor: ['VEST', 'CERAMIC'], utility: ['FRAG', 'MEDKIT', 'SMOKE', 'FLASHBANG'], kits: ['OPTIC', 'GHILLIE', 'SUPPRESSOR', 'THERMAL', 'TOOLKIT', 'NVG', 'CLIMBKIT', 'REBREATHER', 'CRYPTO'], specs: ['MARKSMAN', 'INFILTRATOR', 'MOUNTAINEER', 'PATHFINDER', 'DIVER'],
+  SCOUT: { label: 'Scout', grit: 3, dice: { ASSAULT: 2, STEALTH: 3, RECON: 3, TECH: 1 }, weapons: ['DMR', 'SMG', 'CARBINE', 'AK', 'SUPRIFLE', 'AMR'], armor: ['VEST', 'CERAMIC'], utility: ['FRAG', 'MEDKIT', 'SMOKE', 'FLASHBANG', 'STIM', 'BYPASS'], kits: ['OPTIC', 'GHILLIE', 'SUPPRESSOR', 'THERMAL', 'TOOLKIT', 'NVG'], specs: ['MARKSMAN', 'INFILTRATOR', 'MOUNTAINEER', 'PATHFINDER', 'DIVER'],
     ability: 'Ghost: never counts toward the Stealth noise limit.' },
-  MEDIC: { label: 'Medic', grit: 3, dice: { ASSAULT: 2, STEALTH: 2, RECON: 1, TECH: 1 }, weapons: ['CARBINE', 'SMG', 'AK', 'SUPRIFLE'], armor: ['VEST', 'CERAMIC'], utility: ['MEDKIT', 'SMOKE', 'FLASHBANG'], kits: ['SUPPRESSOR', 'OPTIC', 'TOOLKIT', 'GHILLIE', 'THERMAL', 'NVG', 'REBREATHER', 'CLIMBKIT', 'CRYPTO'], specs: ['ENDURANCE', 'LINGUIST', 'DIVER', 'CQB'],
+  MEDIC: { label: 'Medic', grit: 3, dice: { ASSAULT: 2, STEALTH: 2, RECON: 1, TECH: 1 }, weapons: ['CARBINE', 'SMG', 'AK', 'SUPRIFLE', 'SHOTGUN'], armor: ['VEST', 'CERAMIC'], utility: ['MEDKIT', 'SMOKE', 'FLASHBANG', 'STIM'], kits: ['SUPPRESSOR', 'OPTIC', 'TOOLKIT', 'GHILLIE', 'THERMAL', 'NVG'], specs: ['ENDURANCE', 'LINGUIST', 'DIVER', 'CQB'],
     ability: 'Field care: once per stage, without a kit, wakes an unconscious operator or treats a critical injury. With a medkit, also cleans up every cut and bruise.' },
-  DRONE: { label: 'Drone Operator', grit: 3, dice: { ASSAULT: 1, STEALTH: 2, RECON: 3, TECH: 3 }, weapons: ['SMG', 'CARBINE', 'AK', 'SUPRIFLE'], armor: ['VEST', 'CERAMIC'], utility: ['DRONE', 'FRAG', 'SMOKE', 'FLASHBANG'], kits: ['TOOLKIT', 'OPTIC', 'THERMAL', 'SUPPRESSOR', 'GHILLIE', 'NVG', 'CRYPTO', 'REBREATHER', 'CLIMBKIT'], specs: ['SIGNALS', 'PATHFINDER', 'LINGUIST', 'DEMOLITIONS'],
+  DRONE: { label: 'Drone Operator', grit: 3, dice: { ASSAULT: 1, STEALTH: 2, RECON: 3, TECH: 3 }, weapons: ['SMG', 'CARBINE', 'AK', 'SUPRIFLE'], armor: ['VEST', 'CERAMIC'], utility: ['DRONE', 'FRAG', 'SMOKE', 'FLASHBANG', 'STIM', 'BYPASS', 'TORCH', 'FPV'], kits: ['TOOLKIT', 'OPTIC', 'THERMAL', 'SUPPRESSOR', 'GHILLIE', 'NVG'], specs: ['SIGNALS', 'PATHFINDER', 'LINGUIST', 'DEMOLITIONS'],
     ability: 'Recon drone: reveals the next two stages, +1 die on Recon tests while up, one strike (+2 Assault dice). Can be shot down.' },
 };
 const ADJ = ['Silent', 'Iron', 'Broken', 'Pale', 'Crimson', 'Hollow', 'Distant', 'Bitter', 'Northern', 'Sudden'];
@@ -1198,6 +1227,7 @@ const ITEM_RULE = {
   REBREATHER: "a combat diver carrying it ruins nothing going round through the water",
   CLIMBKIT: 'mountain warfare carrying it climbs round at no time cost',
   CRYPTO: 'a signals specialist carrying it spoofs their net with no delayed alarm',
+  SHOTGUN: 'dice by ammunition, chosen at loadout: buckshot is +2 Assault in close quarters and 1 fewer at range',
 };
 function itemSummary(id) {
   const it = ITEMS[id];
@@ -1210,6 +1240,10 @@ function itemSummary(id) {
     DRONE: 'Launch: reveals 2 stages ahead, +1 Recon die, 1 strike',
     FLASHBANG: `+${GEAR_USE.FLASHBANG.dice} die on one Assault test, quietly; a CQB specialist clearing room by room with it takes only a minor hit`,
     SMOKE: 'The first failure that would draw fire brings none: popped automatically',
+    STIM: `One operator sheds ${STIM_GAIN} fatigue at once, even under fire`,
+    BYPASS: `+${GEAR_USE.BYPASS.dice} die on one Tech test, quietly`,
+    TORCH: `+${GEAR_USE.TORCH.dice} dice on one Tech test, but it takes ${GEAR_USE.TORCH.time} more time`,
+    FPV: `+${GEAR_USE.FPV.dice} dice on one Assault test, loud (raises alert)`,
   }[id];
 }
 /** Dice an operator brings to a skill test: class + rank + gear (weapon, armour, kit). */
@@ -1297,7 +1331,7 @@ const SCARS = {
 };
 const hasScar = (sid, k) => !!soldier(sid)?.scars?.includes(k);
 const TRAIT_CAP = 3, BOND_CAP = 2, NEMESIS_XP = 15, GRUDGE_XP = 20, REFLECT_XP = 10;
-const WEAPON_NAME = { CARBINE: 'carbine', SMG: 'SMG', DMR: 'marksman rifle', LMG: 'LMG', AK: 'AK', HANDGUN: 'handgun' };
+const WEAPON_NAME = { CARBINE: 'carbine', SMG: 'SMG', DMR: 'marksman rifle', LMG: 'LMG', AK: 'AK', SHOTGUN: 'shotgun', HANDGUN: 'handgun' };
 /** The kind of weapon an item is: a legacy weapon fights as the weapon it was. */
 const kindOf = (it) => ITEMS[it]?.base || it;
 /** What a class may carry in a slot list ('weapons', 'armor'...): a legacy weapon goes wherever its kind may. */
@@ -1618,7 +1652,7 @@ const active = (u) => !u.dead && !u.downed && !u.exfil && !u.stranded && !u.miss
 const unitById = (id) => team().find((u) => u.id === id);
 const dr = (u) => (u.armor ? ITEMS[u.armor].dr : 0);
 /** Dice changes from injuries on one skill, one line per injury that matters. */
-const injuryMods = (u, skill) => u.inj.map((w) => ({ label: INJURIES[w.id].label, v: injFx(w)[skill] || 0 })).filter((x) => x.v);
+const injuryMods = (u, skill) => u.inj.map((w) => ({ label: injLabel(w), v: injFx(w)[skill] || 0 })).filter((x) => x.v);
 // Fatigue: 0..FAT_MAX. Tired and Exhausted leads roll fewer dice; Endurance pushes both thresholds up by one.
 const fatLimits = (u) => (hasSpec(u.sid, 'ENDURANCE') ? [TIRED_AT + 1, SPENT_AT + 1] : [TIRED_AT, SPENT_AT]);
 const fatState = (u) => { const [t, s] = fatLimits(u); return u.fat >= s ? 2 : u.fat >= t ? 1 : 0; };
@@ -1647,7 +1681,7 @@ const omenName = (om) => unitById(om.uid)?.name.split(' ')[0] ?? 'Someone';
 const omens = () => [B().omen, B().omen2].filter(Boolean);
 const threatOmen = () => omens().find((o) => o.topic === 'THREAT') || null;
 /** Extra lead dice from the mission's omen, lasting traits and a signature weapon. omen: the slot of an omen spent when used. */
-function leadBonuses(u, skill) {
+function leadBonuses(u, skill, opt = null) { // opt: the approach, when known (shotguns care about close quarters)
   const out = [], s = soldier(u.sid), helps = (ITEMS[u.weapon]?.dice?.[skill] || 0) > 0;
   for (const om of omens()) if (om.uid === u.id) {
     if (om.topic === 'GEAR' && !om.used && helps) out.push({ label: `${ITEMS[u.weapon].label}: proving it`, v: 2, omen: om.slot || 1 });
@@ -1664,6 +1698,11 @@ function leadBonuses(u, skill) {
   if (s.persona === 'HOMESICK' && st.kind === 'EXFIL') out.push({ label: 'Homeward', v: 1 });
   if (s.persona === 'AVENGER' && officerAt(st)) out.push({ label: `Grudge against ${officerAt(st).name}`, v: 1 });
   if (s.persona === 'JUNKIE' && u.streak) out.push({ label: 'Hot streak', v: 1 });
+  const mo = B().momentum;
+  if (mo && mo.stage === B().stage && mo.skill === skill) out.push({ label: 'Momentum', v: 1 });
+  out.push(...shotgunMods(u, skill, opt));
+  if (hasAsset('ISR') && !B().isrUsed && skill === 'RECON') out.push({ label: 'ISR orbit overhead', v: 1, isr: true });
+  if (cur().ow && skill === 'RECON') out.push({ label: 'Overwatch team on this stage', v: 1 });
   if (hasScar(u.sid, 'SHORT_FUSE') && skill === 'ASSAULT') out.push({ label: 'Short fuse', v: 1 });
   if (hasScar(u.sid, 'NIGHT_EYES')) { const e = G.mission.env; if (isDark(e)) out.push({ label: 'Night eyes', v: 1 }); else if (e.time === 'DAY') out.push({ label: 'Night eyes: daylight', v: -1 }); }
   if (hasScar(u.sid, 'FACES') && officerAt(st)) out.push({ label: `Knows ${officerAt(st).name}'s face`, v: 1 });
@@ -1722,7 +1761,7 @@ function makeOp(m, members) {
     // inj: [{ id, t: treated, clock: stages left on an untreated critical }]. downed = unconscious, bleed = stages to live.
     // cared/caredBy/weaponWins/boom: what happened, for the extraction interlude.
     b.units.push({ id: b.nextId++, sid: s.id, name: s.name, cls: s.cls, inj: [], dead: false, wasOut: false, cared: [], caredBy: [], weaponWins: 0, boom: null, shrugged: false,
-      weapon: l.weapon, armor: l.armor, kit: l.kit || null, util: l.utility, consumed: null, kills: 0, killedHvt: false, revives: 0, tests: 0,
+      weapon: l.weapon, armor: l.armor, kit: l.kit || null, util: l.utility, util2: l.utility2 || null, tool: l.tool || null, ammo: kindOf(l.weapon) === 'SHOTGUN' ? l.ammo || 'BUCK' : null, consumed: null, kills: 0, killedHvt: false, revives: 0, tests: 0,
       downed: false, bleed: 0, exfil: false, stranded: false, missing: false, droneLost: false, fat: s.fatigue || 0, sapUsed: false });
   }
   b.nerve = b.nerveMax = b.units.reduce((s, u) => s + nerveOf(soldier(u.sid)), 0); // the team's Nerve, by rank (and belief)
@@ -1733,10 +1772,50 @@ function makeOp(m, members) {
 /** Hostiles at a stage. Reinforcements add one everywhere that is defended, and their full number at the exfil. */
 function foesOf(st, sit) {
   const b = B();
-  if (st.kind === 'EXFIL') return (alerted() ? 3 : 1) + b.reinf;
+  if (st.kind === 'EXFIL') return Math.max(0, (alerted() ? 3 : 1) + b.reinf - (st.ow || 0));
   if (st.foesCleared) return 0;
   const guards = sit === SIT.HVT && G.mission.target ? TARGETS[G.mission.target].foes : 0;
-  return sit.foes ? Math.max(1, sit.foes + guards) + (b.reinf ? 1 : 0) : 0;
+  const n = sit.foes ? Math.max(1, sit.foes + guards) + (b.reinf ? 1 : 0) : 0;
+  const worn = n && st.wear ? Math.max(1, n - st.wear) : n; // worn down: one fewer per point, never none
+  return Math.max(0, worn - (st.ow || 0)); // the overwatch team's shot
+}
+/** Book a support asset in the briefing (Operations level 2: one per mission; level 3: two, each 1 RP cheaper). */
+const assetCap = () => (G.base.lv.CMD >= 3 ? 2 : G.base.lv.CMD >= 2 ? 1 : 0);
+const assetCost = (id) => ASSETS[id].cost - (G.base.lv.CMD >= 3 ? 1 : 0);
+function buyAsset(id) {
+  need('BRIEFING');
+  const m = G.mission, a = ASSETS[id];
+  if (!a) fail('Unknown support asset.');
+  if (!assetCap()) fail('Support assets need Operations level 2.');
+  m.assets ||= [];
+  if (m.assets.includes(id)) fail(`${a.label} is already booked.`);
+  if (m.assets.length >= assetCap()) fail(`Operations can book ${assetCap()} support asset${assetCap() > 1 ? 's' : ''} per mission.`);
+  const cost = assetCost(id);
+  if (G.rp < cost) fail(`${a.label} costs ${cost} RP; you have ${G.rp}.`);
+  G.rp -= cost;
+  m.assets.push(id);
+  if (id === 'ISR') for (const st of m.route) st.seen = true;
+}
+/** Call a booked overwatch team or fire mission onto the stage the team is at. Once each a mission; free, and allowed under fire. */
+function callSupport(id) {
+  needPlan();
+  const b = B(), st = cur(), sit = sitOf(st);
+  if (!['OVERWATCH', 'FIRE'].includes(id) || !hasAsset(id)) fail('That support is not booked for this mission.');
+  if ((b.called ||= []).includes(id)) fail(`The ${ASSETS[id].label.toLowerCase()} has already been used.`);
+  if (!sit || !foesOf(st, sit)) fail('There is nobody here to hit.');
+  b.called.push(id);
+  if (id === 'OVERWATCH') { st.ow = (st.ow || 0) + 1; b.kills++; log('The overwatch team fires once from the ridge: one of them is down, and they call out what they see.', 'kill'); }
+  else { st.wear = Math.min(WEAR_MAX, (st.wear || 0) + 2); log(`Mortar rounds walk across their position. The enemy here is worn down (${st.wear} of ${WEAR_MAX}).`, 'kill'); raise(2, 'Everyone for miles heard that.'); }
+}
+/** Wear-down: a failed Assault that still landed hits. Half the successes needed (at least 1) earns 1; two short earns 2
+    from difficulty 5 up. A stage takes at most WEAR_MAX. */
+const WEAR_MAX = 2;
+const wearFor = (s, d) => (s < 1 ? 0 : d >= 5 && s >= d - 2 ? 2 : s >= Math.max(1, Math.floor(d / 2)) ? 1 : 0);
+function wearDown(st, s, d) {
+  const n = Math.min(wearFor(s, d), WEAR_MAX - (st.wear || 0));
+  if (n <= 0) return;
+  st.wear = (st.wear || 0) + n;
+  log(`They took hits too: the enemy here is worn down (${st.wear} of ${WEAR_MAX}). Fewer of them are left, and the next try is easier.`, 'good');
 }
 const stageIdx = (st) => B().stages.indexOf(st);
 /** The officer, if alive and holding this stage. */
@@ -1746,8 +1825,8 @@ const extVeh = (m) => (vehUsable(m.ext, m.env.weather) ? m.ext : 'FOOT');
 /** Difficulty with an itemised breakdown, so the UI never has to guess. */
 function difficulty(st, sit, opt, ids) {
   const b = B(), m = G.mission, mods = [{ label: 'Base', v: opt.diff }];
-  const add = (label, v) => { if (v) mods.push({ label, v }); };
-  add('Enemy experience', Math.min(3, Math.floor((m.n + 1) / 3))); // from mission 2, +1 every three missions, at most +3
+  const add = (label, v, enemy = false) => { if (v) mods.push(enemy ? { label, v, enemy } : { label, v }); }; // enemy: the part wear-down can take off
+  add('Enemy experience', Math.min(3, Math.floor((m.n + 1) / 3)), true); // from mission 2, +1 every three missions, at most +3
   for (const e of envMods(m.env, opt.skill)) add(e.label, e.v);
   add('Approach route', st.mod?.[opt.skill] || 0);
   if (opt.skill === 'STEALTH') {
@@ -1758,15 +1837,16 @@ function difficulty(st, sit, opt, ids) {
     if (carrier) mods.push({ label: `${firstName(carrier)} carries the wounded`, v: 0 }); else add('Carrying wounded', carried);
     add('Escorting a prisoner', b.prisoner ? 1 : 0);
     add('Helping a freed teammate along', b.rescued ? 1 : 0);
-    for (const u of ids.map(unitById)) for (const w of u?.inj || []) add(`${u.name.split(' ')[0]}: ${INJURIES[w.id].label.toLowerCase()}`, INJURIES[w.id].noise || 0);
+    for (const u of ids.map(unitById)) for (const w of u?.inj || []) add(`${u.name.split(' ')[0]}: ${injLabel(w).toLowerCase()}`, INJURIES[w.id].noise || 0);
   }
-  if (opt.skill === 'ASSAULT') { add('Enemy dug in (alerted)', alerted() ? 1 : 0); add('Enemy reinforced', b.reinf ? 1 : 0); }
+  if (opt.skill === 'ASSAULT') { add('Enemy dug in (alerted)', alerted() ? 1 : 0, true); add('Enemy reinforced', b.reinf ? 1 : 0, true); }
   if (st.kind === 'OBJECTIVE' && m.intel.includes('HUMINT')) add('Deep intel on the layout', -1);
   if (sit === SIT.HVT && m.target) add(`Target: ${TARGETS[m.target].label.toLowerCase()}`, TARGETS[m.target].diff);
   if (m.inside != null && stageIdx(st) === m.inside) add('Inside man', -1);
   const off = officerAt(st);
-  if (off?.trait === 'TACTICIAN') add(`${off.name}, tactician`, 1);
-  if (off?.grudge) add(`${off.name}, back with a grudge`, 1);
+  if (off?.trait === 'TACTICIAN') add(`${off.name}, tactician`, 1, true);
+  if (off?.grudge) add(`${off.name}, back with a grudge`, 1, true);
+  if (st.wear) add('Worn down', -Math.min(st.wear, mods.filter((x) => x.enemy).reduce((s, x) => s + x.v, 0))); // never more than the enemy's own part
   if (st.kind === 'EXFIL') { const v = extVeh(m), x = VEH[v].exfil; add(`${VEH[v].label}${v !== m.ext ? ' (no pickup in this weather)' : ''}`, (x.all || 0) + (x[opt.skill] || 0)); }
   if (st.kind === 'EXFIL') { add('Out of time', b.overtime ? 1 : 0); add('QRF on your heels', b.qrf ? 1 : 0); }
   else add('QRF closing in', b.qrfIn != null ? 2 : 0);
@@ -1788,7 +1868,7 @@ function poolOf(opt, ids, gearIds, strike, leadId) {
     parts.push({ label: `${u.name} (lead)`, v: n });
     if (handgunPenalty(u, opt) && n > 0) { parts.push({ label: 'Handgun only, at range', v: -Math.min(n, HANDGUN_PENALTY) }); n -= Math.min(n, HANDGUN_PENALTY); }
     for (const x of [...injuryMods(u, opt.skill), ...fatigueMods(u)]) { const v = Math.max(x.v, -n); if (v) { parts.push({ label: x.label, v }); n += v; } }
-    for (const x of leadBonuses(u, opt.skill)) parts.push(x);
+    for (const x of leadBonuses(u, opt.skill, opt)) parts.push(x);
     if (ids.length === 1 && personaOf(u.sid) === 'LONER') parts.push({ label: 'Works alone', v: 1 });
   }
   const b = B();
@@ -1796,7 +1876,7 @@ function poolOf(opt, ids, gearIds, strike, leadId) {
   const us = ids.map(unitById);
   for (let i = 0; i < us.length; i++) for (let k = i + 1; k < us.length; k++)
     if (soldier(us[i].sid).bonds?.includes(us[k].sid)) parts.push({ label: `Bond: ${us[i].name.split(' ')[0]} & ${us[k].name.split(' ')[0]}`, v: 1 });
-  for (const id of gearIds) { const u = unitById(id); parts.push({ label: ITEMS[u.util].label, v: GEAR_USE[u.util].dice }); }
+  for (const id of gearIds) { const it = gearItem(unitById(id), opt); parts.push({ label: ITEMS[it].label, v: GEAR_USE[it].dice }); }
   if (b.drone.up && opt.skill === 'RECON') parts.push({ label: 'Drone overwatch', v: 1 });
   if (strike) parts.push({ label: 'Drone strike', v: 2 });
   return { value: parts.reduce((s, x) => s + x.v, 0), parts };
@@ -1804,7 +1884,30 @@ function poolOf(opt, ids, gearIds, strike, leadId) {
 // Close quarters: an Assault inside the objective or optional site, or one marked close. There a handgun is enough.
 const closeQuarters = (st, opt) => opt.skill === 'ASSAULT' && (st.kind === 'OBJECTIVE' || st.kind === 'OPTIONAL' || !!opt.close);
 const handgunPenalty = (u, opt) => !u.weapon && opt.skill === 'ASSAULT' && !closeQuarters(cur(), opt) && !hasSpec(u.sid, 'CQB');
-const gearUsable = (u, opt) => !!u && active(u) && !!GEAR_USE[u.util] && GEAR_USE[u.util].skills.includes(opt.skill);
+// Utilities: one per operator, two from Barracks level 2 (util and util2). Either can be used first; using one leaves the other.
+const UTIL_SLOTS = ['util', 'util2'];
+const utilsOf = (u) => UTIL_SLOTS.map((k) => u[k]).filter(Boolean);
+const carries = (u, it) => !!u && UTIL_SLOTS.some((k) => u[k] === it);
+const utilSlot = (u, it) => UTIL_SLOTS.find((k) => u[k] === it) || null;
+/** Use up (or lose) one utility item. why goes into the debrief's list of lost gear. */
+function spendUtil(u, it, why = 'expended') {
+  const k = utilSlot(u, it);
+  if (!k) return;
+  u[k] = null;
+  (u.lostGear ||= []).push({ it, why });
+}
+/** The utility an operator would spend on this test: the one that adds most dice, or null. */
+const gearItem = (u, opt) => utilsOf(u).filter((it) => GEAR_USE[it]?.skills.includes(opt.skill)).sort((a, c) => GEAR_USE[c].dice - GEAR_USE[a].dice)[0] || null;
+const gearUsable = (u, opt) => !!u && active(u) && !!gearItem(u, opt);
+/** Shotgun dice by ammunition. Without the approach (opt), close quarters is judged by the stage alone. */
+function shotgunMods(u, skill, opt) {
+  if (kindOf(u.weapon) !== 'SHOTGUN') return [];
+  const st = cur(), ammo = u.ammo || 'BUCK', out = [];
+  if (skill === 'ASSAULT' && ammo === 'SLUG') { if (officerAt(st)) out.push({ label: 'Slug against the officer', v: 1 }); }
+  else if (skill === 'ASSAULT') out.push((opt ? closeQuarters(st, opt) : st.kind === 'OBJECTIVE' || st.kind === 'OPTIONAL') ? { label: 'Shotgun at close quarters', v: 2 } : { label: 'Shotgun at range', v: -1 });
+  if (skill === 'STEALTH' && ammo === 'LESS') out.push({ label: 'Less-lethal: a silent takedown', v: 1 });
+  return out;
+}
 /** The strongest legal fireteam for an approach: its best lead plus the next best in support. */
 const fireteam = (opt, ids) => [...ids].sort((a, c) => opDice(unitById(c), opt.skill) - opDice(unitById(a), opt.skill)).slice(0, 1 + MAX_SUPPORT);
 const bestLead = (opt, ids) => [...ids].filter((id) => canLead(unitById(id)) && (!opt.need || hasSpec(unitById(id).sid, opt.need))).sort((a, c) => opDice(unitById(c), opt.skill) - opDice(unitById(a), opt.skill))[0] ?? null;
@@ -1837,6 +1940,7 @@ function raise(n, text) {
   if (!n) return;
   const jammer = !b.jammed && team().find((u) => active(u) && hasSpec(u.sid, 'SIGNALS'));
   if (jammer) { b.jammed = true; n -= 1; log(`${jammer.name} jams their radio net: the alarm spreads slower.`, 'good'); if (!n) return; }
+  if (hasAsset('EW') && (b.ewUsed || 0) < EW_RISES) { b.ewUsed = (b.ewUsed || 0) + 1; n -= 1; log(`Electronic warfare: their radios are jammed, and the alarm spreads slower (${EW_RISES - b.ewUsed} jam${EW_RISES - b.ewUsed === 1 ? '' : 's'} left).`, 'good'); if (!n) return; }
   b.alert = Math.min(ALERT_MAX, b.alert + n);
   if (text) log(`${text} Alert ${b.alert}/${ALERT_MAX}.`, 'alert');
   if (b.alert >= ALERT_TIER && !b.alerted) { b.alerted = true; log('The enemy is alerted. Stealth gets harder and they shoot back harder.', 'alert'); cue('ALERT', witness(null)); }
@@ -1845,7 +1949,11 @@ function raise(n, text) {
 const injFx = (w) => (w.t ? INJURIES[w.id].fxT : INJURIES[w.id].fx) || {};
 const tierCount = (u, tier) => u.inj.filter((w) => INJURIES[w.id].tier === tier).length;
 const tierSlots = (u, tier) => (tier === 1 ? CLASSES[u.cls].grit + (hasTrait(u.sid, 'GRIT') ? 1 : 0) + (hasScar(u.sid, 'SCAR_TISSUE') ? 1 : 0) : 1);
-const injName = (w) => INJURIES[w.id].label + (w.t ? ` (${INJURIES[w.id].treated})` : '');
+/** A wound's name and its treated state, by what caused it (data/wounds.js); older saves have no cause and keep the plain name. */
+const WOUNDS = LS_TEXT.WOUNDS;
+const woundText = (w) => { const x = WOUNDS[w.k]?.[w.id]; return Array.isArray(x) ? x : [x || INJURIES[w.id].label, INJURIES[w.id].treated]; };
+const injLabel = (w) => woundText(w)[0];
+const injName = (w) => injLabel(w) + (w.t ? ` (${woundText(w)[1] || INJURIES[w.id].treated})` : '');
 /** What an injury does, in player terms. */
 function injEffect(w) {
   const d = INJURIES[w.id];
@@ -1867,7 +1975,11 @@ function landsAt(u, tier) {
   return tier;
 }
 /** All harm goes through here. tier forces the severity (e.g. a chosen cost); otherwise it is rolled. */
-function hurt(u, mod = 0, tier = severity(u, mod), cause = 'is hit') {
+/** What a hit at this stage's hazard or mishap is: a tripwire blasts, a fire burns, open ground is shot over, the rest is a fall or a knock. */
+const HAZARD_HURT = { MINES: 'BLAST', FIRELINE: 'BURN', OPENGROUND: 'GUN' };
+const stageHurt = () => { const st = cur(); return (st?.pick != null && HAZARD_HURT[st.choices[st.pick]]) || 'FALL'; };
+/** A hit. kind: what caused it (GUN, BLAST, FALL, BURN), which only names the wound; the rules are the same for all. */
+function hurt(u, mod = 0, tier = severity(u, mod), cause = 'is hit', kind = 'FALL') {
   const at = landsAt(u, tier), om = omens().find((o) => o.topic === 'FATE' && o.uid === u.id && !o.used);
   if (at >= 3 && at < 5 && om) {
     om.used = true;
@@ -1880,9 +1992,9 @@ function hurt(u, mod = 0, tier = severity(u, mod), cause = 'is hit') {
   if (at === 5) return killUnit(u, `${u.name} is hit again while unconscious and is KIA.`);
   if (at === 4) return knockOut(u, `${u.name} ${cause} and goes down, unconscious.`);
   const id = pick(Object.keys(INJURIES).filter((k) => INJURIES[k].tier === at && !u.inj.some((w) => w.id === k)));
-  const w = { id, t: false, clock: at === 3 ? CRIT_STAGES : 0 };
+  const w = { id, t: false, clock: at === 3 ? CRIT_STAGES : 0, k: kind }; // k: what caused it, which names the wound
   u.inj.push(w);
-  log(`${u.name} ${cause}: ${INJURIES[id].label.toLowerCase()}${at > tier ? ', on top of the rest' : ''}. ${injEffect(w)}.`, 'down');
+  log(`${u.name} ${cause}: ${injLabel(w).toLowerCase()}${at > tier ? ', on top of the rest' : ''}. ${injEffect(w)}.`, 'down');
   cue('WOUND', u);
 }
 /** A teammate knocked out or lost shakes the team: 1 Nerve gone, unless a stoic keeps everyone steady. */
@@ -1919,7 +2031,7 @@ function applyCare(u, minorToo) {
   if (need === 'WAKE') { u.downed = false; u.bleed = 0; done.push('brings them round'); }
   if (need === 'WAKE' || need === 'CRITICAL' || need === 'SERIOUS') {
     const tier = need === 'SERIOUS' ? 2 : 3;
-    for (const w of u.inj) if (INJURIES[w.id].tier === tier && !w.t) { w.t = true; done.push(`${INJURIES[w.id].label.toLowerCase()} ${INJURIES[w.id].treated}`); }
+    for (const w of u.inj) if (INJURIES[w.id].tier === tier && !w.t) { w.t = true; done.push(`${injLabel(w).toLowerCase()} ${woundText(w)[1]}`); }
   }
   const scarred = hasScar(u.sid, 'SCAR_TISSUE') && !u.scarCared; // Scar tissue: the first care of a mission only stops the worst of it
   if (scarred) u.scarCared = true;
@@ -1943,14 +2055,14 @@ function killUnit(u, text) {
 function droneLost() {
   const b = B(), op = unitById(b.drone.op);
   b.drone.up = false;
-  op.droneLost = true; op.util = null;
+  op.droneLost = true; if (utilSlot(op, 'DRONE')) op[utilSlot(op, 'DRONE')] = null; // listed as shot down at the debrief
   log('The drone is shot down.', 'kill');
 }
 /** Enemy fire: one die per hostile (+1 when alerted); each die at or above thresh is a hit on a committed operator. */
 /** Fire after a failure, unless someone committed pops smoke (used up). */
 function failFire(foes, members, ids, leadId) {
-  const s = members.find((u) => active(u) && u.util === 'SMOKE');
-  if (s && foes) { (s.lostGear ||= []).push({ it: 'SMOKE', why: 'expended' }); s.util = null; return log(`${s.name} pops smoke. Nobody gets a clear shot.`, 'good'); }
+  const s = members.find((u) => active(u) && carries(u, 'SMOKE'));
+  if (s && foes) { spendUtil(s, 'SMOKE'); return log(`${s.name} pops smoke. Nobody gets a clear shot.`, 'good'); }
   returnFire(foes, 4, ids, leadId);
 }
 function returnFire(foes, thresh, ids, leadId) {
@@ -1968,7 +2080,7 @@ function returnFire(foes, thresh, ids, leadId) {
     if (shield) log(`${shield.name} steps in front of ${lead.name}.`, 'info');
     const t = shield || (i === 0 && lead && active(lead) ? lead : exposed.length ? pick(exposed) : pick(team().filter(active)));
     if (!t) return;
-    hurt(t, (alerted() ? 1 : 0) + (off?.trait === 'BRUTE' ? 2 : 0));
+    hurt(t, (alerted() ? 1 : 0) + (off?.trait === 'BRUTE' ? 2 : 0), undefined, 'is hit', 'GUN');
   }
 }
 
@@ -2006,6 +2118,7 @@ function execute(o) {
   if (!sit) fail('Choose a way in first.');
   const opt = sit.opts[o.opt];
   if (!opt) fail('Pick an approach.');
+  if (opt.skill === 'STEALTH' && st.spotted) fail('They have seen you here: no sneaking past now. Take another approach or a way past.');
   const ids = [...new Set(o.ids || [])];
   if (!ids.length) fail('Commit at least one operator.');
   for (const id of ids) if (!unitById(id) || !active(unitById(id))) fail('That operator cannot act.');
@@ -2032,16 +2145,18 @@ function execute(o) {
   unitById(lead).streak = false; // a hot streak is spent on the next lead, whatever happens
   for (const om of omens()) if ([...pool.parts, ...diff.mods].some((x) => x.omen === (om.slot || 1))) om.used = true;
   if (pool.parts.some((x) => x.restless)) unitById(lead).restUsed = true; // Restless: once a mission
-  for (const id of gearIds) unitById(id).boom = { FRAG: 'that frag', BREACH: 'that breaching charge' }[unitById(id).util];
+  if (b.momentum && b.momentum.stage <= b.stage) b.momentum = null; // momentum lasts for the next stage's first test only
+  if (pool.parts.some((x) => x.isr)) b.isrUsed = true; // the ISR orbit's die: the first Recon test only
+  for (const id of gearIds) unitById(id).boom = { FRAG: 'that frag', BREACH: 'that breaching charge', FPV: 'that strike drone' }[gearItem(unitById(id), opt)];
   if (strike && unitById(b.drone.op)) unitById(b.drone.op).boom = 'that drone strike';
   log(`${opt.label}: ${unitById(lead).name} leads${ids.length > 1 ? ` with ${ids.length - 1} in support` : ''}, ${pool.value} dice vs difficulty ${diff.value}.`, 'turn');
   for (const id of gearIds) {
-    const u = unitById(id), g = GEAR_USE[u.util];
-    log(`${u.name} uses a ${ITEMS[u.util].label.toLowerCase()}.`, 'info');
-    const used = u.util;
-    if (hasTrait(u.sid, 'SAPPER') && !u.sapUsed) { u.sapUsed = true; log(`${u.name} rigs it from spares: the ${ITEMS[used].label.toLowerCase()} is not used up.`, 'good'); }
-    else { u.consumed = used; u.util = null; }
-    raise(hasSpec(u.sid, 'DEMOLITIONS') ? 0 : g.alert || 0, 'The charge goes off.');
+    const u = unitById(id), used = gearItem(u, opt), g = GEAR_USE[used];
+    log(`${u.name} uses a ${ITEMS[used].label.toLowerCase()}.`, 'info');
+    if (hasTrait(u.sid, 'SAPPER') && !u.sapUsed && ['FRAG', 'BREACH'].includes(used)) { u.sapUsed = true; log(`${u.name} rigs it from spares: the ${ITEMS[used].label.toLowerCase()} is not used up.`, 'good'); }
+    else spendUtil(u, used);
+    raise(hasSpec(u.sid, 'DEMOLITIONS') && used !== 'FPV' ? 0 : g.alert || 0, used === 'FPV' ? 'The strike drone screams in.' : 'The charge goes off.');
+    if (g.time) { b.time = Math.max(0, b.time - g.time); log(`The torch is slow work (-${g.time} time).`, 'info'); }
   }
   if (strike) { b.drone.strike--; log('The drone drops its munition.', 'info'); }
   b.roll = { opt: o.opt, ids, lead, dice: Array.from({ length: pool.value }, d6), rerolled: [], diff: diff.value, pushed: false };
@@ -2112,16 +2227,17 @@ const COMPLICATIONS = {
 function complication(kind, text, r) {
   const b = B(), lead = unitById(r.lead), members = r.ids.map(unitById).filter(active);
   if (kind === 'GEAR') {
-    const has = members.filter((u) => ['FRAG', 'BREACH', 'MEDKIT'].includes(u.util)), c = has.find((u) => personaOf(u.sid) !== 'GEARHEAD'), gh = !c && has[0];
-    if (gh) quirk(gh, `${firstName(gh)}'s ${ITEMS[gh.util].label.toLowerCase()} stays strapped down.`);
-    if (c) { const it = c.util; (c.lostGear ||= []).push({ it, why: 'dropped while rushing' }); c.util = null; log(`${text} ${c.name}'s ${ITEMS[it].label.toLowerCase()} is gone.`, 'alert'); return `${text} (${ITEMS[it].label} lost)`; }
+    const loose = (u) => ['FRAG', 'BREACH', 'MEDKIT'].find((it) => carries(u, it));
+    const has = members.filter(loose), c = has.find((u) => personaOf(u.sid) !== 'GEARHEAD'), gh = !c && has[0];
+    if (gh) quirk(gh, `${firstName(gh)}'s ${ITEMS[loose(gh)].label.toLowerCase()} stays strapped down.`);
+    if (c) { const it = loose(c); spendUtil(c, it, 'dropped while rushing'); log(`${text} ${c.name}'s ${ITEMS[it].label.toLowerCase()} is gone.`, 'alert'); return `${text} (${ITEMS[it].label} lost)`; }
     kind = 'TIME';
   }
   if (kind === 'ALERT') { raise(1, text); return `${text} (alert rises)`; }
   if (kind === 'TIME') { b.time = Math.max(0, b.time - 1); log(`${text} (-1 time)`, 'alert'); return `${text} (-1 time)`; }
   const u = active(lead) ? lead : members[0] || lead;
   log(text, 'alert');
-  hurt(u, 0, 1, 'takes it');
+  hurt(u, 0, 1, 'takes it', stageHurt());
   return `${text} (${u.name} is hurt)`;
 }
 /** Apply the roll, keeping what happened (b.lastResult) so the screen can tell it. */
@@ -2138,7 +2254,7 @@ function applyRoll(cost) {
   need('OPERATION');
   const b = B(), m = G.mission;
   if (b.state !== 'ROLLED') fail('Nothing to resolve.');
-  const st = cur(), sit = sitOf(st), opt = sit.opts[b.roll.opt], out = outcomeOf(b.roll), ids = b.roll.ids, foes = foesOf(st, sit);
+  const st = cur(), sit = sitOf(st), roll = b.roll, opt = sit.opts[roll.opt], out = outcomeOf(roll), ids = roll.ids, foes = foesOf(st, sit);
   if (out === 'PARTIAL' && !COSTS[cost]) fail('Choose what the partial success costs.');
   const members = ids.map(unitById), lead = unitById(b.roll.lead), leadId = lead.id, off = officerAt(st), pushed = b.roll.pushed;
   b.roll = null;
@@ -2156,8 +2272,11 @@ function applyRoll(cost) {
     if (opt.skill === 'STEALTH' && hasTrait(lead.sid, 'SHADOW')) raise(1 + extra, `${lead.name} pulls everyone back into the dark before anyone is sure.`);
     else if (opt.skill === 'ASSAULT') { raise(2 + extra, 'A firefight breaks out.'); failFire(foes, members, ids, leadId); }
     else if (foes) { raise(2 + extra, 'Spotted!'); failFire(foes, members, ids, leadId); }
-    else if (sit.hazard) { const t = active(lead) ? lead : pick(members.filter(active)); if (t) { log('Something gives way.', 'alert'); hurt(t, 2, undefined, 'is caught out'); } }
+    else if (sit.hazard) { const t = active(lead) ? lead : pick(members.filter(active)); if (t) { log('Something gives way.', 'alert'); hurt(t, 2, undefined, 'is caught out', stageHurt()); } }
     else raise(1 + extra, 'Too much noise.');
+    // they have seen you here (a shadow slipping back into the dark, or a hazard with nobody watching, goes unseen)
+    if (!(opt.skill === 'STEALTH' && hasTrait(lead.sid, 'SHADOW')) && !(opt.skill !== 'ASSAULT' && !foes && sit.hazard)) st.spotted = true;
+    if (opt.skill === 'ASSAULT' && foes) wearDown(st, successes(roll), roll.diff);
     if (b.qrfIn != null && !foes) { log('The lead elements of the QRF open up.', 'alert'); failFire(1, members, ids, leadId); } // under the QRF every failure is a firefight
     if (opt.skill === 'ASSAULT' && hasScar(lead.sid, 'SHORT_FUSE')) raise(1, `${lead.name} loses their temper and makes it louder (Short fuse).`);
     const afraid = members.filter((u) => hasScar(u.sid, 'NEVER_AGAIN'));
@@ -2170,10 +2289,13 @@ function applyRoll(cost) {
     log(`${opt.label}: success, at a cost (${COSTS[cost].label}).`, 'alert');
     if (cost === 'ALERT') raise(1, 'Someone heard something.');
     else if (cost === 'TIME') b.time = Math.max(0, b.time - 1);
-    else { const t = active(lead) ? lead : members.find(active); if (t) hurt(t, 0, 1, 'takes a knock'); } // same victim the cost preview named
+    else { const t = active(lead) ? lead : members.find(active); if (t) hurt(t, 0, 1, 'takes a knock', opt.skill === 'ASSAULT' && foes ? 'GUN' : stageHurt()); } // same victim the cost preview named
   } else log(`${opt.label}: clean success.`, 'good');
+  if (out === 'SUCCESS' && successes(roll) > roll.diff) { // momentum: hits to spare carry the same skill into the next stage
+    b.momentum = { skill: opt.skill, stage: b.stage + 1 };
+    log(`Momentum: hits to spare. The next stage's ${SKILLS[opt.skill].label} test gets +1 die.`, 'good');
+  }
   if (out === 'SUCCESS' && personaOf(lead.sid) === 'JUNKIE' && !lead.dead) { quirk(lead, `${firstName(lead)} gets +1 die the next time they lead.`, !lead.streaked); lead.streak = lead.streaked = true; }
-  cue(opt.kills && foes ? 'KILL' : out === 'SUCCESS' ? 'SUCCESS' : 'PARTIAL', lead);
   cue(opt.kills && foes ? 'KILL' : out === 'SUCCESS' ? 'SUCCESS' : 'PARTIAL', lead);
   for (const u of members) u.tests++;
   if (!lead.dead && (ITEMS[lead.weapon]?.dice?.[opt.skill] || 0) > 0) lead.weaponWins++;
@@ -2250,7 +2372,7 @@ const ready = (u) => active(u) && u.away !== B().stage;
 /** Gear a way out could cost: anything the team carries, or only what water ruins. */
 function gearChoices(kind) {
   const out = [];
-  for (const u of team().filter(ready)) for (const slot of ['weapon', 'armor', 'kit', 'util']) {
+  for (const u of team().filter(ready)) for (const slot of ['weapon', 'armor', 'kit', 'tool', 'util', 'util2']) {
     const it = u[slot];
     if (it && (kind === 'ANY' || (WET_GEAR.includes(it) && personaOf(u.sid) !== 'GEARHEAD'))) out.push({ uid: u.id, slot, it });
   }
@@ -2263,26 +2385,26 @@ function waysOut(preview = false) { // preview: what a failed roll on screen wou
   const loc = G.mission.loc, key = st.choices[st.pick], foes = foesOf(st, sit), out = [];
   const fit = team().filter((u) => ready(u) && canLead(u)), spec = (k) => fit.find((u) => hasSpec(u.sid, k));
   const pb = !b.planB && quirkOn('PLANNER'), PB = ' (Plan B)'; // a planner takes 1 off the first way that costs time or fatigue
-  const carrier = (its) => team().filter(ready).sort((a, c) => hasSpec(c.sid, 'DEMOLITIONS') - hasSpec(a.sid, 'DEMOLITIONS')).find((u) => its.includes(u.util));
+  const carrier = (its) => team().filter(ready).sort((a, c) => hasSpec(c.sid, 'DEMOLITIONS') - hasSpec(a.sid, 'DEMOLITIONS')).find((u) => its.some((it) => carries(u, it)));
   const way = (id, u, label, price, desc, pick = null) => { if (u) out.push({ id, uid: u.id, label, price, desc, pick }); };
   if (st.kind === 'PERIMETER' && st.choices.length > 1 && !st.detoured && b.time > 1)
     out.push({ id: 'DETOUR', label: `Detour to the ${SIT[st.choices[1 - st.pick]].label.toLowerCase()}`, price: pb ? 'No time lost' + PB : '1 time', desc: 'Pull back and work round to the other way in. You still have to get past it.' });
-  const ch = carrier(['BREACH']);
-  way('BLAST', ch, 'Blast a way through', `${firstName(ch || { name: '' })}'s breaching charge${ch && hasSpec(ch.sid, 'DEMOLITIONS') ? '' : ', raises alert'}`, 'A new hole where there was no door.');
+  const rounds = breachRounds(), ch = rounds || carrier(['BREACH']); // breaching rounds first: free, and quiet
+  way('BLAST', ch, 'Blast a way through', rounds ? `${firstName(rounds)}'s breaching rounds (once a mission), quietly` : `${firstName(ch || { name: '' })}'s breaching charge${ch && hasSpec(ch.sid, 'DEMOLITIONS') ? '' : ', raises alert'}`, 'A new hole where there was no door.');
   const bang = carrier(['FRAG', 'BREACH']), demo = spec('DEMOLITIONS');
-  if (bang) way('DEMOLITIONS', demo, 'Blow a new way in', `${firstName(bang)}'s ${ITEMS[bang.util].label.toLowerCase()}, and a minor hit`, 'Shaped and placed by someone who knows how: no alarm.');
+  if (bang) way('DEMOLITIONS', demo, 'Blow a new way in', `${firstName(bang)}'s ${ITEMS[['FRAG', 'BREACH'].find((it) => carries(bang, it))].label.toLowerCase()}, and a minor hit`, 'Shaped and placed by someone who knows how: no alarm.');
   const mk = spec('MARKSMAN');
   if (foes) way('MARKSMAN', mk, 'Clear it from overwatch', `Sits out the next stage${mk?.kit === 'SUPPRESSOR' || kindOf(mk?.weapon) === 'DMR' ? '' : ', raises alert'}`, 'One shot at a time from a hide. The guards go down.');
   const cqb = spec('CQB');
-  if (foes) way('CQB', cqb, 'Room by room', cqb?.util === 'FLASHBANG' ? 'The flashbang, and a minor hit' : 'A serious hit', 'Straight in, first through every door. The guards go down.');
-  const dv = spec('DIVER'), dry = dv?.kit === 'REBREATHER';
+  if (foes) way('CQB', cqb, 'Room by room', carries(cqb, 'FLASHBANG') ? 'The flashbang, and a minor hit' : 'A serious hit', 'Straight in, first through every door. The guards go down.');
+  const dv = spec('DIVER'), dry = dv?.tool === 'REBREATHER';
   if (['COAST', 'RIVER'].includes(loc) || WATER_SITS.includes(key)) way('DIVER', dv, 'Go round through the water', `${!dry && gearChoices('WET').length ? `Water ruins a drone, medkit or thermal sight (you pick)${pb ? '' : '; '}` : ''}${pb ? (!dry && gearChoices('WET').length ? PB : 'Nothing' + PB) : 'the others tire by 1'}`, 'Under the surface and out where nobody is looking.', dry ? null : 'WET');
-  const mt = spec('MOUNTAINEER'), roped = mt?.kit === 'CLIMBKIT';
+  const mt = spec('MOUNTAINEER'), roped = mt?.tool === 'CLIMBKIT';
   if ((['HIGHLANDS', 'COAST'].includes(loc) || CLIMB_SITS.includes(key)) && (roped || pb || b.time > 1)) way('MOUNTAINEER', mt, 'Climb round', pb ? `The others tire by ${roped ? 1 : 2}${PB}` : roped ? 'The others tire by 2' : '1 time, the others tire by 2', 'Up and over where nobody thinks anyone can go.');
   const inf = spec('INFILTRATOR');
   way('INFILTRATOR', inf, 'Slip in alone and open the way', `${inf?.weapon ? `Leaves the ${ITEMS[inf.weapon].label.toLowerCase()} behind (lost), ` : ''}a minor hit`, 'Alone, light, silent. Then a door opens from the inside.');
   const sg = spec('SIGNALS');
-  if (foes) way('SIGNALS', sg, 'Spoof their radio net', sg?.kit === 'CRYPTO' ? 'Nothing: the encrypted radio covers the trace' : 'Alert rises at the next stage', 'Fake orders pull the guards away. They will work it out.');
+  if (foes) way('SIGNALS', sg, 'Spoof their radio net', sg?.tool === 'CRYPTO' ? 'Nothing: the encrypted radio covers the trace' : 'Alert rises at the next stage', 'Fake orders pull the guards away. They will work it out.');
   if (foes && gearChoices('ANY').length) way('LINGUIST', spec('LINGUIST'), 'Talk your way through', 'A piece of gear as the bribe (you pick, lost)', 'The right words, the right accent, and something for their trouble.', 'ANY');
   if (loc !== 'URBAN' && b.time > (pb ? 1 : 2)) way('PATHFINDER', spec('PATHFINDER'), 'Find a way that is not on the map', pb ? '1 time, everyone tires by 1' + PB : '2 time, everyone tires by 1', 'The long way round, but a way.');
   if (HAUL_SITS.includes(key)) way('ENDURANCE', spec('ENDURANCE'), 'Haul everyone over', pb ? 'Tires by 2, and a minor hit' + PB : 'Tires by 3, and a minor hit', 'Brute strength, one teammate at a time.');
@@ -2294,8 +2416,12 @@ const LOSS_TEXT = {
   weapon: (u, l) => `${u.name} empties the ${l} getting through. Dry and jammed, it is dumped.`,
   armor: (u, l) => `${u.name}'s ${l} is torn off and left behind.`,
   kit: (u, l) => `${u.name}'s ${l} is smashed on the way through.`,
+  tool: (u, l) => `${u.name}'s ${l} is smashed on the way through.`,
   util: (u, l) => `${u.name}'s ${l} is used up getting through.`,
+  util2: (u, l) => `${u.name}'s ${l} is used up getting through.`,
 };
+/** Who could blast a way through with breaching rounds: a shotgun loaded with them, once a mission. */
+const breachRounds = () => (B().breachRound ? null : team().filter(ready).find((u) => kindOf(u.weapon) === 'SHOTGUN' && u.ammo === 'BREACHING') || null);
 /** The best this team could do at an approach: its strongest fireteam as it is, and with every piece of usable gear. */
 function bestOdds(st, sit, o) {
   const none = { plain: 0, gear: 0, kit: [] }, all = team().filter(ready).map((u) => u.id);
@@ -2308,7 +2434,7 @@ function bestOdds(st, sit, o) {
   const withKit = [lead, ...carriers, ...ids].filter((x, i, a) => a.indexOf(x) === i).slice(0, size);
   const gearIds = withKit.filter((id) => gearUsable(unitById(id), o)), strike = canStrike(o);
   const gear = Math.max(plain, odds(poolOf(o, withKit, gearIds, strike, lead).value, difficulty(st, sit, o, withKit).value).s);
-  return { plain, gear, kit: [...gearIds.map((id) => `${ITEMS[unitById(id).util].label} (${firstName(unitById(id))})`), ...(strike ? ['drone strike'] : [])] };
+  return { plain, gear, kit: [...gearIds.map((id) => `${ITEMS[gearItem(unitById(id), o)].label} (${firstName(unitById(id))})`), ...(strike ? ['drone strike'] : [])] };
 }
 /** No approach here has any chance for this team, even with all its gear: desperate measures open without a failure. */
 const LONG_SHOT = 0.05; // under this chance of a clean success an approach counts as no real chance
@@ -2358,13 +2484,15 @@ function takeWay(id, item = null) {
       log(`The team pulls back and works round to the ${SIT[st.choices[st.pick]].label.toLowerCase()}${pb ? '' : ' (-1 time)'}.`, 'info');
       return settle(false);
     case 'BLAST':
-      lose({ uid: u.id, slot: 'util' }, 'expended', `${u.name} sets a breaching charge where there was no door. The wall comes in.`);
+      if (breachRounds() === u) { b.breachRound = true; log(`${u.name} blows the hinges off with breaching rounds. The door is gone, and it was not loud.`, 'good'); return passStage(u, false); }
+      lose({ uid: u.id, slot: utilSlot(u, 'BREACH') }, 'expended', `${u.name} sets a breaching charge where there was no door. The wall comes in.`);
       raise(hasSpec(u.sid, 'DEMOLITIONS') ? 0 : 1, 'The blast carries.');
       return passStage(u, false);
     case 'DEMOLITIONS': {
-      const c = team().filter(ready).sort((a, v) => (v.util === 'FRAG') - (a.util === 'FRAG')).find((v) => ['FRAG', 'BREACH'].includes(v.util));
-      lose({ uid: c.id, slot: 'util' }, 'expended', `${u.name} shapes ${c === u ? 'their' : `${firstName(c)}'s`} ${ITEMS[c.util].label.toLowerCase()} into a quiet hole in the wall.`);
-      hurt(u, 0, 1, 'is caught by the edge of the blast');
+      const c = team().filter(ready).sort((a, v) => carries(v, 'FRAG') - carries(a, 'FRAG')).find((v) => carries(v, 'FRAG') || carries(v, 'BREACH'));
+      const it = carries(c, 'FRAG') ? 'FRAG' : 'BREACH';
+      lose({ uid: c.id, slot: utilSlot(c, it) }, 'expended', `${u.name} shapes ${c === u ? 'their' : `${firstName(c)}'s`} ${ITEMS[it].label.toLowerCase()} into a quiet hole in the wall.`);
+      hurt(u, 0, 1, 'is caught by the edge of the blast', 'BLAST');
       return passStage(u, false);
     }
     case 'MARKSMAN':
@@ -2374,8 +2502,8 @@ function takeWay(id, item = null) {
       return passStage(u, true);
     case 'CQB':
       log(`${u.name} goes in first, room by room.`, 'good');
-      if (u.util === 'FLASHBANG') { (u.lostGear ||= []).push({ it: 'FLASHBANG', why: 'expended' }); u.util = null; log(`A flashbang goes in first.`, 'info'); hurt(u, 0, 1, 'takes a graze in the last room'); }
-      else hurt(u, 0, 2, 'takes the last room the hard way');
+      if (carries(u, 'FLASHBANG')) { spendUtil(u, 'FLASHBANG'); log(`A flashbang goes in first.`, 'info'); hurt(u, 0, 1, 'takes a graze in the last room', 'GUN'); }
+      else hurt(u, 0, 2, 'takes the last room the hard way', 'GUN');
       return passStage(u, true);
     case 'DIVER':
       if (lost) lose(lost, 'ruined by water', `The water gets into ${unitById(lost.uid).name}'s ${ITEMS[lost.it].label.toLowerCase()}. It is finished.`);
@@ -2383,9 +2511,9 @@ function takeWay(id, item = null) {
       log(`${u.name} leads the team round through the water.`, 'good');
       return passStage(u, false);
     case 'MOUNTAINEER':
-      const climbTime = u.kit !== 'CLIMBKIT' && !pb;
+      const climbTime = u.tool !== 'CLIMBKIT' && !pb;
       if (climbTime) b.time -= 1;
-      tire(others(), pb && u.kit === 'CLIMBKIT' ? 1 : 2);
+      tire(others(), pb && u.tool === 'CLIMBKIT' ? 1 : 2);
       log(`${u.name} ropes the team up and over where nobody expects anyone${climbTime ? ' (-1 time)' : ''}.`, 'good');
       return passStage(u, false);
     case 'INFILTRATOR':
@@ -2394,7 +2522,7 @@ function takeWay(id, item = null) {
       hurt(u, 0, 1, 'is cut on the wire going in');
       return passStage(u, false);
     case 'SIGNALS':
-      if (u.kit !== 'CRYPTO') b.lateAlert = (b.lateAlert || 0) + 1;
+      if (u.tool !== 'CRYPTO') b.lateAlert = (b.lateAlert || 0) + 1;
       log(`${u.name} fakes orders on their net and the guards pull out. They will work it out soon.`, 'good');
       return passStage(u, false);
     case 'LINGUIST':
@@ -2491,6 +2619,7 @@ function officerFalls(off, members, lead, feared) {
   for (const [k, v] of Object.entries(OFFICER_TRAITS[off.trait].fate)) w[k] = Math.max(0, w[k] + v);
   if (feared || (off.escapes || 0) >= OFFICER_ESCAPES) w.ESCAPED = 0; // the feared one already had their second chance
   if (feared || hasScar(lead.sid, 'FACES')) w.CAPTIVE = 0; // Knows their faces: no surrender is accepted
+  else if (kindOf(lead.weapon) === 'SHOTGUN' && lead.ammo === 'LESS') w.CAPTIVE += 20; // less-lethal rounds: more of them live to surrender
   const loot = ITEMS[off.loot].label.toLowerCase(), exfilAt = b.stages.findIndex((s) => s.kind === 'EXFIL');
   off.fate = weighted(w);
   if (off.fate === 'ESCAPED') {
@@ -2594,7 +2723,7 @@ function advance() {
     if (u.downed) { if (--u.bleed <= 0) killUnit(u, `${u.name} never wakes up. KIA.`); continue; }
     if (!active(u)) continue;
     const w = u.inj.find((x) => INJURIES[x.id].tier === 3 && !x.t);
-    if (w && --w.clock <= 0) knockOut(u, `${u.name} passes out from the ${INJURIES[w.id].label.toLowerCase()}.`);
+    if (w && --w.clock <= 0) knockOut(u, `${u.name} passes out from the ${injLabel(w).toLowerCase()}.`);
   }
   b.revived = [];
   b.stage++;
@@ -2687,18 +2816,40 @@ function fieldCare(medicId, targetId) {
 function treat(holderId, targetId) {
   needPlan();
   const h = unitById(holderId), t = unitById(targetId);
-  if (!h || !active(h) || h.util !== 'MEDKIT') fail('No medkit there.');
+  if (!h || !active(h) || !carries(h, 'MEDKIT')) fail('No medkit there.');
   if (!t || !(active(t) || t.downed) || !worstNeed(t)) fail('They do not need treatment.');
-  h.consumed = 'MEDKIT'; h.util = null;
+  spendUtil(h, 'MEDKIT');
   if (t !== h) { h.cared.push(t.id); t.caredBy.push(h.id); }
   log(`${h.name} uses a medkit on ${t === h ? 'themself' : t.name}: ${applyCare(t, h.cls === 'MEDIC')}.`, 'good');
   if (t !== h) cue('HEALED', t, { mate: h });
   flushCues();
 }
+/** A combat stim: one operator sheds STIM_GAIN fatigue at once. Free, and allowed under fire. */
+function stim(holderId, targetId) {
+  needPlan();
+  const h = unitById(holderId), t = unitById(targetId);
+  if (!h || !active(h) || !carries(h, 'STIM')) fail('No stim there.');
+  if (!t || !active(t) || !t.fat) fail('They are not worn out.');
+  spendUtil(h, 'STIM');
+  t.fat = Math.max(0, t.fat - STIM_GAIN);
+  log(`${h.name} ${t === h ? 'takes' : `gives ${t.name}`} a combat stim: ${STIM_GAIN} fatigue gone.`, 'good');
+}
+/** The medic's second wind: once a mission, even under fire, everyone standing sheds WIND_GAIN fatigue. Takes no time. */
+function secondWind(medicId) {
+  needPlan();
+  const b = B(), md = unitById(medicId);
+  if (!md || md.cls !== 'MEDIC' || !active(md)) fail('Only a medic who is standing can steady the team.');
+  if (b.secondWind) fail('The team has had its second wind this mission.');
+  const tired = team().filter((u) => active(u) && u.fat);
+  if (!tired.length) fail('Nobody is worn out.');
+  b.secondWind = true;
+  for (const u of tired) u.fat = Math.max(0, u.fat - WIND_GAIN);
+  log(`${md.name} gets everyone breathing and drinking under cover: ${WIND_GAIN} fatigue gone for each (second wind).`, 'good');
+}
 function launchDrone(uid) {
   needPlan();
   const b = B(), u = unitById(uid);
-  if (!u || !active(u) || u.util !== 'DRONE') fail('No drone to launch.');
+  if (!u || !active(u) || !carries(u, 'DRONE')) fail('No drone to launch.');
   if (b.drone.used) fail('The drone has already flown this mission.');
   b.drone = { up: true, op: u.id, strike: 1, used: true };
   for (let k = 1; k <= 2; k++) if (b.stages[b.stage + k]) b.stages[b.stage + k].seen = true;
@@ -2869,9 +3020,11 @@ function launch(o) {
     const l = o.loadouts[id];
     if (!l) fail(`${s.name} needs a loadout.`);
     const cl = CLASSES[s.cls];
-    for (const [it, list] of [[l.weapon, classGear(s.cls, 'weapons')], [l.armor, cl.armor], [l.utility, cl.utility], [l.kit, KITS]])
+    for (const [it, list] of [[l.weapon, classGear(s.cls, 'weapons')], [l.armor, cl.armor], [l.utility, cl.utility], [l.utility2, cl.utility], [l.kit, KITS], [l.tool, TOOLS]])
       if (it && !list.includes(it)) fail(`A ${cl.label} can't carry ${ITEMS[it]?.label ?? it}.`);
-    for (const it of [l.weapon, l.armor, l.utility, l.kit]) if (it) needed[it] = (needed[it] || 0) + 1;
+    if (l.utility2 && G.base.lv.BARRACKS < 2) fail('A second utility item needs Barracks level 2.');
+    if (l.ammo && kindOf(l.weapon) === 'SHOTGUN' && (!AMMO[l.ammo] || AMMO[l.ammo].lv > G.base.lv.ENG)) fail(`${s.name} cannot load ${AMMO[l.ammo]?.label.toLowerCase() ?? 'that'}.`);
+    for (const it of [l.weapon, l.armor, l.utility, l.utility2, l.kit, l.tool]) if (it) needed[it] = (needed[it] || 0) + 1;
     members.push(s);
   }
   for (const [it, n] of Object.entries(needed)) if ((G.armory[it] || 0) < n) fail(`The armory is short of ${ITEMS[it].label}.`);
@@ -2919,13 +3072,13 @@ function insertion(m) {
   if (m.ins === 'BOAT' && team().some((u) => hasSpec(u.sid, 'DIVER'))) risk = 0;
   if (!chance(Math.round(risk * compFactor(e)))) { rep.push('Insertion clean. The team is on the ground, undetected.'); return rep; }
   const victim = pick(team()), first = chance(50);
-  const injure = (tier, cause) => { hurt(victim, 0, tier, cause); rep.push(b.log[b.log.length - 1].text); };
+  const injure = (tier, cause, kind) => { hurt(victim, 0, tier, cause, kind); rep.push(b.log[b.log.length - 1].text); };
   const delay = () => { b.time = Math.max(3, b.time - 2); };
   const alarm = () => raise(Math.max(0, ALERT_TIER - b.alert));
   const damage = (v) => { G.base.damaged[v] = true; rep.push(`The ${VEH[v].label.toLowerCase()} is damaged and needs repairs back at base.`); };
   switch (m.ins) {
     case 'HELO': if (first) { rep.push('HOT LZ: small-arms fire on approach. The enemy knows you are here.'); alarm(); } else { rep.push('Hard landing.'); injure(1, 'is thrown about in the drop'); } break;
-    case 'GROUND': if (first) { rep.push('IED strike on the lead vehicle!'); injure(2, 'is caught in the blast'); damage('GROUND'); } else { rep.push('Roadblock. Forced detour: 2 time lost.'); delay(); } break;
+    case 'GROUND': if (first) { rep.push('IED strike on the lead vehicle!'); injure(2, 'is caught in the blast', 'BLAST'); damage('GROUND'); } else { rep.push('Roadblock. Forced detour: 2 time lost.'); delay(); } break;
     case 'LSV': if (first) { rep.push('Ambush on the track! The gunner hammers back as you push through.'); alarm(); } else { rep.push('A wheel breaks on the rocks: 2 time lost.'); delay(); damage('LSV'); } break;
     case 'BOAT': if (first) { rep.push('A patrol boat sweeps its light across the water. They saw something.'); alarm(); } else { rep.push('The motor floods. The team paddles the last kilometre: 2 time lost.'); delay(); } break;
     case 'HALO': if (first) { rep.push('Scattered landing in a crosswind.'); injure(1, 'lands hard'); } else { rep.push('The team lands well off target: 2 time lost.'); delay(); } break;
@@ -2942,8 +3095,8 @@ const INTRO_OUT = {
 function extraction(m) {
   const b = B(), rep = [], veh = extVeh(m);
   const out = team().filter((u) => u.exfil && !u.dead), left = team().filter((u) => u.stranded && !u.dead);
-  const injure = (u, mod, tier, cause) => {
-    hurt(u, mod, tier, cause);
+  const injure = (u, mod, tier, cause, kind) => {
+    hurt(u, mod, tier, cause, kind);
     rep.push(b.log[b.log.length - 1].text.replace(/ Treat them within.*/, ''));
     if (u.downed) { u.downed = false; u.bleed = 0; rep.push(`${u.name} is dragged aboard unconscious.`); }
   };
@@ -2954,7 +3107,7 @@ function extraction(m) {
     if (hot) {
       rep.push(`The area is alerted (${b.alert}/${ALERT_MAX}). Taking fire at the extraction point!`);
       const c = { HELO: 30, GROUND: 25, FOOT: 40, LSV: 30, BOAT: 25, MRAP: 15 }[veh] + (b.alert - ALERT_TIER) * 5;
-      for (const u of out) if (chance(c)) injure(u, 0, undefined, 'is hit at the extraction point');
+      for (const u of out) if (chance(c)) injure(u, 0, undefined, 'is hit at the extraction point', 'GUN');
       if (veh !== 'FOOT' && chance(30)) { G.base.damaged[veh] = true; rep.push(`The ${VEH[veh].label.toLowerCase()} takes hits on the way out and needs repairs.`); }
     } else rep.push('Extraction clean. No contact.');
   }
@@ -2986,13 +3139,13 @@ function debrief(m) {
   for (const u of sq) {
     const s = soldier(u.sid), before = rankIdx(s.xp);
     let xp = 0, status, out = 0;
-    const injuries = u.inj.map((w) => INJURIES[w.id].label);
+    const injuries = u.inj.map(injLabel);
     if (u.wasOut) injuries.unshift('Knocked unconscious');
     if (u.dead || u.missing) {
       status = u.missing ? 'MIA' : 'KIA';
       s.alive = false;
       if (u.missing) s.mia = true;
-      for (const it of [u.weapon, u.armor, u.kit, u.util]) if (it) lost.push(`${ITEMS[it].label} (${u.name})`);
+      for (const it of [u.weapon, u.armor, u.kit, u.tool, u.util, u.util2]) if (it) lost.push(`${ITEMS[it].label} (${u.name})`);
     } else {
       s.fatigue = Math.max(0, u.fat - 3 - rest + restless(s));
       xp = 10 + (success ? 10 : 0) + u.kills * 8 + (u.killedHvt ? 25 : 0) + (carrier === u && intelOut ? 15 : 0) + u.revives * 10 + u.tests * 4
@@ -3002,7 +3155,7 @@ function debrief(m) {
       out = RECOVERY[u.wasOut ? 4 : Math.max(0, ...u.inj.map((w) => INJURIES[w.id].tier))];
       if (out) { s.recovery = out + 1; s.healing = injuries; }
       status = out ? `Out for ${out} mission${out > 1 ? 's' : ''}` : 'Fit for duty';
-      for (const it of [u.weapon, u.armor, u.kit, u.util]) if (it) G.armory[it] = (G.armory[it] || 0) + 1;
+      for (const it of [u.weapon, u.armor, u.kit, u.tool, u.util, u.util2]) if (it) G.armory[it] = (G.armory[it] || 0) + 1;
     }
     if (u.consumed) lost.push(`${ITEMS[u.consumed].label} (expended)`);
     for (const it of u.wrecked || []) lost.push(`${ITEMS[it].label} (wrecked by ${off.name}'s grenade)`);
@@ -3098,7 +3251,7 @@ function debrief(m) {
       officer: off ? { name: off.name, trait: off.trait, fate: off.dead ? off.fate : off.fate === 'ESCAPED' ? 'ESCAPED' : 'ALIVE' } : null,
       intel: [...m.intel], ins: m.ins, ext: m.ext },
     team: sq.map((u) => { const s = soldier(u.sid), l = m.loadouts[s.id] || {}, d = soldiers.find((x) => x.sid === s.id);
-      return { sid: s.id, name: u.name, face: s.face, cls: s.cls, spec: s.spec, rank: d?.rank, status: d?.status, gear: [l.weapon, l.armor, l.kit, l.utility].filter(Boolean) }; }),
+      return { sid: s.id, name: u.name, face: s.face, cls: s.cls, spec: s.spec, rank: d?.rank, status: d?.status, gear: [l.weapon, l.armor, l.kit, l.tool, l.utility, l.utility2].filter(Boolean) }; }),
     words: words.map((w) => ({ when: w.when, name: w.name, text: w.text })), fallen: fallen.map((f) => ({ name: f.name, missing: f.missing, by: f.by, line: f.line })) });
   return { success, objectives, soldiers, lost, gained, rp, bp, notes, words, aar, fallen, home };
 }
@@ -3189,7 +3342,9 @@ function rescueChange(sid, k) {
 }
 // ---------------- the last stand: two beats in their voice, then the choice of what their death bought
 const standRec = (sid) => { const r = (G.missing || []).find((x) => x.sid === sid && x.stage === 'STAND'); if (!r) fail('There is no word to hear.'); return r; };
-const standEnds = (r) => ['INTEL', r.legacy ? 'LEGACY' : 'OFFICER'];
+const standEnds = (r) => ['INTEL', r.legacy && namedOpen(legacyBase(r)) ? 'LEGACY' : 'OFFICER']; // a full weapon class leaves room for no more legacies
+/** Room in the named-weapon pool for another weapon of this kind (legacy weapons now; officers' and bosses' later). */
+const namedOpen = (base) => (G.legacy || []).filter((l) => WEAPON_CLASS[l.base] === WEAPON_CLASS[base]).length < NAMED_PER_CLASS;
 const sentenceCase = (t) => t.replace(/(^|[.!?]\s+)([a-z])/g, (_, a, c) => a + c.toUpperCase());
 /** The weapon they carried, as a word: a legacy weapon is made from it (from their class's first, if they had only a handgun). */
 const legacyBase = (r) => { const w = kindOf(r.weapon); return ITEMS[w]?.slot === 'WEAPON' ? w : CLASSES[soldier(r.sid).cls].weapons[0]; };
@@ -3234,7 +3389,7 @@ function standEnd(sid, kind) {
   }
   if (kind === 'LEGACY') {
     const id = `LEGACY${r.sid}`;
-    (G.legacy ||= []).push({ id, base: legacyBase(r), label: `${LAST_STAND[r.persona].legacy[1]} (${firstName(r)}'s legacy)` });
+    (G.legacy ||= []).push({ id, base: legacyBase(r), label: `${LAST_STAND[r.persona].legacy[1]} (${firstName(r)}'s legacy)`, from: 'LEGACY' });
     registerLegacy();
     G.armory[id] = 1;
     deed = `Left ${ITEMS[id].label} behind.`;
@@ -4308,12 +4463,26 @@ $('#sheet').addEventListener('click', (e) => { if (e.target === e.currentTarget)
 // ------------------------------------------------------------------ briefing
 function remaining() {
   const left = { ...G.armory };
-  for (const id of draft.team) for (const it of Object.values(draft.loadouts[id])) if (it) left[it] = (left[it] || 0) - 1;
+  for (const id of draft.team) for (const [k, it] of Object.entries(draft.loadouts[id])) if (it && k !== 'ammo') left[it] = (left[it] || 0) - 1; // ammunition is not stock
   return left;
 }
-function defaultLoadout(cls) {
+/** How advanced a piece of gear is: a named legacy weapon first, then the Engineering level that makes it (captured gear counts as 2). */
+const techTier = (it) => (ITEMS[it]?.legacy ? 4 : FAB[it]?.[0] ?? 2);
+/** A class's role: the skills it rolls most dice in (Heavy: Assault; Scout: Stealth and Recon; Medic: Assault and Stealth; Drone: Recon and Tech). */
+const roleSkills = (cls) => { const d = CLASSES[cls].dice, top = Math.max(...Object.values(d)); return Object.keys(d).filter((k) => d[k] === top); };
+/** Does a piece of gear add dice to the class's role? A shotgun counts as an Assault weapon. */
+const servesRole = (it, cls) => { const x = ITEMS[kindOf(it)] || {}, dice = kindOf(it) === 'SHOTGUN' ? { ASSAULT: 1 } : { ...x.dice, ...x.dark, ...x.night };
+  return roleSkills(cls).some((k) => (dice[k] || 0) > 0); };
+/** A class's gear list for the starting loadout: what serves its role first, then the most advanced; the class's own order breaks ties. */
+const bestFor = (cls, list) => [...list].sort((a, c) => (servesRole(c, cls) - servesRole(a, cls)) || (techTier(c) - techTier(a)));
+function defaultLoadout(cls, s = null) {
   const left = remaining(), first = (p) => { const x = p.find((k) => (left[k] || 0) > 0) || null; if (x) left[x]--; return x; }, cl = CLASSES[cls];
-  return { weapon: first(cl.weapons), armor: first(cl.armor), utility: first(cl.utility), kit: first(cl.kits) };
+  // weapon, armour and kit: the best for the role the armory has (a signature weapon always first); utilities keep the class's preference
+  const weapons = bestFor(cls, classGear(cls, 'weapons')), sig = s?.signature && weapons.includes(s.signature) ? [s.signature] : [];
+  const l = { weapon: first([...sig, ...weapons]), armor: first(bestFor(cls, cl.armor)), utility: first(cl.utility), kit: first(bestFor(cls, cl.kits)), tool: null };
+  l.utility2 = G.base.lv.BARRACKS >= 2 ? first(cl.utility) : null; // a second item once the barracks trains them to carry it
+  l.ammo = kindOf(l.weapon) === 'SHOTGUN' ? 'BUCK' : null;
+  return l;
 }
 const classOf = (id) => soldier(+id).cls;
 function syncDraft() {
@@ -4324,13 +4493,13 @@ function syncDraft() {
   const fresh = G.roster.filter(available).sort((a, c) => soldierFat(a) - soldierFat(c)); // rested operators first
   for (const s of fresh) {
     if (draft.team.length >= MAX_TEAM) break;
-    const l = defaultLoadout(s.cls);
+    const l = defaultLoadout(s.cls, s);
     draft.team.push(s.id);
     draft.loadouts[s.id] = l;
   }
 }
 const BRIEF_STEPS = ['Intel', 'Team & gear', 'Transport'];
-const SLOT_LABEL = { WEAPON: 'Weapon', ARMOR: 'Armour', KIT: 'Kit', UTILITY: 'Utility' };
+const SLOT_LABEL = { WEAPON: 'Weapon', AMMO: 'Ammunition', ARMOR: 'Armour', KIT: 'Kit', TOOL: 'Tool', UTILITY: 'Utility', UTILITY2: 'Second utility' };
 /** The briefing in three steps (intel, team and gear, transport) under a pinned bar with the budget and the way on. */
 function renderBriefing() {
   if (G.phase !== 'BRIEFING') return refresh(); // a stale handler must never draw the plan over another phase
@@ -4340,7 +4509,7 @@ function renderBriefing() {
     const it = Object.keys(left).find((k) => left[k] < 0);
     const id = [...draft.team].reverse().find((x) => Object.values(draft.loadouts[x] || {}).includes(it)), l = draft.loadouts[id];
     if (!l) break;
-    for (const slot of Object.keys(l)) if (l[slot] === it) { l[slot] = null; break; }
+    for (const slot of Object.keys(l)) if (slot !== 'ammo' && l[slot] === it) { l[slot] = null; break; }
   }
   const m = G.mission, left = remaining(), step = draft.step;
   for (const f of ['insertion', 'extraction']) if (vehBlock(m, draft[f], f === 'insertion' ? 'ins' : 'ext')) draft[f] = 'FOOT';
@@ -4353,9 +4522,19 @@ function renderBriefing() {
     return `<div class="intel-row ${lock ? 'locked' : ''}"><div><b>${i.label}</b><small>${i.desc}</small></div>${own ? '<span class="chip ok">Acquired</span>' : lock ? `<span class="chip">Intelligence L${i.lv}</span>`
       : `<button class="btn" type="button" data-intel="${id}" ${G.rp < c ? 'disabled' : ''}>Buy · ${c ? c + ' RP' : 'free'}</button>`}</div>`;
   }).join('');
+  const booked = m.assets || [], cap = assetCap();
+  const assetRows = Object.entries(ASSETS).map(([id, a]) => {
+    const own = booked.includes(id), c = assetCost(id), full = booked.length >= cap;
+    return `<div class="intel-row ${!cap ? 'locked' : ''}"><div><b>${a.label}</b><small>${a.desc}</small></div>${own ? '<span class="chip ok">Booked</span>' : !cap ? '<span class="chip">Operations L2</span>'
+      : `<button class="btn" type="button" data-asset="${id}" ${G.rp < c || full ? 'disabled' : ''} ${full ? `title="Operations books ${cap} per mission"` : ''}>Book · ${c} RP</button>`}</div>`;
+  }).join('') + (cap ? `<p class="muted" style="margin:8px 0 0">Operations books ${cap} support asset${cap > 1 ? 's' : ''} per mission. Overwatch and the fire mission are called in during the operation, onto the stage you are at.</p>` : '');
   const humint = m.intel.includes('HUMINT') || m.intel.includes('SIGINT') ? `<div class="humint"><div>${m.rAt ? `Expect ${m.rCount === 1 ? 'one vehicle' : 'two vehicles'} of reinforcements after your ${m.rAt}${['th', 'st', 'nd', 'rd'][m.rAt] || 'th'} action.` : 'No reinforcements expected.'}</div></div>` : '';
   const select = (sid, slot, cur) => {
-    const allowed = slot === 'KIT' ? KITS : classGear(classOf(sid), { WEAPON: 'weapons', ARMOR: 'armor', UTILITY: 'utility' }[slot]);
+    if (slot === 'AMMO') { // shotgun ammunition: what Engineering has made, no stock
+      const opts = Object.entries(AMMO).filter(([, a]) => a.lv <= G.base.lv.ENG).map(([k, a]) => `<option value="${k}" ${(cur || 'BUCK') === k ? 'selected' : ''}>${a.label}</option>`).join('');
+      return `<label class="slot"><span>${SLOT_LABEL[slot]}</span><select id="lo-${sid}-${slot}" data-sid="${sid}" data-slot="${slot}">${opts}</select></label>`;
+    }
+    const allowed = slot === 'KIT' ? KITS : slot === 'TOOL' ? TOOLS : classGear(classOf(sid), { WEAPON: 'weapons', ARMOR: 'armor', UTILITY: 'utility', UTILITY2: 'utility' }[slot]);
     const opts = allowed.map((k) => {
       const n = (left[k] || 0) + (cur === k ? 1 : 0);
       if (n <= 0 && cur !== k) return '';
@@ -4374,8 +4553,8 @@ function renderBriefing() {
       <div class="skillline">${skillLine((k) => diceFor(s.cls, s.xp, on ? [l.weapon, l.armor, l.kit] : [], k))}<span class="muted">dice</span></div>
       <div class="ability">${CLASSES[s.cls].ability} <span class="spec-desc">${SPECS[s.spec].desc}</span> <span class="quirk-desc">${PERSONAS[s.persona].q.label}: ${esc(PERSONAS[s.persona].q.desc)}.</span></div>
       <div class="xp"><i style="width:${pct}%"></i><small>${s.xp}${nx > 0 ? ' / ' + nx : ''} XP</small></div>
-      ${on ? `<div class="loadout four">${select(s.id, 'WEAPON', l.weapon)}${select(s.id, 'ARMOR', l.armor)}${select(s.id, 'KIT', l.kit)}${select(s.id, 'UTILITY', l.utility)}</div>
-      <div class="loadout-hint">${[l.weapon, l.armor, l.kit, l.utility].filter(Boolean).map((x) => `${ITEMS[x].label}: ${itemSummary(x)}`).concat(l.weapon ? [] : [handgunNote(s)]).join(' · ')}</div>` : ''}</div>`;
+      ${on ? `<div class="loadout four">${select(s.id, 'WEAPON', l.weapon)}${kindOf(l.weapon) === 'SHOTGUN' ? select(s.id, 'AMMO', l.ammo) : ''}${select(s.id, 'ARMOR', l.armor)}${select(s.id, 'KIT', l.kit)}${select(s.id, 'TOOL', l.tool)}${select(s.id, 'UTILITY', l.utility)}${G.base.lv.BARRACKS >= 2 ? select(s.id, 'UTILITY2', l.utility2) : ''}</div>
+      <div class="loadout-hint">${[l.weapon, l.armor, l.kit, l.tool, l.utility, l.utility2].filter(Boolean).map((x) => `${ITEMS[x].label}: ${itemSummary(x)}`).concat(l.weapon ? [] : [handgunNote(s)]).concat(kindOf(l.weapon) === 'SHOTGUN' ? [`${AMMO[l.ammo || 'BUCK'].label}: ${AMMO[l.ammo || 'BUCK'].desc}`] : []).join(' · ')}</div>` : ''}</div>`;
   }).join('');
   // Each ride is priced against the other leg as chosen now: picking an expensive ride in marks the rides out it leaves
   // no RP for (and the other way round). The free walk always fits, so there is always a way to fix the budget.
@@ -4402,7 +4581,8 @@ function renderBriefing() {
           <li><span class="tag">Secondary</span><b>${secondaryLabel(m)}</b>${OBJ[m.secondary].desc}</li></ul></div></div>
       <div class="col"><div class="card"><h3>Operation plan</h3>${mapHtml(m, m.route, -1, m.env.forecast, { ins: draft.insertion, ext: draft.extraction, k: 1.5 })}${routeHtml(m.route, -1)}
         ${m.intel.some((i) => ['SATELLITE', 'HUMINT', 'UAV'].includes(i)) ? '' : '<p class="muted" style="margin:8px 0 0">Entry points are unscouted. Buy intel to see what is waiting.</p>'}</div>
-        <div class="card"><h3>Intelligence</h3>${intelRows}${humint}</div></div></div>`,
+        <div class="card"><h3>Intelligence</h3>${intelRows}${humint}</div>
+        <div class="card"><h3>Support</h3>${assetRows}</div></div></div>`,
     () => `<div class="card"><div class="team-head"><h3>Team <span class="count">${draft.team.length}/${MAX_TEAM}</span></h3>
           <span class="grow"></span><button class="btn ghost" type="button" data-sheet="ENG">${ico('tech')}Engineering</button><button class="btn ghost" type="button" data-sheet="BARRACKS">${ico('star')}Barracks</button></div>
         <p class="muted" style="margin:0 0 12px">Tick up to ${MAX_TEAM} operators and choose what they carry. Everyone has a handgun; the rest comes from the armory.</p>
@@ -4430,13 +4610,14 @@ function renderBriefing() {
   const v = $('#view');
   v.querySelectorAll('[data-step]').forEach((b) => b.addEventListener('click', () => { draft.step = +b.dataset.step; sfx('click'); renderBriefing(); window.scrollTo(0, 0); }));
   v.querySelectorAll('[data-intel]').forEach((b) => b.addEventListener('click', () => { sfx('select'); run(() => buyIntel(b.dataset.intel, draft.team)); }));
+  v.querySelectorAll('[data-asset]').forEach((b) => b.addEventListener('click', () => { sfx('select'); run(() => buyAsset(b.dataset.asset)); }));
   v.querySelectorAll('[data-sheet]').forEach((b) => b.addEventListener('click', () => openSheet(b.dataset.sheet)));
   v.querySelectorAll('[data-fabq]').forEach((b) => b.addEventListener('click', () => { sfx('select'); run(() => fabricate(b.dataset.fabq)); }));
   v.querySelectorAll('[data-pick]').forEach((cb) => cb.addEventListener('change', () => {
     const id = +cb.dataset.pick;
     if (cb.checked) {
       if (draft.team.length >= MAX_TEAM) { toast(`Maximum team size is ${MAX_TEAM}.`); return renderBriefing(); }
-      const l = defaultLoadout(classOf(id));
+      const l = defaultLoadout(classOf(id), soldier(id));
       draft.team.push(id); draft.loadouts[id] = l;
     } else { draft.team = draft.team.filter((x) => x !== id); delete draft.loadouts[id]; }
     sfx('click');
@@ -4621,6 +4802,7 @@ const officerHtml = (o) => `<span class="chip bad">${ico('star')}${esc(o.name)} 
 const specialists = (k) => team().filter((u) => active(u) && hasSpec(u.sid, k));
 /** Why an approach is closed to this team, or null: no specialist, or none fit to lead it this stage. */
 function lockReason(o) {
+  if (o.skill === 'STEALTH' && cur()?.spotted) return 'they have seen you here';
   if (!o.need) return null;
   const sp = team().filter((u) => active(u) && hasSpec(u.sid, o.need)), what = SPECS[o.need].label.toLowerCase();
   if (!sp.length) return `needs a ${what}`;
@@ -4648,9 +4830,10 @@ function planSceneHtml(st, sit) {
       ${mark}<span class="foot">Difficulty ${q.diff.value} · ${q.pool.value} dice</span></button>`; }).join('');
   const m = G.mission, off = officerAt(st);
   const who = sit === SIT.HVT && m.target ? foeRow(`TGT-${m.target}`, `<span class="chip ${m.target === 'WARLORD' ? 'bad' : ''}">Target: ${TARGETS[m.target].label}</span> ${TARGETS[m.target].desc}`) : '';
-  return `${resultHtml()}${waysHtml()}<div class="scene-head"><div class="eyebrow">Stage ${b.stage + 1} · ${KIND[st.kind]}</div>${backBtn()}${hostiles(foes)}</div>
+  const marks = `${st.wear ? `<span class="chip ok" title="Fewer of them, and tests here easier by up to the enemy's own part of the difficulty">Worn down ${st.wear}</span>` : ''}${st.spotted ? '<span class="chip bad" title="No Stealth approach is possible at this stage any more">Spotted here</span>' : ''}`;
+  return `${resultHtml()}${waysHtml()}<div class="scene-head"><div class="eyebrow">Stage ${b.stage + 1} · ${KIND[st.kind]}</div>${backBtn()}${marks}${hostiles(foes)}</div>
     <h2>${esc(sit.label)}</h2><p class="sit-text">${esc(sit.text)}</p><p class="story">${esc(arriveText(st))}</p>${off ? foeRow(`OFF-${off.trait}`, officerHtml(off)) : ''}${who}<div class="tiles">${tiles}</div>
-    ${locked.length ? `<p class="locked-line">${ico('cross')}<span>Not available with this team: ${locked.join(' · ')}</span></p>` : ''}`;
+    ${locked.length ? `<p class="locked-line">${ico('cross')}<span>Not available: ${locked.join(' · ')}</span></p>` : ''}`;
 }
 /** After a failure: the ways past this stage, each with its price. Ways that cost gear ask which piece first. */
 function waysHtml() { // after a failure here, or when nothing at this stage can work
@@ -4709,16 +4892,17 @@ function opCardHtml(u, p, opt) {
   if (away) dice = '<span class="opdice">In the hide: sits this stage out</span>';
   else if (opt && ok) dice = `<span class="opdice">${on ? (lead ? `<b>${opDice(u, opt.skill)}</b>dice` : '<b>+1</b>die') : canLead(u) ? `<b class="dim">${opDice(u, opt.skill)}</b>as lead` : "can't lead until treated"}</span>`;
   else if (ok) dice = `<span class="opskills">${skillLine((k) => opDice(u, k))}</span>`;
-  const care = [], medics = team().filter((x) => x.cls === 'MEDIC' && active(x) && !b.revived.includes(x.id)), kits = team().filter((x) => active(x) && x.util === 'MEDKIT');
+  const care = [], medics = team().filter((x) => x.cls === 'MEDIC' && active(x) && !b.revived.includes(x.id)), kits = team().filter((x) => active(x) && carries(x, 'MEDKIT'));
   if (free && opt && on && !lead && ok && canLead(u) && (!opt.need || hasSpec(u.sid, opt.need))) care.push(`<button class="btn" type="button" data-act="lead" data-id="${u.id}">${ico('star')}Make lead</button>`);
+  if (free && ok && u.fat) for (const h of team().filter((x) => active(x) && carries(x, 'STIM'))) care.push(`<button class="btn" type="button" data-act="stim" data-h="${h.id}" data-t="${u.id}">${ico('medic')}Stim · ${esc(firstName(h))}</button>`);
   if (free && (ok || u.downed) && fieldCareNeed(u)) for (const md of medics) care.push(`<button class="btn" type="button" data-act="care" data-m="${md.id}" data-t="${u.id}">${ico('medic')}Field care · ${esc(firstName(md))}</button>`);
   if (free && (ok || u.downed) && worstNeed(u)) for (const k of kits) care.push(`<button class="btn" type="button" data-act="treat" data-h="${k.id}" data-t="${u.id}">${ico('medic')}Medkit · ${esc(firstName(k))}</button>`);
-  if (free && ok && u.util === 'DRONE' && !b.drone.used) care.push(`<button class="btn" type="button" data-act="drone" data-id="${u.id}">Launch drone</button>`);
+  if (free && ok && carries(u, 'DRONE') && !b.drone.used) care.push(`<button class="btn" type="button" data-act="drone" data-id="${u.id}">Launch drone</button>`);
   return `<div class="opcard ${on ? 'on' : ''} ${lead ? 'lead' : ''} ${ok && !away ? '' : u.dead ? 'gone' : 'out'}">
     <button class="optoggle" type="button" data-act="op" data-id="${u.id}" ${ok && !away && opt && free ? '' : 'disabled'} aria-pressed="${on}">
       <span class="oprow">${faceImg(soldier(u.sid), 'f48')}<b>${esc(u.name)}</b>${role}</span>
       <span class="oprow">${classChip(u.cls)}${specChip(soldier(u.sid))}${quirkChip(soldier(u.sid))}${nerveOf(soldier(u.sid)) ? `<span class="chip nerve-chip" title="Nerve this operator brings">${ico('star')}${nerveOf(soldier(u.sid))}</span>` : ''}${b.carrier === u.id ? '<span class="chip gold">Intel</span>' : ''}</span>
-      ${`<span class="muted util">${[u.weapon || 'HANDGUN', u.kit, u.util].filter(Boolean).map((x) => ITEMS[x].label + (x === 'HANDGUN' ? ' only' : '')).join(' · ')}</span>`}
+      ${`<span class="muted util">${[u.weapon || 'HANDGUN', u.kit, u.tool, u.util, u.util2].filter(Boolean).map((x) => ITEMS[x].label + (x === 'HANDGUN' ? ' only' : '')).join(' · ')}</span>`}
       ${dice}${u.dead ? '' : `<span class="fat fat-${fatState(u)}" title="Fatigue ${u.fat}/${FAT_MAX}"><span class="fat-pips">${Array.from({ length: FAT_MAX }, (_, i) => `<i class="${i < u.fat ? 'on' : ''}"></i>`).join('')}</span>${FAT_LABEL[fatState(u)]}</span>`}${injHtml(u)}
     </button>${care.length ? `<div class="care">${care.join('')}</div>` : ''}</div>`;
 }
@@ -4726,7 +4910,7 @@ function trayHtml(st, sit) {
   const b = B(), p = sit ? previewOf(plan.opt) : null, opt = p?.opt;
   const cards = team().map((u) => opCardHtml(u, p, opt)).join('');
   if (!sit) return `<div class="card tray"><div class="tray-head"><h3>Team</h3><small>Choose where to go first.</small></div><div class="opcards">${cards}</div></div>`;
-  const gear = plan.ids.map(unitById).filter((u) => gearUsable(u, opt)).map((u) => `<button class="btn ${plan.gear.includes(u.id) ? 'on' : ''}" type="button" data-act="gear" data-id="${u.id}" aria-pressed="${plan.gear.includes(u.id)}">${ITEMS[u.util].label} · ${esc(firstName(u))} (+${GEAR_USE[u.util].dice}${GEAR_USE[u.util].alert ? ', loud' : ''})</button>`);
+  const gear = plan.ids.map(unitById).filter((u) => gearUsable(u, opt)).map((u) => `<button class="btn ${plan.gear.includes(u.id) ? 'on' : ''}" type="button" data-act="gear" data-id="${u.id}" aria-pressed="${plan.gear.includes(u.id)}">${(() => { const it = gearItem(u, opt), g = GEAR_USE[it]; return `${ITEMS[it].label} · ${esc(firstName(u))} (+${g.dice}${g.alert ? ', loud' : ''}${g.time ? `, +${g.time} time` : ''})`; })()}</button>`);
   if (canStrike(opt)) gear.push(`<button class="btn ${plan.strike ? 'on' : ''}" type="button" data-act="strike" aria-pressed="${plan.strike}">Drone strike (+2)</button>`);
   const cost = 1 + (opt.time || 0);
   const why = b.timeUp ? 'The window is closing: take a way past this stage, or let it close.' : !p.pool.value ? 'Commit at least one operator.' : p.lead == null ? 'Nobody committed can lead this: add someone fit to lead.' : cost > b.time && !b.overtime ? `Needs ${cost} time and ${b.time} is left.` : '';
@@ -4742,11 +4926,13 @@ function trayHtml(st, sit) {
       <div class="go-odds"><div class="go-nums"><span class="big">${p.pool.value}</span>dice vs difficulty<span class="big">${p.diff.value}</span></div>
         <div class="oddsbar" aria-hidden="true"><i class="s" style="width:${pct(p.odds.s)}%"></i><i class="p" style="width:${pct(p.odds.p)}%"></i><i class="f" style="width:${pct(p.odds.f)}%"></i></div>
         <div class="oddstext"><span class="s">${ico('check')}${pct(p.odds.s)}% success</span><span class="p">${ico('warn')}${pct(p.odds.p)}% at a cost</span><span class="f">${ico('cross')}${pct(p.odds.f)}% fail</span></div>
-        ${plan.gear.length || plan.strike ? `<div class="gear-chosen" aria-label="Gear to be used: tap to keep it">${plan.gear.map((id) => `<button class="btn" type="button" data-act="gear" data-id="${id}" title="Keep it: do not use it on this test">${ITEMS[unitById(id).util].label} · ${esc(firstName(unitById(id)))} ✕</button>`).join('')}${plan.strike ? '<button class="btn" type="button" data-act="strike" title="Keep the strike for later">Drone strike ✕</button>' : ''}</div>` : ''}</div>
+        ${plan.gear.length || plan.strike ? `<div class="gear-chosen" aria-label="Gear to be used: tap to keep it">${plan.gear.map((id) => `<button class="btn" type="button" data-act="gear" data-id="${id}" title="Keep it: do not use it on this test">${ITEMS[gearItem(unitById(id), opt)].label} · ${esc(firstName(unitById(id)))} ✕</button>`).join('')}${plan.strike ? '<button class="btn" type="button" data-act="strike" title="Keep the strike for later">Drone strike ✕</button>' : ''}</div>` : ''}</div>
       <div class="go-btns">
         <button class="btn ghost danger ${plan.abortArmed ? 'armed' : ''}" type="button" data-act="abort">${plan.abortArmed ? 'Tap again to abort' : 'Abort'}</button>
         <button class="btn ghost" type="button" data-act="details" aria-pressed="${ui.details}">${ui.details ? 'Hide details' : 'Details'}</button>
         <button class="btn" type="button" data-act="rest" ${b.time > REST_TIME && team().some((u) => active(u) && u.fat) && !restBlock() ? '' : 'disabled'} title="${restBlock() || `Everyone sheds ${REST_GAIN} fatigue`}">Rest · ${REST_TIME} time</button>
+        ${['OVERWATCH', 'FIRE'].filter((id) => hasAsset(id) && !(b.called || []).includes(id)).map((id) => `<button class="btn" type="button" data-act="call" data-id="${id}" ${foesOf(st, sit) ? '' : 'disabled'} title="${esc(ASSETS[id].desc)}">Call ${ASSETS[id].label.toLowerCase()}</button>`).join('')}
+        ${(() => { const md = team().find((u) => u.cls === 'MEDIC' && active(u)); return md && !b.secondWind ? `<button class="btn" type="button" data-act="wind" data-m="${md.id}" ${team().some((u) => active(u) && u.fat) ? '' : 'disabled'} title="Once a mission, even under fire, no time: everyone sheds ${WIND_GAIN} fatigue">Second wind · ${esc(firstName(md))}</button>` : ''; })()}
         ${st.kind === 'OPTIONAL' ? '<button class="btn" type="button" data-act="skip">Skip target</button>' : ''}
         ${b.timeUp ? '<button class="btn danger" type="button" data-act="close">Let the window close</button>' : ''}
         ${b.qrfIn != null && !b.timeUp ? '<button class="btn danger" type="button" data-act="run">Run for the exfil</button>' : ''}
@@ -4756,7 +4942,7 @@ function trayHtml(st, sit) {
     </div></div>`;
 }
 /** One line on how an operator is doing, by injury names only. */
-const conditionOf = (u) => (u.dead ? 'KIA' : u.downed ? 'Unconscious' : u.inj.length ? u.inj.map((w) => INJURIES[w.id].label).join(', ') : 'Unhurt');
+const conditionOf = (u) => (u.dead ? 'KIA' : u.downed ? 'Unconscious' : u.inj.length ? u.inj.map(injLabel).join(', ') : 'Unhurt');
 function drawerHtml() {
   const b = B(), m = G.mission, carrier = b.carrier != null ? unitById(b.carrier) : null;
   const st = (t) => ({ RETRIEVE_INTEL: carrier ? 'Carrier must get out' : 'Not secured', ELIMINATE_HVT: b.hvtKilled ? 'Confirmed dead' : 'Alive', NO_CASUALTIES: team().some((u) => u.dead) ? 'Failed' : 'So far, so good', UNDETECTED: b.alerted ? 'Failed' : 'Undetected' })[t];
@@ -4868,6 +5054,9 @@ $('#view').addEventListener('click', (e) => {
   if (a === 'skip') { sfx('click'); return run(skip); }
   if (a === 'care') { sfx('select'); return run(() => fieldCare(n('m'), n('t'))); }
   if (a === 'treat') { sfx('select'); return run(() => treat(n('h'), n('t'))); }
+  if (a === 'stim') { sfx('select'); return run(() => stim(n('h'), n('t'))); }
+  if (a === 'wind') { sfx('select'); return run(() => secondWind(n('m'))); }
+  if (a === 'call') { sfx('select'); buzz(80); return run(() => callSupport(el.dataset.id)); }
   if (a === 'drone') { sfx('select'); return run(() => launchDrone(n('id'))); }
 });
 
@@ -4920,9 +5109,12 @@ function helpHtml() {
     ['Nerve', 'Grit for pushing a roll, brought to the team by rank: Private 0, Private First Class and Corporal 1, Sergeant and Staff Sergeant 2, Lieutenant 3 (a true believer brings 1 more). Seeing a teammate knocked out or killed costs the team 1 Nerve. Shown next to Alert and Time.'],
     ['Quirk', 'Every personality bends one rule a little in their favour: the teal chip next to the personality. Hover or open an operator to read it; they say it out loud when it happens.'],
     ['Rank', 'Promotions add dice (Corporal +1, Staff Sergeant +2) and Nerve. A sergeant leading has the best-armoured supporter step in front of the first hit; a lieutenant gives one free push a mission. A better barracks hires higher ranks.'],
-    ['Ways out', 'After a failure at a stage: a detour to the other entry, a breaching charge, a specialist doing what they do best, or forcing it. Each passes the stage at a price in time, fatigue, wounds or gear, and lost gear is gone for good.'],
+    ['Worn down', `A failed Assault that still lands hits wears the enemy at that stage down: half the successes needed earns 1, two short earns 2 (from difficulty 5). Each point means one enemy fewer there and tests there 1 easier, but never more than the enemy's own part of the difficulty (experience, dug in, reinforcements, a tactician); at most ${WEAR_MAX} at a stage.`],
+    ['Spotted', 'A failure at a stage gets the team seen there: its Stealth approaches are gone. The next stages can still be crept past.'],
+    ['Momentum', 'A clean success with hits to spare gives +1 die to the first test at the next stage, if it uses the same skill.'],
+    ['Ways out','After a failure at a stage: a detour to the other entry, a breaching charge, a specialist doing what they do best, or forcing it. Each passes the stage at a price in time, fatigue, wounds or gear, and lost gear is gone for good.'],
     ['Lead and support', `The lead rolls their own dice for the skill and takes the first hit; each of up to ${MAX_SUPPORT} supporters adds 1 die.`],
-    ['Fatigue', 'Builds with tests, failures, long routes, heat and smoke. Tired leads roll 1 die fewer, exhausted ones 2. Rest at base, in a treatment bed, or briefly in the field, but never in a firefight: not with the QRF closing in, nor at a stage where the enemy has opened fire and is still there.'],
+    ['Fatigue', `Builds with tests, failures, long routes, heat and smoke. Tired leads roll 1 die fewer, exhausted ones 2. Rest at base, in a treatment bed, or briefly in the field, but never in a firefight: not with the QRF closing in, nor at a stage where the enemy has opened fire and is still there. In a fight, a combat stim takes ${STIM_GAIN} fatigue off one operator, and once a mission a medic can give the whole team a second wind (${WIND_GAIN} each, no time).`],
     ['Injuries', `Named wounds that cost dice when the operator leads. A critical one knocks them out in ${CRIT_STAGES} stages unless treated; the unconscious die in ${BLEED_STAGES} more.`],
     ['Close quarters', `Inside the objective, a stairwell or a pier. A handgun-only lead loses ${HANDGUN_PENALTY} Assault die everywhere else, unless they are a CQB specialist.`],
     ['Specialty', 'Every operator has one: it unlocks special approaches or bends a rule. Shown in purple.'],
@@ -4974,7 +5166,7 @@ function opInfoHtml(sid) {
   const s = soldier(sid), ri = rankIdx(s.xp), nx = nextXp(s.xp), inOp = G.phase === 'OPERATION' && !!G.battle;
   const u = inOp ? G.battle.units.find((x) => x.sid === sid) : null;
   const planned = G.phase === 'BRIEFING' && draft.team.includes(sid) ? draft.loadouts[sid] : null;
-  const gear = u ? { weapon: u.weapon, armor: u.armor, kit: u.kit, utility: u.util } : planned;
+  const gear = u ? { weapon: u.weapon, armor: u.armor, kit: u.kit, tool: u.tool, utility: u.util, utility2: u.util2 } : planned;
   const live = u && active(u), dice = (k) => (live ? opDice(u, k) : diceFor(s.cls, s.xp, gear ? [gear.weapon, gear.armor, gear.kit] : [], k));
   const fat = u ? fatState(u) : soldierFat(s), fatN = u ? u.fat : s.fatigue || 0;
   const status = u ? (u.dead ? '<span class="stamp mini">KIA</span>' : u.missing ? '<span class="stamp mini">MIA</span>' : injHtml(u))
@@ -4989,7 +5181,7 @@ function opInfoHtml(sid) {
           <div class="oi-status">${status}<span class="fat fat-${fat}">${FAT_LABEL[fat]} · fatigue ${fatN}</span>${nerveOf(s) ? `<span class="chip nerve-chip">${ico('star')}Nerve ${nerveOf(s)}</span>` : ''}</div></div></div>
       <div><h3>Skills ${live ? '<small class="muted">as they are now: gear, injuries, fatigue</small>' : gear ? '<small class="muted">with the planned gear</small>' : '<small class="muted">without gear</small>'}</h3>
         <div class="oi-skills">${Object.keys(SKILLS).map((k) => `<div>${skillTag(k)}<b>${dice(k)}</b><small>dice</small></div>`).join('')}</div></div>
-      <div><h3>Gear</h3>${gear ? `<div class="oi-gearlist">${slot('Weapon', gear.weapon, 'Handgun only')}${slot('Armour', gear.armor, 'None')}${slot('Kit', gear.kit, 'None')}${slot('Utility', gear.utility, 'None')}</div>`
+      <div><h3>Gear</h3>${gear ? `<div class="oi-gearlist">${slot('Weapon', gear.weapon, 'Handgun only')}${slot('Armour', gear.armor, 'None')}${slot('Kit', gear.kit, 'None')}${gear.tool ? slot('Tool', gear.tool, 'None') : ''}${slot('Utility', gear.utility, 'None')}${gear.utility2 ? slot('Second utility', gear.utility2, 'None') : ''}</div>`
         : '<p class="muted" style="margin:0">Not kitted out: gear is chosen in the briefing.</p>'}</div>
       <div><h3>Abilities</h3><p style="margin:0">${CLASSES[s.cls].ability} <span class="spec-desc">${SPECS[s.spec].desc}</span></p><p class="oi-quirk">${quirkChip(s)} ${esc(cap(PERSONAS[s.persona].q.desc))}.</p></div>
       <div><h3>Record</h3><dl class="gloss"><dt>Experience</dt><dd>${s.xp} XP${nx > 0 ? `, ${nx - s.xp} to ${RANKS[ri + 1][1]}` : ', highest rank'}</dd><dt>Operations</dt><dd>${s.missions}</dd><dt>Kills</dt><dd>${s.kills}${u ? ` (${u.kills} this mission)` : ''}</dd></dl></div>
@@ -5051,7 +5243,10 @@ function start(data) {
   const ended = !!G && (G.v !== 5 || G.mode !== 'ops');
   if (!G || ended) newCampaign((Math.random() * 2 ** 31) | 0, null);
   for (const k of Object.keys(G.armory || {})) if (!(G.armory[k] >= 0)) G.armory[k] = 0; // a save hurt by a half-applied launch: never negative gear
-  G.missing ||= []; G.legacy ||= []; registerLegacy(); // v5 saves from before milestone 2: nobody missing yet, no legacy weapons
+  G.missing ||= []; G.legacy ||= []; registerLegacy();
+  // Specialist tools moved from the Kit slot to their own Tool slot (milestone 3): move them in a mission under way.
+  for (const u of G.battle?.units || []) if (TOOLS.includes(u.kit)) { u.tool = u.kit; u.kit = null; }
+  for (const l of Object.values(G.mission?.loadouts || {})) if (TOOLS.includes(l.kit)) { l.tool = l.kit; l.kit = null; } // v5 saves from before milestone 2: nobody missing yet, no legacy weapons
   window.claude?.hot?.snapshot?.(() => ({ save: JSON.stringify(G) }));
   refresh();
   if (!/[?&]test\b/.test(location.search)) showTitle(ended ? 'The campaign saved by an earlier version has ended. LAST SEASON starts over.' : ''); // the test hook plays without the title card
@@ -5060,8 +5255,9 @@ function start(data) {
 if (/[?&]test\b/.test(location.search)) {
   window.SKIRM = { get G() { return G; }, newCampaign, chooseMission, backToBase, upgradeDept, toggleBed, fabricate, repair, rest, vehBlock, intelCost, fatState,
     DEPTS, FAB, VEH, LOCATIONS, WEATHER, SPECS, KITS, INTEL, hireCaptive, tradeCaptive, OFFICER_TRAITS, buyIntel, launch, proceed, enlist, chooseRoute, chooseFork, execute, push, resolve, skip, abort,
-    fieldCare, treat, launchDrone, canLead, opDice, chooseLine, mapCheck, mapHtml, waysOut, wayOut, failWay, bestOdds, gearChoices, ready, SAVE_LINES, MEMORIAL, interlude, PERSONAS, TOPICS, LINES, TRAITS, worstNeed, fieldCareNeed, INJURIES, bestLead, odds, difficulty, poolOf, previewOf, cur, sitOf, active, team, outcomeOf, foesOf, Rule, CLASSES, ITEMS, SIT, available, refresh, knockOut, cleanWork, growUp, interDone, omens, leadBonuses, unitById, closeWindow, undo, openFile, runForIt, burn,
-    standPick, standEnd, standEffect, standStory, rescueChange, rescueMission, passStage, takeObjective, intelCost, restBlock, SCARS, hasScar, tierSlots, kindOf, classGear, MIA, LAST_STAND, OBJ, openStand };
+    fieldCare, treat, stim, secondWind, injLabel, hurt, launchDrone, canLead, opDice, chooseLine, mapCheck, mapHtml, waysOut, wayOut, failWay, bestOdds, gearChoices, ready, SAVE_LINES, MEMORIAL, interlude, PERSONAS, TOPICS, LINES, TRAITS, worstNeed, fieldCareNeed, INJURIES, bestLead, odds, difficulty, poolOf, previewOf, cur, sitOf, active, team, outcomeOf, foesOf, Rule, CLASSES, ITEMS, SIT, available, refresh, knockOut, cleanWork, growUp, interDone, omens, leadBonuses, unitById, closeWindow, undo, openFile, runForIt, burn,
+    defaultLoadout, bestFor, buyAsset, callSupport, ASSETS, AMMO, TOOLS, carries, gearItem, shotgunMods, namedOpen, closeQuarters,
+    standPick, standEnd, standEffect, standStory, rescueChange, rescueMission, passStage, takeObjective, intelCost, restBlock, lockReason, wearFor, SCARS, hasScar, tierSlots, kindOf, classGear, MIA, LAST_STAND, OBJ, openStand };
 }
 window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
 })();

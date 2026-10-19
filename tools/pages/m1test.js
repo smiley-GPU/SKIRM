@@ -22,7 +22,7 @@
     const it = S.interlude(); S.chooseLine(0); if (!S.interDone(it)) S.chooseLine(it.opts.findIndex((o, k) => k !== 0 && o.topic !== it.opts[0].topic)); S.proceed();
     for (let t = 0; t < 60 && G().phase === 'OPERATION'; t++) { const st = S.cur(); if (st.kind === 'APPROACH') { S.chooseRoute(0); continue; } if (st.pick == null) { S.chooseFork(0); continue; } if (G().battle.timeUp) { S.closeWindow(); continue; }
       const sit = S.sitOf(st), ids = S.team().filter(S.ready).map((u) => u.id); let done = false;
-      for (let k = 0; k < sit.opts.length && !done; k++) { if (1 + (sit.opts[k].time || 0) > G().battle.time && !G().battle.overtime) continue; const l = S.bestLead(sit.opts[k], ids); if (l != null && S.poolOf(sit.opts[k], [l], [], false, l).value > 0) { S.execute({ opt: k, ids: [l], lead: l, gear: [] }); done = true; } }
+      for (let k = 0; k < sit.opts.length && !done; k++) { if (S.lockReason(sit.opts[k]) || (1 + (sit.opts[k].time || 0) > G().battle.time && !G().battle.overtime)) continue; const l = S.bestLead(sit.opts[k], ids); if (l != null && S.poolOf(sit.opts[k], [l], [], false, l).value > 0) { S.execute({ opt: k, ids: [l], lead: l, gear: [] }); done = true; } }
       if (!done) { S.abort(); continue; } const r = G().battle.roll; S.resolve(S.outcomeOf(r) === 'PARTIAL' ? 'TIME' : undefined); }
     if (G().phase === 'EXTRACTION') S.proceed(); if (S.interlude()) { S.chooseLine(0); S.proceed(); }
     ok('A mission plays through to the debrief, with story text', G().phase === 'DEBRIEF' && G().debrief.aar.length > 0 && !/undefined/.test(G().debrief.aar.join(' ')), G().phase);
