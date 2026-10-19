@@ -1286,6 +1286,16 @@ const TRAITS = {
   SURVIVOR: { label: 'Survivor', desc: 'once per mission, shrugs off a hit that would knock them out' },
   SHADOW: { label: 'Shadow', desc: 'failing a Stealth test they lead never gets the team spotted: the alert only rises by 1' },
 };
+// Scars from captivity: each helps one way and costs another. A rescued operator chooses one of two at the homecoming.
+const SCARS = {
+  SHORT_FUSE: { label: 'Short fuse', desc: '+1 Assault die when leading, but a failed Assault test they lead raises the alert 1 more' },
+  NIGHT_EYES: { label: 'Night eyes', desc: '+1 die leading at night or in fog, smoke or dust, but 1 fewer leading by day' },
+  FACES: { label: 'Knows their faces', desc: '+1 die leading where an officer is, but never takes an officer prisoner' },
+  NEVER_AGAIN: { label: 'Never again', desc: '+1 die leading the exfil, but every failed test they are part of tires them 1 more' },
+  SCAR_TISSUE: { label: 'Scar tissue', desc: 'takes one more cut or bruise before a hit turns serious, but the first care they get each mission leaves the cuts and bruises' },
+  RESTLESS: { label: 'Restless', desc: 'once a mission, leading tired costs no dice (exhausted, 1 instead of 2), but sheds 1 less fatigue between missions' },
+};
+const hasScar = (sid, k) => !!soldier(sid)?.scars?.includes(k);
 const TRAIT_CAP = 3, BOND_CAP = 2, NEMESIS_XP = 15, GRUDGE_XP = 20, REFLECT_XP = 10;
 const WEAPON_NAME = { CARBINE: 'carbine', SMG: 'SMG', DMR: 'marksman rifle', LMG: 'LMG', AK: 'AK', HANDGUN: 'handgun' };
 /** The kind of weapon an item is: a legacy weapon fights as the weapon it was. */
@@ -1613,7 +1623,9 @@ const injuryMods = (u, skill) => u.inj.map((w) => ({ label: INJURIES[w.id].label
 const fatLimits = (u) => (hasSpec(u.sid, 'ENDURANCE') ? [TIRED_AT + 1, SPENT_AT + 1] : [TIRED_AT, SPENT_AT]);
 const fatState = (u) => { const [t, s] = fatLimits(u); return u.fat >= s ? 2 : u.fat >= t ? 1 : 0; };
 const FAT_LABEL = ['Fresh', 'Tired', 'Exhausted'];
-const fatigueMods = (u) => [[], [{ label: 'Tired', v: -1 }], [{ label: 'Exhausted', v: -2 }]][fatState(u)];
+/** Restless (a captivity scar): once a mission, tiredness costs a lead nothing. */
+const restlessOn = (u) => hasScar(u.sid, 'RESTLESS') && !u.restUsed && fatState(u) > 0;
+const fatigueMods = (u) => (restlessOn(u) ? [[], [], [{ label: 'Exhausted, but Restless', v: -1 }]] : [[], [{ label: 'Tired', v: -1 }], [{ label: 'Exhausted', v: -2 }]])[fatState(u)];
 /** Wear operators down. Returns those who just crossed into Tired or Exhausted, for the log. */
 function tire(units, n = 1) {
   const worse = [];
@@ -1652,6 +1664,11 @@ function leadBonuses(u, skill) {
   if (s.persona === 'HOMESICK' && st.kind === 'EXFIL') out.push({ label: 'Homeward', v: 1 });
   if (s.persona === 'AVENGER' && officerAt(st)) out.push({ label: `Grudge against ${officerAt(st).name}`, v: 1 });
   if (s.persona === 'JUNKIE' && u.streak) out.push({ label: 'Hot streak', v: 1 });
+  if (hasScar(u.sid, 'SHORT_FUSE') && skill === 'ASSAULT') out.push({ label: 'Short fuse', v: 1 });
+  if (hasScar(u.sid, 'NIGHT_EYES')) { const e = G.mission.env; if (isDark(e)) out.push({ label: 'Night eyes', v: 1 }); else if (e.time === 'DAY') out.push({ label: 'Night eyes: daylight', v: -1 }); }
+  if (hasScar(u.sid, 'FACES') && officerAt(st)) out.push({ label: `Knows ${officerAt(st).name}'s face`, v: 1 });
+  if (hasScar(u.sid, 'NEVER_AGAIN') && st.kind === 'EXFIL') out.push({ label: 'Never again', v: 1 });
+  if (restlessOn(u)) out.push({ label: fatState(u) > 1 ? 'Restless: exhausted, but only 1 die down' : 'Restless: tired, and it does not matter', v: 0, restless: true });
   if (skill === 'ASSAULT') {
     if (kindOf(u.weapon) === 'AK' && ['RAIN', 'MUD', 'FLOOD', 'DUST', 'STORM'].includes(wx)) out.push({ label: `AK: reliable in ${WEATHER[wx].phrase}`, v: 1 });
     if (kindOf(u.weapon) === 'SMG' && (st.kind === 'OBJECTIVE' || st.kind === 'OPTIONAL')) out.push({ label: 'SMG in close quarters', v: 1 });
@@ -1827,7 +1844,7 @@ function raise(n, text) {
 // ---------------------------------------------------------------- injuries
 const injFx = (w) => (w.t ? INJURIES[w.id].fxT : INJURIES[w.id].fx) || {};
 const tierCount = (u, tier) => u.inj.filter((w) => INJURIES[w.id].tier === tier).length;
-const tierSlots = (u, tier) => (tier === 1 ? CLASSES[u.cls].grit + (hasTrait(u.sid, 'GRIT') ? 1 : 0) : 1);
+const tierSlots = (u, tier) => (tier === 1 ? CLASSES[u.cls].grit + (hasTrait(u.sid, 'GRIT') ? 1 : 0) + (hasScar(u.sid, 'SCAR_TISSUE') ? 1 : 0) : 1);
 const injName = (w) => INJURIES[w.id].label + (w.t ? ` (${INJURIES[w.id].treated})` : '');
 /** What an injury does, in player terms. */
 function injEffect(w) {
@@ -1904,7 +1921,10 @@ function applyCare(u, minorToo) {
     const tier = need === 'SERIOUS' ? 2 : 3;
     for (const w of u.inj) if (INJURIES[w.id].tier === tier && !w.t) { w.t = true; done.push(`${INJURIES[w.id].label.toLowerCase()} ${INJURIES[w.id].treated}`); }
   }
-  if (need === 'MINOR' || (minorToo && tierCount(u, 1))) { u.inj = u.inj.filter((w) => INJURIES[w.id].tier !== 1); done.push('cuts and bruises cleaned up'); }
+  const scarred = hasScar(u.sid, 'SCAR_TISSUE') && !u.scarCared; // Scar tissue: the first care of a mission only stops the worst of it
+  if (scarred) u.scarCared = true;
+  if (scarred && tierCount(u, 1)) done.push('the cuts and bruises will not close (Scar tissue)');
+  else if (need === 'MINOR' || (minorToo && tierCount(u, 1))) { u.inj = u.inj.filter((w) => INJURIES[w.id].tier !== 1); done.push('cuts and bruises cleaned up'); }
   return done.join(', ');
 }
 function killUnit(u, text) {
@@ -2010,6 +2030,7 @@ function execute(o) {
   b.attempts++;
   unitById(lead).streak = false; // a hot streak is spent on the next lead, whatever happens
   for (const om of omens()) if ([...pool.parts, ...diff.mods].some((x) => x.omen === (om.slot || 1))) om.used = true;
+  if (pool.parts.some((x) => x.restless)) unitById(lead).restUsed = true; // Restless: once a mission
   for (const id of gearIds) unitById(id).boom = { FRAG: 'that frag', BREACH: 'that breaching charge' }[unitById(id).util];
   if (strike && unitById(b.drone.op)) unitById(b.drone.op).boom = 'that drone strike';
   log(`${opt.label}: ${unitById(lead).name} leads${ids.length > 1 ? ` with ${ids.length - 1} in support` : ''}, ${pool.value} dice vs difficulty ${diff.value}.`, 'turn');
@@ -2137,6 +2158,9 @@ function applyRoll(cost) {
     else if (sit.hazard) { const t = active(lead) ? lead : pick(members.filter(active)); if (t) { log('Something gives way.', 'alert'); hurt(t, 2, undefined, 'is caught out'); } }
     else raise(1 + extra, 'Too much noise.');
     if (b.qrfIn != null && !foes) { log('The lead elements of the QRF open up.', 'alert'); failFire(1, members, ids, leadId); } // under the QRF every failure is a firefight
+    if (opt.skill === 'ASSAULT' && hasScar(lead.sid, 'SHORT_FUSE')) raise(1, `${lead.name} loses their temper and makes it louder (Short fuse).`);
+    const afraid = members.filter((u) => hasScar(u.sid, 'NEVER_AGAIN'));
+    if (afraid.length) { tire(afraid); log(`${afraid.map((u) => firstName(u)).join(' and ')} cannot shake the fear of being left again (Never again).`, 'info'); }
     const fatal = !pushed && cost !== 'WAY' && !b.accepted && quirkOn('FATALIST');
     if (fatal) { b.accepted = true; b.nerve = (b.nerve || 0) + 1; b.nerveMax = Math.max(b.nerveMax || 0, b.nerve); quirk(fatal, `the team takes the failure as it comes: +1 Nerve (${b.nerve}/${b.nerveMax}).`); }
     return settle(false);
@@ -2189,7 +2213,11 @@ function takeObjective(opt, lead) {
   if (opt.hvt) { b.hvtKilled = true; lead.killedHvt = true; lead.kills++; b.kills++; log(`${lead.name} confirms the ${m.target === 'WARLORD' ? 'warlord' : 'target'} is dead.`, 'intel'); }
   if (opt.intel) { const c = active(lead) ? lead : team().find(active); b.carrier = c ? c.id : null; if (c) log(`${c.name} has the intel.`, 'intel'); }
   if (opt.cache) { b.cache = true; log('Cache secured. The quartermaster will be pleased.', 'intel'); }
-  if (opt.rescue) { b.rescued = true; log(`${soldier(m.rescue).name} is alive: thin, hurt, and walking with help. Get them to the extraction point. Helping them along makes moving quietly harder.`, 'major'); }
+  if (opt.rescue) {
+    const first = firstName(soldier(m.rescue));
+    b.rescued = true;
+    log(`${storyFill(storyPick(LS_TEXT.FREED, 'freed'), { name: first })} Getting ${first} to the extraction slows the team: moving quietly is 1 harder.`, 'major');
+  }
 }
 function reachExfil() {
   const b = B();
@@ -2451,7 +2479,7 @@ function aarText(m, b, success) {
   }
   const goal = m.primary === 'ELIMINATE_HVT' ? (b.hvtKilled ? `The ${m.target ? TARGETS[m.target].label.toLowerCase() : 'target'} is confirmed dead.` : 'The target is still breathing.')
     : (b.carrier != null && unitById(b.carrier)?.exfil && !unitById(b.carrier)?.dead ? 'The intel came out with them.' : 'The intel did not come out.');
-  if (b.rescued) out.push(sq.some((u) => u.exfil && !u.dead) ? `${soldier(m.rescue).name} came home with them.` : `${soldier(m.rescue).name} was freed, and lost again.`);
+  if (b.rescued) out.push(sq.some((u) => u.exfil && !u.dead) ? `${soldier(m.rescue).name} came home with them.` : `${soldier(m.rescue).name} was freed, but was too far gone to survive the way out.`);
   out.push(`${goal} ${b.kills ? `${cap(NUM[b.kills] || String(b.kills))} hostile${b.kills > 1 ? 's' : ''} down.` : 'Nobody on the other side was killed.'} Alarm at ${b.alert} of ${ALERT_MAX}.`);
   out.push(sq.some((u) => u.stranded) ? 'The window closed; the rest walked out.' : `Out ${VIA[m.ext] || 'on foot'}. ${success ? 'Mission complete.' : 'Mission failed.'}`);
   return out;
@@ -2461,7 +2489,7 @@ function officerFalls(off, members, lead, feared) {
   const b = B(), w = { ...OFFICER_FATES };
   for (const [k, v] of Object.entries(OFFICER_TRAITS[off.trait].fate)) w[k] = Math.max(0, w[k] + v);
   if (feared || (off.escapes || 0) >= OFFICER_ESCAPES) w.ESCAPED = 0; // the feared one already had their second chance
-  if (feared) w.CAPTIVE = 0;
+  if (feared || hasScar(lead.sid, 'FACES')) w.CAPTIVE = 0; // Knows their faces: no surrender is accepted
   const loot = ITEMS[off.loot].label.toLowerCase(), exfilAt = b.stages.findIndex((s) => s.kind === 'EXFIL');
   off.fate = weighted(w);
   if (off.fate === 'ESCAPED') {
@@ -2943,7 +2971,8 @@ function debrief(m) {
   G.rp += rp;
   G.bp += bp;
   const rest = G.base.lv.BARRACKS >= 2 ? 1 : 0;
-  for (const s of G.roster) if (s.alive && !m.team.includes(s.id)) s.fatigue = Math.max(0, (s.fatigue || 0) - 3 - rest); // those who stayed home rest
+  const restless = (s) => (s.scars?.includes('RESTLESS') ? 1 : 0); // sheds 1 less fatigue between missions
+  for (const s of G.roster) if (s.alive && !m.team.includes(s.id)) s.fatigue = Math.max(0, (s.fatigue || 0) - 3 - rest + restless(s)); // those who stayed home rest
   const soldiers = [], lost = [], gained = [], notes = [];
   const mentor = sq.find((u) => !u.dead && !u.missing && personaOf(u.sid) === 'VETERAN'), taught = [], topKills = Math.max(0, ...sq.map((u) => u.kills));
   for (const u of sq) {
@@ -2957,7 +2986,7 @@ function debrief(m) {
       if (u.missing) s.mia = true;
       for (const it of [u.weapon, u.armor, u.kit, u.util]) if (it) lost.push(`${ITEMS[it].label} (${u.name})`);
     } else {
-      s.fatigue = Math.max(0, u.fat - 3 - rest);
+      s.fatigue = Math.max(0, u.fat - 3 - rest + restless(s));
       xp = 10 + (success ? 10 : 0) + u.kills * 8 + (u.killedHvt ? 25 : 0) + (carrier === u && intelOut ? 15 : 0) + u.revives * 10 + u.tests * 4
         + (m.bonusXp?.[s.id] || 0) + (threatOmen()?.beaten && threatOmen().by.includes(u.id) ? NEMESIS_XP : 0) + (u.avenged ? GRUDGE_XP : 0);
       if (s.persona === 'ROOKIE') xp = Math.round(xp * 1.25); // learns fast
@@ -3022,7 +3051,10 @@ function debrief(m) {
   const home = [], held = m.rescue != null ? (G.missing || []).find((r) => r.sid === m.rescue && r.stage === 'RESCUE') : null;
   if (held && b.rescued) {
     if (anyOut) home.push(homecoming(held, m));
-    else { lostForGood(held, `Freed on ${m.codename}, then lost again with the team.`); notes.push(`${held.name} was freed, and lost again when the team did not get out. The wall lists them as killed in action now.`); }
+    else {
+      lostForGood(held, `Freed on ${m.codename}, but captivity had already done too much.`);
+      notes.push(`${rescueText(LOST_AGAIN[hash32(`lost:${held.name}`) % LOST_AGAIN.length], held)} The wall lists ${held.name} as killed in action now.`);
+    }
   }
   traceMissing(m, notes);
   for (const u of sq.filter((x) => x.missing)) {
@@ -3070,13 +3102,10 @@ function debrief(m) {
    a weapon they left behind. */
 const MIA = { ALIVE: 50, REPORT: 3, WINDOW: 2, STAND_RP: 3, OUT: [2, 3] };
 const TRACE_ODDS = { INFORMANT: 50, SIGINT: 35, UAV: 35 }, PRISONER_ODDS = 30; // % per mission that a source turns something up
-// Who a personality becomes after captivity, if the player chooses that change; a personality someone else has passes down the list.
-const CAPTIVITY = { STOIC: 'QUIET', JOKER: 'FATALIST', FATALIST: 'BELIEVER', ROOKIE: 'AVENGER', GEARHEAD: 'PERFECTIONIST', GLORY: 'QUIET',
-  GUARDIAN: 'AVENGER', SUPERSTITIOUS: 'FATALIST', MERC: 'LONER', PLANNER: 'PERFECTIONIST', LONER: 'QUIET', JUNKIE: 'FATALIST', HOMESICK: 'PHILOSOPHER',
-  PHILOSOPHER: 'QUIET', AVENGER: 'BELIEVER', PERFECTIONIST: 'STOIC', OPTIMIST: 'PHILOSOPHER', VETERAN: 'STOIC', BELIEVER: 'AVENGER', QUIET: 'LONER' };
-const CAPTIVITY_TRAITS = ['GRIT', 'SURVIVOR', 'SHADOW'];
 const PLACE = LS_TEXT.PLACE, TRACE_SOURCE = LS_TEXT.TRACE_SOURCE, TRACE_DETAIL = LS_TEXT.TRACE_DETAIL, TRACE_ALIVE = LS_TEXT.TRACE_ALIVE; // data/missing.js
-const LAST_STAND = LS_TEXT.LAST_STAND, RESCUED = LS_TEXT.RESCUED; // data/missing.js
+const LAST_STAND = LS_TEXT.LAST_STAND, RESCUED = LS_TEXT.RESCUED, FREED = LS_TEXT.FREED, MOVED = LS_TEXT.MOVED, LOST_AGAIN = LS_TEXT.LOST_AGAIN; // data/missing.js
+/** A rescue line about one operator: the place, their first name, and the prisoner who talked. */
+const rescueText = (t, r) => storyFill(t, { place: PLACE[r.loc], name: firstName(r), prisoner: r.prisoner || 'A prisoner' });
 /** The file on an operator left behind. Their fate is fixed now, by the story hash; the player learns it later. */
 function missingRec(u, m) {
   const s = soldier(u.sid), off = m.officer;
@@ -3089,7 +3118,7 @@ function traceMissing(m, notes) {
   for (const r of G.missing || []) {
     if (r.stage === 'RESCUE' && r.tracedN < m.n && --r.window <= 0) {
       lostForGood(r, 'Moved before the team could reach them, and never found.');
-      notes.push(`${r.name} was moved before anyone could reach them. The wall lists them as killed in action now.`);
+      notes.push(`${rescueText(MOVED[r.src] || MOVED.REPORT, r)} The wall lists ${r.name} as killed in action now.`);
       continue;
     }
     if (r.stage !== 'UNKNOWN' || r.n >= m.n) continue;
@@ -3102,7 +3131,7 @@ function traceMissing(m, notes) {
 }
 function revealMissing(r, src, prisoner, n, notes) {
   const v = { place: PLACE[r.loc], name: firstName(r), prisoner: prisoner || 'A prisoner', detail: TRACE_DETAIL[r.persona] };
-  r.tracedN = n; r.src = src;
+  r.tracedN = n; r.src = src; r.prisoner = prisoner;
   if (r.alive) {
     r.stage = 'RESCUE'; r.window = MIA.WINDOW;
     r.trace = storyFill(TRACE_ALIVE[src], v);
@@ -3126,20 +3155,19 @@ function homecoming(r, m) {
   r.stage = 'HOME';
   G.memorial = (G.memorial || []).filter((f) => !(f.name === r.name && f.op === r.op));
   for (const a of G.archive || []) if (a.op === r.op) for (const x of a.fallen) if (x.name === r.name) { x.missing = false; x.home = true; x.fate = `Brought home on ${m.codename}.`; }
-  const lines = [...(RESCUED[s.persona] || []), ...RESCUED._];
+  const lines = RESCUED[s.persona] || RESCUED.STOIC;
   return { sid: s.id, name: s.name, face: s.face, cls: s.cls, spec: s.spec, out, words: lines[hash32(`home:${s.name}`) % lines.length], opts: captivityChanges(s), chosen: null };
 }
-/** Two ways captivity may have changed them: a hard-won trait, or a different personality. */
+/** Two scars captivity may have left, from those they do not carry yet (picked by the story hash). */
 function captivityChanges(s) {
-  const opts = [], traits = CAPTIVITY_TRAITS.filter((t) => !s.traits.includes(t));
-  if (s.traits.length < TRAIT_CAP && traits.length) opts.push({ kind: 'TRAIT', id: traits[hash32(`scar:${s.name}`) % traits.length] });
-  const taken = new Set(G.roster.filter((x) => x.alive && x !== s).map((x) => x.persona));
-  const p = [CAPTIVITY[s.persona], 'FATALIST', 'QUIET', 'AVENGER', 'PHILOSOPHER', 'STOIC'].find((k) => k && k !== s.persona && !taken.has(k));
-  if (p) opts.push({ kind: 'PERSONA', id: p });
-  if (opts.length < 2) opts.push({ kind: 'NONE' });
-  return opts;
+  const free = Object.keys(SCARS).filter((k) => !s.scars?.includes(k)), h = hash32(`scar:${s.name}:${G.flown}`), opts = [];
+  for (let i = 0; i < free.length && opts.length < 2; i++) opts.push({ kind: 'SCAR', id: free[(h + i * 3) % free.length] });
+  const seen = new Set(), out = opts.filter((o) => !seen.has(o.id) && seen.add(o.id));
+  if (out.length < 2) for (const k of free) if (out.length < 2 && !seen.has(k)) { seen.add(k); out.push({ kind: 'SCAR', id: k }); }
+  while (out.length < 2) out.push({ kind: 'NONE' });
+  return out;
 }
-/** The player picks how captivity changed a rescued operator. */
+/** The player picks the scar captivity left on a rescued operator. */
 function rescueChange(sid, k) {
   need('DEBRIEF');
   const h = (G.debrief.home || []).find((x) => x.sid === sid);
@@ -3148,8 +3176,7 @@ function rescueChange(sid, k) {
   const o = h.opts[k];
   if (!o) fail('No such change.');
   const s = soldier(sid);
-  if (o.kind === 'TRAIT') s.traits.push(o.id);
-  if (o.kind === 'PERSONA') { s.persona = o.id; delete s.rec; }
+  if (o.kind === 'SCAR') (s.scars ||= []).push(o.id);
   h.chosen = k;
 }
 // ---------------- the last stand: two beats in their voice, then the choice of what their death bought
@@ -4046,6 +4073,7 @@ const fatChip = (state) => (state ? `<span class="chip ${state > 1 ? 'bad' : 'wa
 const traitChips = (s) => [...s.traits.map((t) => `<span class="trait" title="${esc(TRAITS[t].desc)}">${TRAITS[t].label}</span>`),
   ...(s.signature ? [`<span class="trait" title="+1 die when leading with it">Signature ${ITEMS[s.signature].label}</span>`] : []),
   ...(s.turned ? [`<span class="trait" title="Captured on ${esc(s.turned)} and switched sides">Former officer</span>`] : []),
+  ...(s.scars || []).map((k) => `<span class="trait scar" title="${esc(cap(SCARS[k].desc))}">${SCARS[k].label}</span>`),
   ...s.bonds.map((id) => `<span class="trait bond" title="+1 die when both are in the fireteam">Bond: ${esc(soldier(id).name.split(' ')[0])}</span>`)].join('');
 function forecastText(m) {
   const e = m.env, sure = m.intel.includes('METEO');
@@ -4837,8 +4865,7 @@ $('#view').addEventListener('click', (e) => {
 
 // ------------------------------------------------------------------ debrief
 /** One way captivity may have changed someone, as a button's contents. */
-const changeHtml = (o) => o.kind === 'TRAIT' ? `<b>Gains ${TRAITS[o.id].label}</b><small>${esc(cap(TRAITS[o.id].desc))}</small>`
-  : o.kind === 'PERSONA' ? `<b>Comes back ${/^[aeiou]/i.test(PERSONAS[o.id].label) ? 'an' : 'a'} ${esc(PERSONAS[o.id].label.toLowerCase())}</b><small>${esc(PERSONAS[o.id].q.label)}: ${esc(PERSONAS[o.id].q.desc)}</small>`
+const changeHtml = (o) => o.kind === 'SCAR' ? `<b>${SCARS[o.id].label}</b><small>${esc(cap(SCARS[o.id].desc))}.</small>`
   : '<b>Keeps it to themselves</b><small>Nothing changes that anyone can see.</small>';
 function renderDebrief() {
   const d = G.debrief, m = G.mission, changing = (d.home || []).find((h) => h.chosen == null);
@@ -5026,7 +5053,7 @@ if (/[?&]test\b/.test(location.search)) {
   window.SKIRM = { get G() { return G; }, newCampaign, chooseMission, backToBase, upgradeDept, toggleBed, fabricate, repair, rest, vehBlock, intelCost, fatState,
     DEPTS, FAB, VEH, LOCATIONS, WEATHER, SPECS, KITS, INTEL, hireCaptive, tradeCaptive, OFFICER_TRAITS, buyIntel, launch, proceed, enlist, chooseRoute, chooseFork, execute, push, resolve, skip, abort,
     fieldCare, treat, launchDrone, canLead, opDice, chooseLine, mapCheck, mapHtml, waysOut, wayOut, failWay, bestOdds, gearChoices, ready, SAVE_LINES, MEMORIAL, interlude, PERSONAS, TOPICS, LINES, TRAITS, worstNeed, fieldCareNeed, INJURIES, bestLead, odds, difficulty, poolOf, previewOf, cur, sitOf, active, team, outcomeOf, foesOf, Rule, CLASSES, ITEMS, SIT, available, refresh, knockOut, cleanWork, growUp, interDone, omens, leadBonuses, unitById, closeWindow, undo, openFile, runForIt, burn,
-    standPick, standEnd, standEffect, standStory, rescueChange, rescueMission, passStage, takeObjective, intelCost, kindOf, classGear, MIA, LAST_STAND, OBJ, openStand };
+    standPick, standEnd, standEffect, standStory, rescueChange, rescueMission, passStage, takeObjective, intelCost, SCARS, hasScar, tierSlots, kindOf, classGear, MIA, LAST_STAND, OBJ, openStand };
 }
 window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
 })();

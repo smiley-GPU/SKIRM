@@ -38,15 +38,16 @@
     // 3. Fly the rescue: pass the holding site, then the exfil
     const d3 = fly(ri, (b) => {
       S.chooseRoute(0); const at = b.stages.findIndex((st) => st.choices[0] === 'HOLD'); b.stage = at; S.passStage(S.team()[0], false);
-      ok('Freeing them is logged', !!G().battle.rescued && G().battle.log.some((e) => /is alive: thin/.test(e.text)));
+      ok('Freeing them is told, with what it costs the team', !!G().battle.rescued && G().battle.log.some((e) => /to the extraction slows the team: moving quietly is 1 harder/.test(e.text) && !/[{}]/.test(e.text)));
       for (let g = 0; g < 6 && G().phase === 'OPERATION'; g++) S.passStage(S.team().find(S.active), false);
     });
     const home = (d3.home || [])[0], s = G().roster.find((x) => x.id === rec.sid);
     ok('The rescue succeeds and they come home', !!home && rec.stage === 'HOME' && s.alive && s.recovery > 0, `${rec.stage} home=${!!home} phase=${G().phase}`);
     ok('Rescue objective done', !!d3.objectives[1].ok);
-    ok('Two changes offered, and Back waits for a choice', home?.opts.length === 2 && (() => { try { S.proceed(); return false; } catch (e) { return e instanceof S.Rule; } })());
-    const before = s.persona, pk = home.opts.findIndex((o) => o.kind === 'PERSONA'); S.rescueChange(rec.sid, pk);
-    ok('A personality change takes', s.persona !== before && s.persona === home.opts[pk]?.id, `${before} -> ${s.persona}`);
+    ok('Their words are in their own voice', !!home && S.G && window.LS_TEXT.RESCUED[s.persona].includes(home.words));
+    ok('Two different scars offered, and Back waits for a choice', home?.opts.length === 2 && home.opts.every((o) => o.kind === 'SCAR') && home.opts[0].id !== home.opts[1].id && (() => { try { S.proceed(); return false; } catch (e) { return e instanceof S.Rule; } })());
+    S.rescueChange(rec.sid, 1);
+    ok('The chosen scar stays with them', s.scars?.length === 1 && s.scars[0] === home.opts[1].id);
     ok('Off the wall, marked home in the file', !G().memorial.some((f) => f.name === s.name) && G().archive.some((a) => a.fallen.some((x) => x.name === s.name && x.home)));
     toBase();
     // 4. Found dead: the last stand at base
@@ -90,6 +91,58 @@
     ok('With no officer to take, the next one is wounded', G().base.offers.filter((m) => m.officer).every((m) => m.officer.trait === 'WOUNDED') && (G().base.offers.some((m) => m.officer) || G().woundNext));
     // 7. Saves: the new state is in the save
     const saved = JSON.stringify(G()); ok('Missing files and legacy weapons are in the save', /"missing":\[/.test(saved) && /"legacy":\[\{/.test(saved));
+    // 8. Scars: each helps one way and costs another
+    S.newCampaign(901);
+    const vet = G().roster[0], rester = G().roster[5], plain = G().roster[4];
+    rester.recovery = 1; plain.recovery = 1; // they stay home this time
+    S.chooseMission(0); const t8 = G().roster.filter(S.available).slice(0, 3).map((x) => x.id);
+    S.launch({ team: t8, loadouts: lo(t8), insertion: 'FOOT', extraction: 'FOOT' });
+    { const it = S.interlude(); S.chooseLine(0); if (!S.interDone(it)) S.chooseLine(it.opts.findIndex((o, k) => k !== 0 && o.topic !== it.opts[0].topic)); S.proceed(); }
+    S.chooseRoute(0); if (S.cur().pick == null) S.chooseFork(0);
+    const u0 = S.team().find((u) => u.sid === vet.id), b8 = G().battle, has = (skill, re) => S.leadBonuses(u0, skill).find((x) => re.test(x.label));
+    vet.scars = ['SHORT_FUSE']; ok('Short fuse: +1 Assault die leading', has('ASSAULT', /Short fuse/)?.v === 1 && !has('STEALTH', /Short fuse/));
+    vet.scars = ['NIGHT_EYES']; const env = G().mission.env, keep = { ...env };
+    env.time = 'NIGHT'; const nightV = has('STEALTH', /Night eyes/)?.v; env.time = 'DAY'; env.weather = 'CLEAR'; const dayV = has('STEALTH', /Night eyes/)?.v; Object.assign(env, keep);
+    ok('Night eyes: +1 at night, -1 by day', nightV === 1 && dayV === -1, `${nightV} ${dayV}`);
+    vet.scars = ['FACES']; const off0 = G().mission.officer; G().mission.officer = { name: 'Captain Test', surname: 'Test', rank: 1, trait: 'BRUTE', stage: b8.stage, loot: 'DMR', dead: false, fate: null, escapes: 0 };
+    ok('Knows their faces: +1 where an officer is', has('RECON', /Knows Captain Test's face/)?.v === 1); G().mission.officer = off0;
+    vet.scars = ['NEVER_AGAIN']; const st0 = b8.stage; b8.stage = b8.stages.findIndex((x) => x.kind === 'EXFIL');
+    ok('Never again: +1 leading the exfil', has('STEALTH', /Never again/)?.v === 1); b8.stage = st0;
+    vet.scars = ['SCAR_TISSUE']; const slots = S.tierSlots(u0, 1); vet.scars = []; ok('Scar tissue: one more cut before a hit turns serious', slots === S.tierSlots(u0, 1) + 1);
+    vet.scars = ['RESTLESS']; u0.fat = 0; const fresh = S.opDice(u0, 'ASSAULT'), fatAt = (st) => { for (let f = 0; f < 20; f++) { u0.fat = f; if (S.fatState(u0) === st) return f; } };
+    const tiredF = fatAt(1), spentF = fatAt(2);
+    u0.fat = tiredF; const tiredD = S.opDice(u0, 'ASSAULT'); u0.fat = spentF; const spentD = S.opDice(u0, 'ASSAULT'); u0.restUsed = true; const usedD = S.opDice(u0, 'ASSAULT');
+    ok('Restless: tired costs nothing, exhausted 1 die, once a mission', tiredD === fresh && spentD === fresh - 1 && usedD === fresh - 2, `${fresh} ${tiredD} ${spentD} ${usedD}`); u0.restUsed = false; u0.fat = 0;
+    // Scar tissue: the first care of the mission leaves the cuts and bruises
+    vet.scars = ['SCAR_TISSUE']; const minor = Object.keys(S.INJURIES).find((k) => S.INJURIES[k].tier === 1);
+    u0.inj = [{ id: minor }]; u0.util = 'MEDKIT'; S.treat(u0.id, u0.id); const stayed = u0.inj.length === 1; u0.util = 'MEDKIT'; S.treat(u0.id, u0.id);
+    ok('Scar tissue: the first care leaves the cuts, the next one cleans them', stayed && u0.inj.length === 0);
+    // the downsides of a failure: louder on a failed Assault (Short fuse), more tired (Never again)
+    vet.scars = ['SHORT_FUSE', 'NEVER_AGAIN']; S.cur().choices[S.cur().pick] = 'SENTRY';
+    const sit8 = S.sitOf(S.cur()), k8 = sit8.opts.findIndex((o) => o.skill === 'ASSAULT' && !o.need);
+    S.execute({ opt: k8, ids: [u0.id], lead: u0.id, gear: [] }); const r8 = b8.roll; r8.dice = r8.dice.map(() => 1); r8.diff = 9; S.resolve();
+    ok('A failed lead: Short fuse raises the alert, Never again tires them', G().battle.log.some((e) => /\(Short fuse\)/.test(e.text)) && G().battle.log.some((e) => /\(Never again\)/.test(e.text)));
+    // Restless sheds 1 less fatigue between missions; a scar shows on the roster
+    rester.scars = ['RESTLESS']; rester.fatigue = 6; plain.fatigue = 6;
+    S.abort(); if (G().phase === 'EXTRACTION') S.proceed(); if (S.interlude()) { const o = S.interlude(); S.chooseLine(0); if (!S.interDone(o)) S.chooseLine(o.opts.findIndex((x, k) => k !== 0 && x.topic !== o.opts[0].topic)); S.proceed(); }
+    ok('Restless: 1 less fatigue shed at home', rester.fatigue === plain.fatigue + 1, `${rester.fatigue} vs ${plain.fatigue}`);
+    toBase(); S.refresh(); document.querySelector('[data-tab="BARRACKS"]')?.click();
+    ok('Scars show on the roster', [...document.querySelectorAll('.trait.scar')].some((e) => e.textContent === 'Restless'));
+    // moved before the team got there: told by the source that found them
+    const mv = { sid: plain.id, name: plain.name, persona: plain.persona, loc: 'COAST', op: 'Operation Gone', n: 0, alive: true, stage: 'RESCUE', window: 1, tracedN: 0, src: 'UAV', wait: 0 };
+    G().missing.push(mv);
+    const dm = fly(G().base.offers.findIndex((m) => m.rescue == null), () => { S.chooseRoute(0); S.abort(); });
+    ok('Moved: the drone finds the outbuilding empty, and the wall says KIA', mv.stage === 'LOST' && dm.notes.some((n) => /drone goes back over the coast/.test(n) && /killed in action now/.test(n)));
+    toBase();
+    // freed, but beyond help when the team does not get out
+    const fr = { ...mv, sid: rester.id, name: rester.name, stage: 'RESCUE', window: 2, tracedN: 99, src: 'INFORMANT' };
+    G().missing.push(fr); S.rescueMission(G().base.offers[0], fr);
+    const dl = fly(0, (b) => { S.chooseRoute(0); b.stage = b.stages.findIndex((x) => x.choices[0] === 'HOLD'); S.passStage(S.team()[0], false); for (const u of S.team().filter(S.active)) S.knockOut(u, `${u.name} goes down.`); if (G().phase === 'OPERATION') S.abort(); });
+    ok('Freed but too far gone: told without blame, and the wall says KIA', fr.stage === 'LOST' && dl.notes.some((n) => /(too deep|beyond help)/.test(n) && /killed in action now/.test(n)), dl.notes.join(' | '));
+    toBase();
+    // the bad endings read cleanly for every source
+    const T = window.LS_TEXT, badEnd = Object.values(T.MOVED).concat(T.LOST_AGAIN, T.FREED).filter((t) => /\{(?!name|place|prisoner)\w+\}/.test(t));
+    ok('Moved, lost again and freed lines use only known slots', !badEnd.length && Object.keys(T.MOVED).length === 5 && Object.keys(T.RESCUED).length === 20, badEnd[0]);
   } catch (e) { out.push('ERROR ' + e.message + ' ' + (e.stack || '').split('\n')[1]); }
   const p = document.createElement('pre'); p.id = 'm2'; p.textContent = out.join('\n'); document.body.append(p);
 })();

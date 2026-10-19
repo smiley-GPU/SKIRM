@@ -25,7 +25,7 @@
     if (want === 'WAYS') { const r = exec(); r.dice = r.dice.map(() => 1); r.diff = 9; S.resolve(); S.refresh(); return; }
     for (let t = 0; t < 40 && G().phase === 'OPERATION'; t++) { const st = S.cur(); if (st.pick == null) { S.chooseFork(0); continue; } const r = exec(); if (!r) { S.abort(); continue; } r.dice = r.dice.map(() => 6); S.resolve(); }
     if (G().phase === 'EXTRACTION') S.proceed(); if (S.interlude()) { S.chooseLine(0); S.proceed(); }
-    if (want === 'HOME') { const s = G().roster[5]; G().debrief.home = [{ sid: s.id, name: s.name, face: s.face, cls: s.cls, spec: s.spec, out: 2, words: window.LS_TEXT.RESCUED._[0], opts: [{ kind: 'TRAIT', id: 'GRIT' }, { kind: 'PERSONA', id: 'FATALIST' }], chosen: null }]; S.refresh(); return; }
+    if (want === 'HOME') { const s = G().roster[5]; G().debrief.home = [{ sid: s.id, name: s.name, face: s.face, cls: s.cls, spec: s.spec, out: 2, words: window.LS_TEXT.RESCUED.GUARDIAN[1], opts: [{ kind: 'SCAR', id: 'NIGHT_EYES' }, { kind: 'SCAR', id: 'RESTLESS' }], chosen: null }]; S.refresh(); return; }
     S.proceed(); S.refresh();
     if (want === 'FILE') $('.archive [data-file="0"]').click(); // ARCH: use a tall height to see the archive below the board
   } catch (e) { document.title = 'ERR ' + e.message; }

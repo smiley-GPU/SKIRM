@@ -26,6 +26,8 @@ The summary line holds: missions and wins, KIA and MIA, missing operators found 
 
 Baseline on 2026-10-19 (`sweep.sh soak-15`, milestone 2): 76% of ops succeed; missions 1–4 98%, 5–10 73%, 11–15 62%; KIA 51 + MIA 51, 4.8% of deployments. The bots always take a rescue when one is offered and push on to the holding site under QRF; with rescues switched off (`--patch "s/ALIVE: 50, REPORT/ALIVE: 0, REPORT/"`) missions 5–10 are back at 78%. Before milestone 2 (2026-10-18): 78%; 96%, 79%, 64%; KIA+MIA 4.9%, nearly all KIA.
 
+Scars are checked by giving one to every operator and sweeping, e.g. `tools/sweep.sh soak-15 --patch "s/traits: \[\], bonds: \[\], signature: null, fatigue: 0 };/traits: [], bonds: [], signature: null, fatigue: 0, scars: ['RESTLESS'] };/"`. On 2026-10-19 all six land within about 2 points of the 76% baseline (Short fuse 76%, Night eyes 75%, Knows their faces 77%, Never again 74%, Scar tissue 76%, Restless 78%).
+
 ## Correctness: test pages
 
 ```bash
@@ -34,7 +36,7 @@ tools/page.sh u3test          # summary, plus any check that failed (exit status
 tools/page.sh quirktest --all # every line
 ```
 
-`m1test` (story text from `data/`, version 5 saves, the choice of how to play), `m2test` (missing in action: left behind, word by report, the rescue and the change, the last stand and its three endings, legacy weapons, every personality's scene), `quirktest` (personality quirks), `u3test` (Back, failure first, clocks, QRF, burn, signs, gear chips, archive), `uitest` (menu, help, briefing steps), `oitest` (operator details), `saytest` (comments at base), `negtest` (no negative gear), `waytest` (every way past, on many missions).
+`m1test` (story text from `data/`, version 5 saves, the choice of how to play), `m2test` (missing in action: left behind, word by report, the rescue and the homecoming, every scar's upside and downside, moved and lost again, the last stand and its three endings, legacy weapons, every personality's scene), `quirktest` (personality quirks), `u3test` (Back, failure first, clocks, QRF, burn, signs, gear chips, archive), `uitest` (menu, help, briefing steps), `oitest` (operator details), `saytest` (comments at base), `negtest` (no negative gear), `waytest` (every way past, on many missions).
 
 ## Looking at screens
 

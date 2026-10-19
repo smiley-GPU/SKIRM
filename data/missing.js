@@ -18,22 +18,78 @@ LS_TEXT.TRACE_SOURCE = {
   REPORT: 'A report reaches command from {place}: {detail}',
 };
 
-// DRAFT, to be written together in the rescue session: word that a missing operator is alive.
+// The rescue. Word that a missing operator is alive, by source ({name}: the operator).
 LS_TEXT.TRACE_ALIVE = {
-  INFORMANT: 'An informant in {place} has seen one of ours under guard, and alive: {name}. They will not keep {name} there for long.',
-  SIGINT: 'Signals catches a garrison in {place} asking for orders about a prisoner. It is {name}, and {name} is alive.',
-  UAV: 'The drone picks out a guarded outbuilding in {place}, and a figure in the yard who walks exactly like {name}.',
-  PRISONER: '{prisoner} gives up where they are holding {name}: alive, somewhere in {place}, and due to be moved.',
-  REPORT: 'Command passes on a report from {place}: one of ours is being held there alive, and the description fits {name}.',
+  INFORMANT: 'An informant in {place} saw one of ours pushed out of a truck, hooded and barefoot but walking. The guards were reading the name off a set of dog tags: {name}.',
+  SIGINT: 'Signals catches a garrison in {place} asking headquarters what to do with a prisoner who will not talk. They use a name, {name}, and they do not expect the answer to be a kind one.',
+  UAV: 'The drone finds a padlocked outbuilding in {place}, and a figure let out into the yard for ten minutes at dusk. Everyone in the operations room knows that walk: it is {name}.',
+  PRISONER: '{prisoner} finally trades what they know for a cigarette: one of ours is alive in {place}, chained in a storeroom, and the guards call them {name}. They are moving the prisoner soon.',
+  REPORT: 'A report reaches command from {place}: a soldier of ours, held alive in an outbuilding and asking for nothing but water. The description fits {name}, right down to the boots.',
 };
-// DRAFT: the holding site, as the team arrives ({name}: the teammate who sees it).
-LS_TEXT.ARRIVE.HOLD = ['A padlocked outbuilding with two guards on the door and a light that never goes out.', '{name} watches the guards change and counts the minutes. Somebody in there is one of ours.'];
-// DRAFT: what a rescued operator says in the debrief, by personality where it matters ({name}: the operator).
+// The holding site as the team arrives ({name}: the teammate who sees it).
+LS_TEXT.ARRIVE.HOLD = ['A padlocked outbuilding with a single bulb burning over the door, and two guards who have long since stopped expecting anyone to come.',
+  '{name} counts the guards and the minutes between their rounds, and tries not to think about who is on the other side of that door.'];
+// Breaking them out ({name}: the operator freed). The game adds what it means for the team.
+LS_TEXT.FREED = [
+  'The door gives. {name} is curled in the corner, thinner and filthier than anyone remembers, and squints up at the light as if it might be another trick.',
+  '{name} is alive, chained to a pipe and still defiant. Cutting the chain takes ten seconds, and getting {name} walking takes a great deal longer.',
+  'Behind the door {name} is sitting up and waiting, as if they had known all along that someone would come.',
+];
+// Moved before the team could get there, by the source that found them.
+LS_TEXT.MOVED = {
+  INFORMANT: 'The informant in {place} saw the truck leave at dawn with a hooded prisoner in the back. Nobody knows where it went, and nobody ever sees {name} again.',
+  SIGINT: 'The garrison in {place} stops asking headquarters about the prisoner, and Signals never hears the name {name} on their net again.',
+  UAV: 'The drone goes back over {place} and finds the outbuilding empty, the door standing open and the padlock lying in the dirt.',
+  PRISONER: '{prisoner}\'s information was good, but it was a week old. The storeroom in {place} is empty, and {name} is gone.',
+  REPORT: 'The next report from {place} is short: the prisoner has been moved, nobody knows where, and nobody expects them to turn up alive.',
+};
+// Freed, but captivity had already done too much: never the team's failing.
+LS_TEXT.LOST_AGAIN = [
+  'Whatever they did to {name} in that cell had gone too deep. {name} made it out into the open air and most of the way to the extraction point before the last of their strength gave out.',
+  '{name} was already beyond help when the door came off: too little food, too much cold, and a wound nobody had ever treated. They carried {name} as far as anyone could have, and it was not far enough.',
+];
+// What a rescued operator says at the debrief, in their own voice (one of two is picked).
 LS_TEXT.RESCUED = {
-  _: ['I knew you would come. I did not know it would take this long.', 'Do not ask me about it yet. Ask me next week.', 'Thanks for coming back for me. I will not forget it.'],
-  JOKER: ['Room service was terrible. Two stars, and only because I got out.'],
-  STOIC: ['They asked a lot of questions. I gave them my name and my rank, and nothing else.'],
-  LONER: ['Alone for days. You would think I would have liked it.'],
+  STOIC: ['They asked the same questions every night. I gave them my name and my rank, and after a while they stopped writing it down.',
+    'I am fine. Put me back on the roster when the doctor says so, and not a day later.'],
+  JOKER: ['The food was terrible and the service was worse, but I left them a review they will be reading for years.',
+    'All that time, and not one of them laughed. I am starting to think the problem was the audience.'],
+  FATALIST: ['I made my peace with it on the second night. Now I have to unmake it, which is the part nobody ever warns you about.',
+    'Every morning I was sure this would be the morning. It was the morning you came, so I had that one wrong as well.'],
+  ROOKIE: ['I kept a notebook in my head the whole time, every guard and every door. Ask me anything, because I wrote it all down in there.',
+    'I thought you had forgotten about me. I am sorry I ever thought that, and I will not think it again.'],
+  GEARHEAD: ['They took my kit apart in front of me to see how it worked, and put it back together wrong. Honestly, that was the worst part.',
+    'Give me a day in the workshop with something that has moving parts, and I will be fine.'],
+  GLORY: ['Tell me somebody wrote that down, because a rescue like that belongs on a wall somewhere.',
+    'Days in the dark, and the first thing I see is you lot coming through the door like the end of a film. I will take it.'],
+  GUARDIAN: ['Every night I listened for which of you they had caught next, and every night it was nobody, which is the only reason I am still sane.',
+    'Do not look at me like that. I went down so the rest of you could get out, and that is exactly the trade I always said I would make.'],
+  SUPERSTITIOUS: ['A crow sat on the window bars every morning, and I knew it meant you were coming. I told the guards so, and they did not like it.',
+    'I lost my charm the night they took me. Somebody find me a new one before the next operation, please.'],
+  MERC: ['Tell me nobody paid a ransom. I would hate to find out I came cheap.',
+    'Put every day in that cell on my bill, at the full rate, and do not let anyone argue you down.'],
+  PLANNER: ['I spent the whole time working out how I would get myself out. I had a plan for day eleven, so you were early.',
+    'Debrief me properly when I can stand. I know their shift patterns, their stores, and which guard sleeps on watch.'],
+  LONER: ['Days in a box with nobody to talk to. You would think I enjoyed it, and for the first three days I did.',
+    'They kept asking who else was out there. I told them nobody, which is the one thing I have always been sure of.'],
+  JUNKIE: ['Days of nothing at all, and then the door comes off. I have never been so happy to hear gunfire in my life.',
+    'Do not ask me to sit still for a while. I have done enough sitting still to last me the rest of my life.'],
+  HOMESICK: ['I counted the days by the light under the door, and every one of them was a day further from home.',
+    'Did anyone write to my family? Tell me someone wrote, even if it was only to say I was missing.'],
+  PHILOSOPHER: ['You learn what you are made of in a place like that. I am not sure I like all of the answer.',
+    'They took everything except the time to think, which turns out to be the one thing they should have taken.'],
+  AVENGER: ['I learned every one of their faces while I was in there, and I will be needing that list.',
+    'Get me patched up quickly. There are people out there I still owe for this, and I always pay what I owe.'],
+  PERFECTIONIST: ['I went over the night we lost the extraction a thousand times in that cell. I know exactly where it went wrong, and it will not happen again.',
+    'Your breach was sloppy, and I have never been so glad to see sloppy work in my life.'],
+  OPTIMIST: ['They fed us twice on the last day, so I knew something was about to change. I was right, for once.',
+    'Hey, I am alive, I still have all my fingers, and I know their whole camp layout now. That is a good week, all things considered.'],
+  VETERAN: ['It is not my first time in a cell, but it is the first time anybody came for me. Thank you for that.',
+    'The young ones always break on day three. I made a point of being old about it.'],
+  BELIEVER: ['I knew you would come, because I know what we are. I never doubted it, not for a single night.',
+    'They wanted me to say the mission was for nothing. I told them they would be waiting a long time to hear that.'],
+  QUIET: ['I did not say a single word to them the whole time, and I do not plan to start talking about it now.',
+    'You came. That is all that needs saying, so I will leave it there.'],
 };
 
 LS_TEXT.TRACE_DETAIL = {
