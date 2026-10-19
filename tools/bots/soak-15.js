@@ -70,7 +70,7 @@
       if (b.qrfIn != null) { const at = Math.max(b.stages.findIndex((s) => s.kind === "OBJECTIVE"), b.stages.findIndex((s) => s.choices[0] === "HOLD")); if (b.stage > at || at - b.stage + 1 > b.qrfIn) { S.runForIt(); stats.ran = (stats.ran || 0) + 1; continue; } }
       if (b.timeUp) { stats.timeUp = (stats.timeUp || 0) + 1; const ws = S.waysOut(), w = ws.find((x) => !x.pick) || ws[0]; if (w) { const gc = w.pick ? S.gearChoices(w.pick) : []; S.wayOut(w.id, gc.length ? { uid: gc[0].uid, slot: gc[0].slot } : null); } else S.closeWindow(); continue; }
       care();
-      { const p0 = bestPlan(), ld = p0 && S.team().find((u) => u.id === p0.lead); if (ld && S.fatState(ld) >= 2 && b.time > 3) { S.rest(); stats.rests++; continue; } }
+      { const p0 = bestPlan(), ld = p0 && S.team().find((u) => u.id === p0.lead); if (ld && S.fatState(ld) >= 2 && b.time > 3 && !S.restBlock()) { S.rest(); stats.rests++; continue; } }
       const drone = S.team().find((u) => S.active(u) && u.util === 'DRONE');
       if (drone && !b.drone.used) S.launchDrone(drone.id);
       render();

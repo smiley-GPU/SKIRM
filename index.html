@@ -1081,8 +1081,8 @@ const DEPTS = {
   CMD: { label: 'Operations', desc: 'Mission planning and the mission board.', lv: ['2 missions on the board', '3 missions on the board', '3 missions, and +3 RP for every mission flown'] },
   INTEL: { label: 'Intelligence', desc: 'Intel options and weather forecasting.', lv: ['Satellite, deep intel, weather recon. Forecasts 60% reliable', '+ signals intercept and informants. Forecasts 75% reliable', '+ UAV overflight, all intel 1 RP cheaper. Forecasts 90% reliable'] },
   MED: { label: 'Medical', desc: 'Treatment beds for the wounded and the worn out.', lv: ['1 bed: treated operators recover twice as fast', '2 beds', '3 beds, and treatment heals fully in one mission'] },
-  ENG: { label: 'Engineering', desc: 'Fabrication, weapon kits and repairs.', lv: ['Consumables (grenades, charges, medkits, flashbangs, smoke), weapon kits and repairs', '+ weapons, armour, ghillie suits and specialist tools (rebreather, climbing kit, encrypted radio)', '+ thermal sights, drones, night vision, ceramic plate, suppressed and anti-materiel rifles'] },
-  LOG: { label: 'Logistics', desc: 'Vehicles and air support.', lv: ['On foot, convoy, helicopter', '+ light strike vehicle and boats', '+ HALO parachute and armoured MRAP'] },
+  ENG: { label: 'Engineering', desc: 'Fabrication and weapon kits.', lv: ['Consumables (grenades, charges, medkits, flashbangs, smoke) and weapon kits', '+ weapons, armour, ghillie suits and specialist tools (rebreather, climbing kit, encrypted radio)', '+ thermal sights, drones, night vision, ceramic plate, suppressed and anti-materiel rifles'] },
+  LOG: { label: 'Logistics', desc: 'Vehicles, air support and repairs to damaged vehicles.', lv: ['On foot, convoy, helicopter', '+ light strike vehicle and boats', '+ HALO parachute and armoured MRAP'] },
   BARRACKS: { label: 'Barracks', desc: 'Housing, rest and recruitment.', lv: ['Roster of 8, recruits join as Privates', 'Roster of 10, operators rest faster, and you can hire Privates First Class', 'Roster of 12, you can hire Corporals, and recruiting costs 1 less'] },
 };
 const UPGRADE_BP = [0, 0, 5, 10]; // cost to reach level 2 and 3
@@ -1956,6 +1956,7 @@ function failFire(foes, members, ids, leadId) {
 function returnFire(foes, thresh, ids, leadId) {
   const b = B(), n = foes + (alerted() ? 1 : 0), off = officerAt(cur());
   if (n <= 0) return;
+  cur().underFire = true; // they have opened up here: no resting while they are still at this stage
   thresh = Math.min(6, Math.max(2, thresh + FACTIONS[G.mission.faction].fire - (off?.trait === 'SHARPSHOOTER' ? 1 : 0)));
   const hits = Array.from({ length: n }, d6).filter((d) => d >= thresh).length;
   log(`Enemy fire: ${n} ${n === 1 ? 'die' : 'dice'}, ${hits} hit${hits === 1 ? '' : 's'}.`, hits ? 'alert' : 'info');
@@ -2615,14 +2616,21 @@ function advance() {
   if (WEATHER[e.weather].tire) { log(`${WEATHER[e.weather].label} wears everyone down.`, 'info'); tire(up.filter((u) => !hasSpec(u.sid, 'ENDURANCE'))); }
   if (team().some((u) => u.downed)) tire(up); // carrying the wounded
 }
-/** Stop and catch breath: costs time, takes fatigue off everyone. */
+/** Why the team cannot rest here, or '': not in a firefight (the QRF closing in, or enemies here who have opened fire). */
+function restBlock() {
+  const st = cur(), sit = sitOf(st);
+  if (B().qrfIn != null) return 'No rest with the QRF closing in.';
+  if (st.underFire && sit && foesOf(st, sit) > 0) return 'No rest under fire: they are still shooting here.';
+  return '';
+}
+/** Stop and catch breath: costs time, takes fatigue off everyone. Never in a firefight. */
 function rest() {
   needPlan();
-  const b = B();
+  const b = B(), why = restBlock();
+  if (why) fail(why);
   if (b.time <= REST_TIME) fail('There is no time left to rest.');
   b.time -= REST_TIME;
   b.lastResult = null;
-  if (b.qrfIn != null && --b.qrfIn <= 0) { qrfArrives(b.stage); return settle(true); } // resting while the QRF closes in
   const joker = quirkOn('JOKER'), gain = REST_GAIN + (joker ? 1 : 0);
   for (const u of team().filter(active)) u.fat = Math.max(0, u.fat - gain);
   log(`The team goes to ground and catches its breath (-${REST_TIME} time).`, 'good');
@@ -4146,14 +4154,14 @@ function deptHtml(d, sheet = false) { // sheet: opened over the briefing, withou
     const inv = Object.keys(ITEMS).filter((k) => G.armory[k]).map((k) => `<span class="inv"><b>${G.armory[k]}</b> ${ITEMS[k].label}</span>`).join('');
     const fab = Object.entries(FAB).map(([k, [l, c]]) => `<button class="btn fab" type="button" data-fab="${k}" ${bs.lv.ENG < l || G.rp < c ? 'disabled' : ''} title="${esc(itemSummary(k))}">
         <span>${ITEMS[k].label}</span><small>${bs.lv.ENG < l ? `Level ${l}` : `${c} RP`}</small></button>`).join('');
-    const dmg = Object.keys(bs.damaged).map((v) => `<div class="rrow"><b>${VEH[v].label}</b><span class="chip bad">Damaged</span><span class="grow"></span><button class="btn" type="button" data-repair="${v}" ${G.rp < REPAIR_COST ? 'disabled' : ''}>Repair · ${REPAIR_COST} RP</button></div>`).join('');
-    body = `<h3>Armory</h3><div class="inv-list">${inv}</div>${dmg ? `<h3>Repairs</h3><div class="roster-list">${dmg}</div>` : ''}<h3>Fabricate</h3><div class="fab-list">${fab}</div>`;
+    body = `<h3>Armory</h3><div class="inv-list">${inv}</div><h3>Fabricate</h3><div class="fab-list">${fab}</div>`;
   } else if (d === 'INTEL') {
     body = `<p class="muted">Forecasts are ${FORECAST[bs.lv.INTEL]}% reliable. Weather can still turn during a mission.</p><div class="roster-list">${Object.entries(INTEL).map(([k, i]) =>
       `<div class="rrow ${bs.lv.INTEL < i.lv ? 'locked' : ''}"><b>${i.label}</b><span class="muted">${i.desc}</span><span class="grow"></span><span class="chip">${bs.lv.INTEL < i.lv ? `Level ${i.lv}` : `${i.cost - (bs.lv.INTEL >= 3 ? 1 : 0)} RP`}</span></div>`).join('')}</div>`;
   } else if (d === 'LOG') {
+    // damaged vehicles are repaired here, where the motor pool is
     body = `<div class="roster-list">${Object.entries(VEH).map(([k, v]) => `<div class="rrow ${bs.lv.LOG < v.lv ? 'locked' : ''}"><b>${v.label}</b><span class="muted">${v.desc}</span><span class="grow"></span>
-      ${bs.damaged[k] ? '<span class="chip bad">Damaged</span>' : bs.lv.LOG < v.lv ? `<span class="chip">Level ${v.lv}</span>` : `<span class="chip ok">${v.cost ? v.cost + ' RP' : 'Free'}</span>`}</div>`).join('')}</div>`;
+      ${bs.damaged[k] ? `<span class="chip bad">Damaged</span><button class="btn" type="button" data-repair="${k}" ${G.rp < REPAIR_COST ? 'disabled' : ''}>Repair · ${REPAIR_COST} RP</button>` : bs.lv.LOG < v.lv ? `<span class="chip">Level ${v.lv}</span>` : `<span class="chip ok">${v.cost ? v.cost + ' RP' : 'Free'}</span>`}</div>`).join('')}</div>`;
   } else {
     body = `<p class="muted">Missions flown: ${G.flown}. The board refreshes every time a team comes home.</p>`;
   }
@@ -4283,7 +4291,7 @@ function bindDept(root, after = () => {}) {
   on('[data-rrank]', (b) => { ui.recruitRank = +b.dataset.rrank; sfx('click'); refresh(); });
   on('[data-enlist]', (b) => run(() => { const s = enlist(b.dataset.enlist, +(b.dataset.rank || 0)); toast(`${s.name} joins as ${CLASSES[s.cls].label}, ${SPECS[s.spec].label.toLowerCase()}.`); }));
 }
-/** Engineering or the barracks as a side sheet over the briefing: make, repair, recruit, without losing the plan. */
+/** Engineering or the barracks as a side sheet over the briefing: make gear or recruit without losing the plan. */
 function openSheet(d) {
   const dlg = $('#sheet');
   const fill = () => {
@@ -4738,7 +4746,7 @@ function trayHtml(st, sit) {
       <div class="go-btns">
         <button class="btn ghost danger ${plan.abortArmed ? 'armed' : ''}" type="button" data-act="abort">${plan.abortArmed ? 'Tap again to abort' : 'Abort'}</button>
         <button class="btn ghost" type="button" data-act="details" aria-pressed="${ui.details}">${ui.details ? 'Hide details' : 'Details'}</button>
-        <button class="btn" type="button" data-act="rest" ${b.time > REST_TIME && team().some((u) => active(u) && u.fat) ? '' : 'disabled'} title="Everyone sheds ${REST_GAIN} fatigue">Rest · ${REST_TIME} time</button>
+        <button class="btn" type="button" data-act="rest" ${b.time > REST_TIME && team().some((u) => active(u) && u.fat) && !restBlock() ? '' : 'disabled'} title="${restBlock() || `Everyone sheds ${REST_GAIN} fatigue`}">Rest · ${REST_TIME} time</button>
         ${st.kind === 'OPTIONAL' ? '<button class="btn" type="button" data-act="skip">Skip target</button>' : ''}
         ${b.timeUp ? '<button class="btn danger" type="button" data-act="close">Let the window close</button>' : ''}
         ${b.qrfIn != null && !b.timeUp ? '<button class="btn danger" type="button" data-act="run">Run for the exfil</button>' : ''}
@@ -4914,7 +4922,7 @@ function helpHtml() {
     ['Rank', 'Promotions add dice (Corporal +1, Staff Sergeant +2) and Nerve. A sergeant leading has the best-armoured supporter step in front of the first hit; a lieutenant gives one free push a mission. A better barracks hires higher ranks.'],
     ['Ways out', 'After a failure at a stage: a detour to the other entry, a breaching charge, a specialist doing what they do best, or forcing it. Each passes the stage at a price in time, fatigue, wounds or gear, and lost gear is gone for good.'],
     ['Lead and support', `The lead rolls their own dice for the skill and takes the first hit; each of up to ${MAX_SUPPORT} supporters adds 1 die.`],
-    ['Fatigue', 'Builds with tests, failures, long routes, heat and smoke. Tired leads roll 1 die fewer, exhausted ones 2. Rest at base, in a treatment bed, or briefly in the field.'],
+    ['Fatigue', 'Builds with tests, failures, long routes, heat and smoke. Tired leads roll 1 die fewer, exhausted ones 2. Rest at base, in a treatment bed, or briefly in the field, but never in a firefight: not with the QRF closing in, nor at a stage where the enemy has opened fire and is still there.'],
     ['Injuries', `Named wounds that cost dice when the operator leads. A critical one knocks them out in ${CRIT_STAGES} stages unless treated; the unconscious die in ${BLEED_STAGES} more.`],
     ['Close quarters', `Inside the objective, a stairwell or a pier. A handgun-only lead loses ${HANDGUN_PENALTY} Assault die everywhere else, unless they are a CQB specialist.`],
     ['Specialty', 'Every operator has one: it unlocks special approaches or bends a rule. Shown in purple.'],
@@ -5053,7 +5061,7 @@ if (/[?&]test\b/.test(location.search)) {
   window.SKIRM = { get G() { return G; }, newCampaign, chooseMission, backToBase, upgradeDept, toggleBed, fabricate, repair, rest, vehBlock, intelCost, fatState,
     DEPTS, FAB, VEH, LOCATIONS, WEATHER, SPECS, KITS, INTEL, hireCaptive, tradeCaptive, OFFICER_TRAITS, buyIntel, launch, proceed, enlist, chooseRoute, chooseFork, execute, push, resolve, skip, abort,
     fieldCare, treat, launchDrone, canLead, opDice, chooseLine, mapCheck, mapHtml, waysOut, wayOut, failWay, bestOdds, gearChoices, ready, SAVE_LINES, MEMORIAL, interlude, PERSONAS, TOPICS, LINES, TRAITS, worstNeed, fieldCareNeed, INJURIES, bestLead, odds, difficulty, poolOf, previewOf, cur, sitOf, active, team, outcomeOf, foesOf, Rule, CLASSES, ITEMS, SIT, available, refresh, knockOut, cleanWork, growUp, interDone, omens, leadBonuses, unitById, closeWindow, undo, openFile, runForIt, burn,
-    standPick, standEnd, standEffect, standStory, rescueChange, rescueMission, passStage, takeObjective, intelCost, SCARS, hasScar, tierSlots, kindOf, classGear, MIA, LAST_STAND, OBJ, openStand };
+    standPick, standEnd, standEffect, standStory, rescueChange, rescueMission, passStage, takeObjective, intelCost, restBlock, SCARS, hasScar, tierSlots, kindOf, classGear, MIA, LAST_STAND, OBJ, openStand };
 }
 window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
 })();

@@ -78,6 +78,17 @@
       S.proceed(); S.refresh(); ok('Archive shows at base', !!$('.archive [data-file="0"]'));
       $('.archive [data-file="0"]').click(); const d = $('#opinfo'); ok('Opening a file shows the dossier', d.open && /Briefing/.test(d.textContent) && /After-action report/.test(d.textContent) && /Transport/.test(d.textContent));
       ok('File text has no holes', !/undefined|NaN|null/.test(d.textContent)); d.close(); }
+    // No resting in a firefight: not under fire with enemies still here, not with the QRF closing in
+    { setup(); toPerimeter(); if (S.cur().pick == null) S.chooseFork(0); S.cur().choices[S.cur().pick] = 'SENTRY'; S.team().forEach((u) => { u.fat = 4; });
+      ok('Rest is allowed before anyone shoots', S.restBlock() === '');
+      S.cur().underFire = true; let refused = false; try { S.rest(); } catch (e) { refused = e instanceof S.Rule && /under fire/.test(e.message); }
+      S.refresh(); ok('Under fire with enemies here: no rest, and the button says why', refused && $('[data-act="rest"]')?.disabled && /under fire/.test($('[data-act="rest"]')?.title || ''));
+      S.cur().underFire = false; B().qrfIn = 2; ok('QRF closing in: no rest', /QRF/.test(S.restBlock())); B().qrfIn = null;
+      S.cur().underFire = true; S.cur().foesCleared = true; ok('Enemies gone: rest again', S.restBlock() === ''); }
+    // Repairs: at Logistics, not Engineering
+    { S.newCampaign(4242); G().base.damaged.HELO = true; S.refresh(); $('[data-tab="ENG"]')?.click(); const inEng = !!$('[data-repair]');
+      $('[data-tab="LOG"]')?.click(); const btn = $('[data-repair="HELO"]'); ok('Damaged vehicles are repaired from Logistics', !inEng && !!btn);
+      const rp = G().rp; btn.click(); ok('The repair works from there', !G().base.damaged.HELO && G().rp === rp - 3, `${G().rp} ${rp}`); }
   } catch (e) { out.push('ERROR ' + e.message + ' ' + (e.stack || '').split('\n')[1]); }
   const p = document.createElement('pre'); p.id = 'ut'; p.textContent = out.join('\n'); document.body.append(p);
 })();
