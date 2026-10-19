@@ -1,10 +1,16 @@
 #!/usr/bin/env bash
 # Run one of the test pages against index.html and report its checks.
 # Usage: tools/page.sh <test> [--all]
-#   <test>  a file in tools/pages without .js: quirktest, u3test, uitest, oitest, saytest, negtest, waytest
+#   <test>  a file in tools/pages without .js: m1test, m2test, quirktest, u3test, uitest, oitest, saytest, negtest, waytest;
+#           or all: every test page in turn, one summary line each (a broken data/ file shows up as pages that fail to load)
 #   --all   print every line, not only the summary and the checks that did not pass
 # Exit status is 1 when a check fails or the page throws.
 HERE="$(cd "$(dirname "$0")" && pwd)"
+if [ "$1" = "all" ]; then
+  status=0
+  for p in "$HERE"/pages/*.js; do n="$(basename "$p" .js)"; [ "$n" = "shots" ] && continue; "$0" "$n" "$2" || status=1; done
+  exit $status
+fi
 GAME="$HERE/../index.html"
 CHROME="${CHROME:-/c/Program Files/Google/Chrome/Application/chrome.exe}"
 WORK="$HERE/.work"; mkdir -p "$WORK" # scratch files: ignored by git

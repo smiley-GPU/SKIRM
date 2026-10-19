@@ -14,7 +14,7 @@ tools/soak.sh soak-5 --patch "s/BURN_NERVE = 2,/BURN_NERVE = 3,/"   # try a rule
 tools/sweep.sh soak-15               # three seed sets at once, one combined line by stretch of the campaign
 ```
 
-The summary line holds: missions and wins, KIA and MIA, wins by mission number (`byN`: wins, missions, operators lost), why missions failed, overtime-exfil and QRF outcomes (`ot`, `qrfW`: wins, missions), campaigns that ran out of fit operators, and errors (any entry there is a bug).
+The summary line holds: missions and wins, KIA and MIA, missing operators found alive (`miaAlive`), rescue operations flown (`rescueOps`) and operators brought home (`home`), those lost for good after being missing (`miaLost`), last-stand endings chosen (`stands`), wins by mission number (`byN`: wins, missions, operators lost), why missions failed, overtime-exfil and QRF outcomes (`ot`, `qrfW`: wins, missions), campaigns that ran out of fit operators, and errors (any entry there is a bug).
 
 | Bot | What it is for |
 |---|---|
@@ -24,22 +24,23 @@ The summary line holds: missions and wins, KIA and MIA, wins by mission number (
 | `soak-failways` | Takes a way past straight after every failure. |
 | `soak-ways` | Takes a random way past whenever stuck. |
 
-Baseline on 2026-10-18 (`sweep.sh soak-15`): 78% of ops succeed; missions 1–4 96%, 5–10 79%, 11–15 64%; KIA+MIA 4.9% of deployments.
+Baseline on 2026-10-19 (`sweep.sh soak-15`, milestone 2): 76% of ops succeed; missions 1–4 98%, 5–10 73%, 11–15 62%; KIA 51 + MIA 51, 4.8% of deployments. The bots always take a rescue when one is offered and push on to the holding site under QRF; with rescues switched off (`--patch "s/ALIVE: 50, REPORT/ALIVE: 0, REPORT/"`) missions 5–10 are back at 78%. Before milestone 2 (2026-10-18): 78%; 96%, 79%, 64%; KIA+MIA 4.9%, nearly all KIA.
 
 ## Correctness: test pages
 
 ```bash
+tools/page.sh all             # every test page, one summary line each
 tools/page.sh u3test          # summary, plus any check that failed (exit status 1 on failure)
 tools/page.sh quirktest --all # every line
 ```
 
-`m1test` (story text from `data/`, version 5 saves, the choice of how to play), `quirktest` (personality quirks), `u3test` (Back, failure first, clocks, QRF, burn, signs, gear chips, archive), `uitest` (menu, help, briefing steps), `oitest` (operator details), `saytest` (comments at base), `negtest` (no negative gear), `waytest` (every way past, on many missions).
+`m1test` (story text from `data/`, version 5 saves, the choice of how to play), `m2test` (missing in action: left behind, word by report, the rescue and the change, the last stand and its three endings, legacy weapons, every personality's scene), `quirktest` (personality quirks), `u3test` (Back, failure first, clocks, QRF, burn, signs, gear chips, archive), `uitest` (menu, help, briefing steps), `oitest` (operator details), `saytest` (comments at base), `negtest` (no negative gear), `waytest` (every way past, on many missions).
 
 ## Looking at screens
 
 ```bash
 tools/shot.sh TITLE 500 800   # prints where the PNG was saved
-tools/shot.sh FILE            # BACK, DOTS, FAIL, WAYS, CLOSE, ARCH, FILE, TITLE
+tools/shot.sh FILE            # BACK, DOTS, FAIL, WAYS, CLOSE, ARCH, FILE, TITLE; missing in action: WORD, STAND, STANDEND, MIA, HOME
 ```
 
 ## Writing new ones

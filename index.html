@@ -451,6 +451,21 @@ main { flex: 1; min-height: 0; padding-block: 20px; padding-left: max(20px, env(
 .words div { display: grid; gap: 3px; }
 .words small { color: var(--gold); }
 
+/* missing in action: word of the dead on the board, the last stand, a rescued operator's change */
+.word-card { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; align-items: start; padding: 12px 14px; margin-bottom: 12px; background: var(--panel-2); border-radius: var(--r-sm); border-left: 3px solid var(--gold); }
+.word-card p { margin: 4px 0 10px; }
+.word-card q { display: block; margin: 6px 0 2px; }
+.stand-opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); gap: 10px; margin: 6px 0 4px; }
+.stand-opts .btn { display: grid; gap: 4px; text-align: left; justify-items: start; justify-content: stretch; white-space: normal; height: auto; padding: 10px 12px; }
+.stand-story p { margin: 0 0 10px; font-family: var(--body); font-size: 16px; line-height: 1.55; max-width: 66ch; }
+.stand-story p.stand-sit { color: var(--gold); font-style: italic; }
+.stand-opts .btn small { color: var(--muted); font-weight: 400; }
+.stand-opts .btn.on { border-color: var(--gold); }
+.stand-sit { color: var(--gold); }
+.stand-effect { margin: 8px 0 0; }
+.trace { color: var(--muted); font-style: italic; }
+.mem-fate { display: block; color: var(--gold); }
+
 /* base offers */
 .offer .chip:not(.warn):not(.bad) { background: var(--panel-3); color: var(--fg); }
 .offer .objectives { gap: 4px; }
@@ -793,6 +808,7 @@ dialog.sheet { margin: 0 0 0 auto; width: min(620px, 100vw); height: 100dvh; max
 
 <script src="data/voices.js"></script>
 <script src="data/story.js"></script>
+<script src="data/missing.js"></script>
 <script>
 'use strict';
 (() => {
@@ -867,6 +883,7 @@ const OBJ = {
   ELIMINATE_HVT: { label: 'Eliminate HVT', desc: 'A high-value target is holed up in the compound. Neutralise them.' },
   NO_CASUALTIES: { label: 'Leave No One', desc: 'Bring every operator home alive.' },
   UNDETECTED: { label: 'Ghost', desc: 'Complete the operation without the alert ever reaching the alarm line.' },
+  RESCUE: { label: 'Bring them home', desc: 'One of ours is held here. Free them at the holding site and get them out with the team.' }, // only on a rescue: never drawn
 };
 // An approach route shapes the stage that follows it. Each location offers its own routes.
 const ROUTES = {
@@ -969,6 +986,11 @@ const SIT = {
   CACHE: { kind: 'OPTIONAL', label: 'Weapons cache', text: 'A guarded arms cache sits in an outbuilding.', foes: 1, opts: [
     { skill: 'TECH', diff: 3, label: 'Pick the lock', desc: 'Quietly empty it.', cache: true },
     { skill: 'ASSAULT', diff: 3, label: 'Grab it', desc: 'Drop the guard and take what you can carry.', cache: true, kills: true, loud: true, alert: 1 }] },
+  HOLD: { kind: 'OPTIONAL', label: 'Holding site', text: 'One of ours is held in a padlocked outbuilding under guard.', foes: 2, opts: [
+    { skill: 'STEALTH', diff: 3, label: 'Cut them out quietly', desc: 'Through the back wall while the guards smoke.', rescue: true },
+    { skill: 'ASSAULT', diff: 3, label: 'Storm the building', desc: 'Drop the guards and break the door.', rescue: true, kills: true, loud: true, alert: 1, close: true },
+    { skill: 'TECH', diff: 3, label: 'Pick the padlock', desc: 'Slow and quiet, right under their noses.', rescue: true, time: 1 },
+    { skill: 'RECON', diff: 2, label: 'Talk the guards away', desc: 'An order in their own language, from a voice they think they know.', rescue: true, need: 'LINGUIST' }] },
   BREAK: { kind: 'EXFIL', label: 'Break contact', text: 'Get everyone to the extraction point.', foes: 1, opts: [
     { skill: 'STEALTH', diff: 3, label: 'Ghost out', desc: 'Leave the way you came, silently.' },
     { skill: 'ASSAULT', diff: 3, label: 'Fighting withdrawal', desc: 'Bound back under covering fire.', loud: true },
@@ -1020,6 +1042,8 @@ const OFFICER_TRAITS = {
   TACTICIAN: { label: 'Tactician', desc: 'Every approach at their position is 1 harder.', fate: { ESCAPED: 10, WRECK: -5 }, hire: ['DRONE', 'SIGNALS'] },
   BRUTE: { label: 'Brute', desc: 'Hits taken at their position are more serious.', fate: { WRECK: 10, CAPTIVE: -10 }, hire: ['HEAVY', 'CQB'] },
   COMMANDER: { label: 'Commander', desc: 'A failure at their position raises the alarm faster.', fate: { CAPTIVE: 10 }, hire: ['MEDIC', 'LINGUIST'] },
+  // a last stand left them hurt: no trait of their own while it lasts (trueTrait keeps it)
+  WOUNDED: { label: 'Wounded', desc: 'Already hurt, with no tricks left: falls more easily and rarely gets away.', fate: { DEAD: 15, ESCAPED: -15 }, hire: ['HEAVY', 'CQB'] },
 };
 // When an approach that kills takes an officer's position: they die, die taking some of your kit with them, get away
 // (to a later stage, or out of the mission to return in a later one), or surrender and come home as a prisoner.
@@ -1264,8 +1288,13 @@ const TRAITS = {
 };
 const TRAIT_CAP = 3, BOND_CAP = 2, NEMESIS_XP = 15, GRUDGE_XP = 20, REFLECT_XP = 10;
 const WEAPON_NAME = { CARBINE: 'carbine', SMG: 'SMG', DMR: 'marksman rifle', LMG: 'LMG', AK: 'AK', HANDGUN: 'handgun' };
+/** The kind of weapon an item is: a legacy weapon fights as the weapon it was. */
+const kindOf = (it) => ITEMS[it]?.base || it;
+/** What a class may carry in a slot list ('weapons', 'armor'...): a legacy weapon goes wherever its kind may. */
+const classGear = (cls, key) => { const l = CLASSES[cls][key]; return key === 'weapons' ? [...l, ...(G.legacy || []).filter((x) => l.includes(x.base)).map((x) => x.id)] : l; };
 const THREAT_NAME = { SENTRY: 'the sentries', PATROL: 'that patrol', TOWER: 'the watchtower', MINES: 'the tripwires', DOGS: 'the dogs', INTEL: 'the guards on the cache', HVT: 'the HVT', CACHE: 'the cache guard',
-  CLIFF: 'that rock face', RIVERX: 'the guards at the ford', DOCKS: 'the pier crew', CHECKPOINT: 'the checkpoint', ROOFTOP: 'the rooftop spotter', OPENGROUND: 'that open ground', FIRELINE: 'the fire' };
+  CLIFF: 'that rock face', RIVERX: 'the guards at the ford', DOCKS: 'the pier crew', CHECKPOINT: 'the checkpoint', ROOFTOP: 'the rooftop spotter', OPENGROUND: 'that open ground', FIRELINE: 'the fire',
+  HOLD: 'the guards on the holding site' };
 // Barks: what operators say out loud during an operation, in their personality's voice. They pop up as speech bubbles
 // and stay in the log. mood: good = green, bad = red, neutral = yellow. pri: which wins when several happen at once;
 // odds: % chance it is said at all. Slots: {mate} (the teammate it is about), {threat} (what is at this stage).
@@ -1327,6 +1356,7 @@ function newCampaign(seed, play = 'open') {
     base: { lv: { CMD: 1, INTEL: 1, MED: 1, ENG: 1, LOG: 1, BARRACKS: 1 }, beds: [], damaged: {}, offers: [] },
     nemeses: [], captives: [], // officers who got away, and officers held at base
     memorial: [], archive: [], // the fallen, and a file for every mission flown
+    missing: [], legacy: [], // operators missing in action, and the weapons last stands left behind
     mission: null, battle: null, debrief: null };
   [[60, 'HEAVY'], [25, 'MEDIC'], [25, 'SCOUT'], [0, 'DRONE'], [0, 'HEAVY'], [0, 'SCOUT']].forEach(([xp, cls]) => recruit(xp, cls));
   beginBase(false);
@@ -1406,10 +1436,14 @@ function beginBase(tick = true) {
   const used = new Set(), n = G.flown + 1, count = bs.lv.CMD >= 2 ? 3 : 2;
   // An officer who escaped you resurfaces on one of the offers more often than not.
   const back = G.nemeses.length && chance(70) ? { at: range(0, count - 1), o: pick(G.nemeses) } : null;
+  // A missing operator known to be alive: one offer in the region where they were lost carries the rescue.
+  const rescues = (G.missing || []).filter((r) => r.stage === 'RESCUE' && r.window > 0), forced = [...new Set(rescues.map((r) => r.loc))].slice(0, count);
   bs.offers = Array.from({ length: count }, (_, i) => {
-    const loc = pick(Object.keys(LOCATIONS).filter((k) => !used.has(k)));
+    const loc = forced[i] || pick(Object.keys(LOCATIONS).filter((k) => !used.has(k) && !forced.includes(k)));
     used.add(loc);
-    return genMission(n, loc, back?.at === i ? back.o : null);
+    const m = genMission(n, loc, back?.at === i ? back.o : null), r = rescues.find((x) => x.loc === loc);
+    if (r) rescueMission(m, r);
+    return m;
   });
   // No two offers share a word in their names; fixed up in order, without drawing from the RNG.
   bs.offers.forEach((m, i) => {
@@ -1434,7 +1468,7 @@ function genMission(n, loc, back = null) {
   const forecast = weighted(L.weather), rel = FORECAST[G.base.lv.INTEL];
   const env = { time: pick(['DAY', 'DUSK', 'NIGHT']), forecast, rel, weather: forecast, turnAt: null, turnTo: null };
   const primary = chance(50) ? 'RETRIEVE_INTEL' : 'ELIMINATE_HVT';
-  const secondary = pick(Object.keys(OBJ).filter((o) => o !== primary));
+  const secondary = pick(Object.keys(OBJ).filter((o) => o !== primary && o !== 'RESCUE'));
   const sitFor = (o) => (o === 'RETRIEVE_INTEL' ? 'INTEL' : 'HVT');
   const route = [{ kind: 'APPROACH', choices: pickN(L.routes, 2), pick: null }];
   for (let i = 0; i < (n >= 3 ? 2 : 1); i++) route.push({ kind: 'PERIMETER', choices: pickN(L.perimeter, 2), pick: null });
@@ -1453,10 +1487,11 @@ function genMission(n, loc, back = null) {
       const rank = Math.min(OFFICER_RANKS.length - 1, back.rank + 1);
       officer = { ...back, rank, name: `${OFFICER_RANKS[rank]} ${back.surname}`, stage: at, dead: false, fate: null, returning: back.from };
     } else {
-      const taken = new Set([...(G.nemeses || []), ...(G.captives || [])].map((o) => o.surname)), rank = range(0, 2);
+      const taken = new Set([...(G.nemeses || []), ...(G.captives || [])].map((o) => o.surname).concat(G.slain || [])), rank = range(0, 2);
       const surname = pick(OFFICER_NAMES.filter((x) => !taken.has(x)));
-      officer = { name: `${OFFICER_RANKS[rank]} ${surname}`, rank, surname, trait: pick(Object.keys(OFFICER_TRAITS)), stage: at, loot: pick(OFFICER_LOOT), dead: false, fate: null, escapes: 0 };
+      officer = { name: `${OFFICER_RANKS[rank]} ${surname}`, rank, surname, trait: pick(Object.keys(OFFICER_TRAITS).filter((t) => t !== 'WOUNDED')), stage: at, loot: pick(OFFICER_LOOT), dead: false, fate: null, escapes: 0 };
     }
+    if (G.woundNext) { woundOne(officer); G.woundNext = false; } // a last stand hurt the next officer you meet
   }
   const reward = { rp: 10 + (target === 'WARLORD' ? 3 : 0), bp: 3 + (target === 'WARLORD' ? 2 : 0) };
   return { n, loc, codename, area, env, primary, secondary, route, rAt, rCount, faction, target, officer, reward,
@@ -1478,6 +1513,8 @@ function chooseMission(i) {
   need('BASE');
   const m = G.base.offers[i];
   if (!m) fail('No such mission.');
+  const word = (G.missing || []).find((r) => r.stage === 'STAND');
+  if (word) fail(`Word has come about ${word.name}. Hear how it ended before the next operation.`);
   G.mission = m;
   G.phase = 'BRIEFING';
 }
@@ -1616,9 +1653,9 @@ function leadBonuses(u, skill) {
   if (s.persona === 'AVENGER' && officerAt(st)) out.push({ label: `Grudge against ${officerAt(st).name}`, v: 1 });
   if (s.persona === 'JUNKIE' && u.streak) out.push({ label: 'Hot streak', v: 1 });
   if (skill === 'ASSAULT') {
-    if (u.weapon === 'AK' && ['RAIN', 'MUD', 'FLOOD', 'DUST', 'STORM'].includes(wx)) out.push({ label: `AK: reliable in ${WEATHER[wx].phrase}`, v: 1 });
-    if (u.weapon === 'SMG' && (st.kind === 'OBJECTIVE' || st.kind === 'OPTIONAL')) out.push({ label: 'SMG in close quarters', v: 1 });
-    if (u.weapon === 'AMR' && officerAt(st)) out.push({ label: 'Anti-materiel rifle against the officer', v: 1 });
+    if (kindOf(u.weapon) === 'AK' && ['RAIN', 'MUD', 'FLOOD', 'DUST', 'STORM'].includes(wx)) out.push({ label: `AK: reliable in ${WEATHER[wx].phrase}`, v: 1 });
+    if (kindOf(u.weapon) === 'SMG' && (st.kind === 'OBJECTIVE' || st.kind === 'OPTIONAL')) out.push({ label: 'SMG in close quarters', v: 1 });
+    if (kindOf(u.weapon) === 'AMR' && officerAt(st)) out.push({ label: 'Anti-materiel rifle against the officer', v: 1 });
   }
   return out;
 }
@@ -1703,6 +1740,7 @@ function difficulty(st, sit, opt, ids) {
     const carried = team().filter((u) => u.downed).length, carrier = carried && quirkOn('GUARDIAN');
     if (carrier) mods.push({ label: `${firstName(carrier)} carries the wounded`, v: 0 }); else add('Carrying wounded', carried);
     add('Escorting a prisoner', b.prisoner ? 1 : 0);
+    add('Helping a freed teammate along', b.rescued ? 1 : 0);
     for (const u of ids.map(unitById)) for (const w of u?.inj || []) add(`${u.name.split(' ')[0]}: ${INJURIES[w.id].label.toLowerCase()}`, INJURIES[w.id].noise || 0);
   }
   if (opt.skill === 'ASSAULT') { add('Enemy dug in (alerted)', alerted() ? 1 : 0); add('Enemy reinforced', b.reinf ? 1 : 0); }
@@ -1987,7 +2025,7 @@ function execute(o) {
   b.roll = { opt: o.opt, ids, lead, dice: Array.from({ length: pool.value }, d6), rerolled: [], diff: diff.value, pushed: false };
   cleanWork(b.roll);
   b.state = 'ROLLED';
-  if (unitById(lead).weapon !== 'CARBINE') tire([unitById(lead)]); // leading a test takes it out of you (a light carbine excepted); a failure tires everyone committed
+  if (kindOf(unitById(lead).weapon) !== 'CARBINE') tire([unitById(lead)]); // leading a test takes it out of you (a light carbine excepted); a failure tires everyone committed
 }
 const successes = (r) => r.dice.filter((d) => d >= HIT).length + (r.auto || 0); // auto: successes bought with Nerve
 const outcomeOf = (r) => { const s = successes(r); return s >= r.diff || (r.clean && s === r.diff - 1) ? 'SUCCESS' : s === r.diff - 1 ? 'PARTIAL' : 'FAIL'; };
@@ -2047,7 +2085,7 @@ const COMPLICATIONS = {
   GATE: ['TIME', 'The chain jams.'], MINES: ['HIT', 'A tripwire snaps.'], DOGS: ['HIT', 'A dog gets its teeth in.'], CLIFF: ['HIT', 'A hold breaks away.'],
   RIVERX: ['GEAR', 'Kit goes into the current.'], DOCKS: ['ALERT', 'A floodlight catches movement.'], CHECKPOINT: ['ALERT', 'Someone shouts for papers.'],
   ROOFTOP: ['ALERT', 'The spotter sees a shadow move.'], OPENGROUND: ['HIT', 'A round snaps past, and one finds its mark.'], FIRELINE: ['HIT', 'The flames jump the gap.'],
-  INTEL: ['TIME', 'The safe fights back.'], HVT: ['ALERT', 'A bodyguard hears the door.'], CACHE: ['TIME', 'The crates are wired and slow to clear.'], BREAK: ['ALERT', 'They are closing in.'],
+  INTEL: ['TIME', 'The safe fights back.'], HVT: ['ALERT', 'A bodyguard hears the door.'], CACHE: ['TIME', 'The crates are wired and slow to clear.'], HOLD: ['ALERT', 'The prisoner calls out at the wrong moment.'], BREAK: ['ALERT', 'They are closing in.'],
 };
 function complication(kind, text, r) {
   const b = B(), lead = unitById(r.lead), members = r.ids.map(unitById).filter(active);
@@ -2122,7 +2160,7 @@ function applyRoll(cost) {
     log(`${foes} hostile${foes > 1 ? 's' : ''} down.`, 'kill');
   }
   const clean = hasTrait(lead.sid, 'DEADEYE') || (hasSpec(lead.sid, 'CQB') && st.kind === 'OBJECTIVE' && opt.skill === 'ASSAULT');
-  if (opt.loud && foes) { if (clean) log(`${lead.name} leaves nobody able to shoot back.`, 'good'); else { if (lead.weapon === 'LMG') log(`${lead.name}'s LMG keeps their heads down.`, 'info'); returnFire(foes, lead.weapon === 'LMG' ? 6 : 5, ids, leadId); } }
+  if (opt.loud && foes) { if (clean) log(`${lead.name} leaves nobody able to shoot back.`, 'good'); else { if (kindOf(lead.weapon) === 'LMG') log(`${lead.name}'s LMG keeps their heads down.`, 'info'); returnFire(foes, lead.weapon === 'LMG' ? 6 : 5, ids, leadId); } }
   const om = threatOmen(), feared = !!om && !om.beaten && (om.officer ? !!off : st.choices[st.pick] === om.sit);
   // "Not dead yet": a warlord, or the feared officer or HVT, gets back up once and must be finished.
   const hvtBack = opt.hvt && !b.hvtBack && (TARGETS[m.target]?.back || (feared && om.sit === 'HVT'));
@@ -2151,6 +2189,7 @@ function takeObjective(opt, lead) {
   if (opt.hvt) { b.hvtKilled = true; lead.killedHvt = true; lead.kills++; b.kills++; log(`${lead.name} confirms the ${m.target === 'WARLORD' ? 'warlord' : 'target'} is dead.`, 'intel'); }
   if (opt.intel) { const c = active(lead) ? lead : team().find(active); b.carrier = c ? c.id : null; if (c) log(`${c.name} has the intel.`, 'intel'); }
   if (opt.cache) { b.cache = true; log('Cache secured. The quartermaster will be pleased.', 'intel'); }
+  if (opt.rescue) { b.rescued = true; log(`${soldier(m.rescue).name} is alive: thin, hurt, and walking with help. Get them to the extraction point. Helping them along makes moving quietly harder.`, 'major'); }
 }
 function reachExfil() {
   const b = B();
@@ -2166,7 +2205,7 @@ function passStage(u, kills) {
   const b = B(), st = cur(), sit = sitOf(st), foes = foesOf(st, sit), off = officerAt(st);
   if (kills && foes) { u.kills += foes; b.kills += foes; log(`${foes} hostile${foes > 1 ? 's' : ''} down.`, 'kill'); }
   if (off) { if (kills) officerFalls(off, [u], u, false); else log(`You slip past ${off.name}. They live to fight another day.`, 'info'); }
-  const goal = sit.opts.find((o) => o.hvt || o.intel || o.cache);
+  const goal = sit.opts.find((o) => o.hvt || o.intel || o.cache || o.rescue);
   if (goal) takeObjective(goal, u);
   if (st.kind === 'EXFIL') reachExfil();
   settle(true);
@@ -2204,7 +2243,7 @@ function waysOut(preview = false) { // preview: what a failed roll on screen wou
   const bang = carrier(['FRAG', 'BREACH']), demo = spec('DEMOLITIONS');
   if (bang) way('DEMOLITIONS', demo, 'Blow a new way in', `${firstName(bang)}'s ${ITEMS[bang.util].label.toLowerCase()}, and a minor hit`, 'Shaped and placed by someone who knows how: no alarm.');
   const mk = spec('MARKSMAN');
-  if (foes) way('MARKSMAN', mk, 'Clear it from overwatch', `Sits out the next stage${mk?.kit === 'SUPPRESSOR' || mk?.weapon === 'DMR' ? '' : ', raises alert'}`, 'One shot at a time from a hide. The guards go down.');
+  if (foes) way('MARKSMAN', mk, 'Clear it from overwatch', `Sits out the next stage${mk?.kit === 'SUPPRESSOR' || kindOf(mk?.weapon) === 'DMR' ? '' : ', raises alert'}`, 'One shot at a time from a hide. The guards go down.');
   const cqb = spec('CQB');
   if (foes) way('CQB', cqb, 'Room by room', cqb?.util === 'FLASHBANG' ? 'The flashbang, and a minor hit' : 'A serious hit', 'Straight in, first through every door. The guards go down.');
   const dv = spec('DIVER'), dry = dv?.kit === 'REBREATHER';
@@ -2302,7 +2341,7 @@ function takeWay(id, item = null) {
     case 'MARKSMAN':
       u.away = b.stage + 1;
       log(`${u.name} settles into a hide and takes them one at a time.`, 'good');
-      raise(u.kit === 'SUPPRESSOR' || u.weapon === 'DMR' ? 0 : 1, 'The shots echo.');
+      raise(u.kit === 'SUPPRESSOR' || kindOf(u.weapon) === 'DMR' ? 0 : 1, 'The shots echo.');
       return passStage(u, true);
     case 'CQB':
       log(`${u.name} goes in first, room by room.`, 'good');
@@ -2372,7 +2411,7 @@ const MEMORIAL = LS_TEXT.MEMORIAL; // data/voices.js
 const VIA = LS_TEXT.VIA; // data/story.js
 const WAY_PAST = LS_TEXT.WAY_PAST; // data/story.js
 const storyFill = (t, v) => t.replace(/\{(\w+)\}/g, (_, k) => v[k] ?? '');
-const gearWord = (u, skill) => { const it = [u.weapon, u.kit].find((x) => x && ITEMS[x].dice?.[skill] > 0) || u.weapon; return it ? ITEMS[it].label.toLowerCase() : 'handgun'; };
+const gearWord = (u, skill) => { const it = [u.weapon, u.kit].find((x) => x && ITEMS[x].dice?.[skill] > 0) || u.weapon; return it ? ITEMS[kindOf(it)].label.toLowerCase() : 'handgun'; };
 /** One line of scene-setting for a stage: the hour and the weather, then what waits there, through a teammate's eyes. */
 function arriveText(st) {
   const e = G.mission.env, i = stageIdx(st), key = st.pick != null ? st.choices[st.pick] : 'FORK';
@@ -2412,6 +2451,7 @@ function aarText(m, b, success) {
   }
   const goal = m.primary === 'ELIMINATE_HVT' ? (b.hvtKilled ? `The ${m.target ? TARGETS[m.target].label.toLowerCase() : 'target'} is confirmed dead.` : 'The target is still breathing.')
     : (b.carrier != null && unitById(b.carrier)?.exfil && !unitById(b.carrier)?.dead ? 'The intel came out with them.' : 'The intel did not come out.');
+  if (b.rescued) out.push(sq.some((u) => u.exfil && !u.dead) ? `${soldier(m.rescue).name} came home with them.` : `${soldier(m.rescue).name} was freed, and lost again.`);
   out.push(`${goal} ${b.kills ? `${cap(NUM[b.kills] || String(b.kills))} hostile${b.kills > 1 ? 's' : ''} down.` : 'Nobody on the other side was killed.'} Alarm at ${b.alert} of ${ALERT_MAX}.`);
   out.push(sq.some((u) => u.stranded) ? 'The window closed; the rest walked out.' : `Out ${VIA[m.ext] || 'on foot'}. ${success ? 'Mission complete.' : 'Mission failed.'}`);
   return out;
@@ -2580,7 +2620,8 @@ function abort() {
 function finish() {
   const b = B();
   b.over = true;
-  for (const u of team()) if (u.downed) killUnit(u, `${u.name} could not be recovered and is lost.`);
+  // Whoever is down when the team leaves is left behind: missing, their fate unknown (bleeding out in the field is KIA).
+  for (const u of team()) if (u.downed) { u.downed = false; u.bleed = 0; u.missing = true; log(`${u.name} is down and cannot be carried out. Missing in action.`, 'crit'); }
   b.cues = []; // the shooting is over: nobody is watching the bubbles now
   b.drone.up = false; // flies home if it is still up; debrief settles the item
   const m = G.mission;
@@ -2639,7 +2680,7 @@ function topicsFor(u, phase, speakers) {
   const m = G.mission, b = B(), s = soldier(u.sid), out = [];
   const add = (topic, p = {}) => out.push({ topic, ...p });
   if (phase === 'IN') {
-    if (u.weapon) add('GEAR', { weapon: WEAPON_NAME[u.weapon] });
+    if (u.weapon) add('GEAR', { weapon: WEAPON_NAME[kindOf(u.weapon)] });
     const threats = [...new Set(b.stages.filter((st) => st.kind !== 'APPROACH' && st.kind !== 'EXFIL').flatMap((st) => st.choices).filter((k) => THREAT_NAME[k]))];
     const off = m.officer; // a named officer is the threat people worry about most
     if (off && chance(off.returning ? 90 : 60)) add('THREAT', { officer: true, threat: off.name });
@@ -2664,7 +2705,7 @@ function topicsFor(u, phase, speakers) {
   }
   const fallen = team().filter((x) => x.dead || x.missing);
   if (fallen.length && lacks('GRIT')) add('LOST', { fallen: firstName(pick(fallen)) });
-  if (u.weapon && (u.weaponWins >= 2 || (u.weaponWins && u.kills)) && s.signature !== u.weapon) add('SIGNATURE', { weapon: WEAPON_NAME[u.weapon], weaponId: u.weapon }); // a weapon left behind on the way cannot become a signature
+  if (u.weapon && (u.weaponWins >= 2 || (u.weaponWins && u.kills)) && s.signature !== u.weapon) add('SIGNATURE', { weapon: WEAPON_NAME[kindOf(u.weapon)], weaponId: u.weapon }); // a weapon left behind on the way cannot become a signature
   if (u.wasOut && lacks('SURVIVOR')) add('SURVIVOR');
   if (!b.alerted && b.done && u.tests > 0 && lacks('SHADOW')) add('GHOST');
   const tom = threatOmen();
@@ -2750,7 +2791,8 @@ function applyLasting(o) {
 // PHASES: briefing → insertion → operation → extraction → debrief
 // =====================================================================================
 /** Intel price for this team: Intelligence level 3 knocks 1 off everything; specialists know their trade. */
-function intelCost(id, teamIds = []) {
+function intelCost(id, teamIds = [], free = true) {
+  if (free && G.freeIntel) return 0; // a last stand got the intel out: the next buy is on them
   const has = (k) => teamIds.some((sid) => hasSpec(sid, k));
   if (id === 'SIGINT' && has('SIGNALS')) return 0;
   let c = INTEL[id].cost - (G.base.lv.INTEL >= 3 ? 1 : 0);
@@ -2774,6 +2816,7 @@ function buyIntel(id, teamIds = []) {
   const cost = intelCost(id, teamIds);
   if (G.rp < cost) fail(`${i.label} costs ${cost} RP; you have ${G.rp}.`);
   G.rp -= cost;
+  if (cost < intelCost(id, teamIds, false)) G.freeIntel = false;
   m.intel.push(id);
   if (id === 'METEO') { rollWeather(m); m.env.forecast = m.env.weather; m.env.rel = 100; }
   if (id === 'INFORMANT') m.inside = m.route.findIndex((st) => st.kind === 'PERIMETER');
@@ -2790,7 +2833,7 @@ function launch(o) {
     const l = o.loadouts[id];
     if (!l) fail(`${s.name} needs a loadout.`);
     const cl = CLASSES[s.cls];
-    for (const [it, list] of [[l.weapon, cl.weapons], [l.armor, cl.armor], [l.utility, cl.utility], [l.kit, KITS]])
+    for (const [it, list] of [[l.weapon, classGear(s.cls, 'weapons')], [l.armor, cl.armor], [l.utility, cl.utility], [l.kit, KITS]])
       if (it && !list.includes(it)) fail(`A ${cl.label} can't carry ${ITEMS[it]?.label ?? it}.`);
     for (const it of [l.weapon, l.armor, l.utility, l.kit]) if (it) needed[it] = (needed[it] || 0) + 1;
     members.push(s);
@@ -2892,7 +2935,7 @@ function debrief(m) {
   const anyOut = sq.some((u) => u.exfil && !u.dead), casualties = sq.some((u) => u.dead || u.missing);
   const carrier = b.carrier != null ? unitById(b.carrier) : null;
   const intelOut = !!carrier && carrier.exfil && !carrier.dead;
-  const done = (t) => ({ RETRIEVE_INTEL: intelOut, ELIMINATE_HVT: b.hvtKilled, NO_CASUALTIES: anyOut && !casualties, UNDETECTED: anyOut && !b.alerted })[t];
+  const done = (t) => ({ RETRIEVE_INTEL: intelOut, ELIMINATE_HVT: b.hvtKilled, NO_CASUALTIES: anyOut && !casualties, UNDETECTED: anyOut && !b.alerted, RESCUE: anyOut && !!b.rescued })[t];
   const success = anyOut && done(m.primary);
   const rp = 2 + (success ? m.reward.rp - 2 : 0) + (done(m.secondary) ? 4 : 0) + (G.base.lv.CMD >= 3 ? 3 : 0);
   const off = m.officer, settled = b.officerKilled && !!off?.returning; // finally dealing with an officer who got away pays extra
@@ -2911,6 +2954,7 @@ function debrief(m) {
     if (u.dead || u.missing) {
       status = u.missing ? 'MIA' : 'KIA';
       s.alive = false;
+      if (u.missing) s.mia = true;
       for (const it of [u.weapon, u.armor, u.kit, u.util]) if (it) lost.push(`${ITEMS[it].label} (${u.name})`);
     } else {
       s.fatigue = Math.max(0, u.fat - 3 - rest);
@@ -2951,7 +2995,7 @@ function debrief(m) {
       notes.push(`${off.name} got away from you on ${off.returning}. Not this time: +1 BP.`);
     }
     if (off?.fate === 'CAPTIVE') {
-      G.captives.push({ name: off.name, surname: off.surname, trait: off.trait, from: m.codename, wait: CAPTIVE_WAIT });
+      G.captives.push({ name: off.name, surname: off.surname, trait: off.trueTrait || off.trait, from: m.codename, wait: CAPTIVE_WAIT });
       notes.push(`${off.name} is held at base for interrogation. While you hold a prisoner, you know who you are up against on every operation. In ${CAPTIVE_WAIT} missions they may be ready to talk about working for you.`);
     }
     if (b.hvtKilled && chance(m.target === 'WARLORD' ? 100 : 50)) { const it = m.target === 'WARLORD' ? pick(['THERMAL', 'PLATE', 'DMR']) : 'SMG'; G.armory[it] = (G.armory[it] || 0) + 1; gained.push(`${ITEMS[it].label} (the target's own)`); }
@@ -2970,10 +3014,21 @@ function debrief(m) {
   if (off?.fate === 'CAPTIVE' && !anyOut) notes.push(`${off.name} was lost in the chaos with the team. The prisoner is gone.`);
   if (off && !off.dead && (off.fate === 'ESCAPED' || off.returning)) { // the one who got away, or who you left alone again
     if (off.surname == null) { const [r, ...rest] = off.name.split(' '); off.surname = rest.join(' '); off.rank = Math.max(0, OFFICER_RANKS.indexOf(r)); }
-    G.nemeses.push({ name: off.name, surname: off.surname, rank: off.rank, trait: off.trait, loot: off.loot, escapes: off.escapes, from: m.codename });
+    G.nemeses.push({ name: off.name, surname: off.surname, rank: off.rank, trait: off.trueTrait || off.trait, loot: off.loot, escapes: off.escapes, from: m.codename });
     notes.push(`${off.name} got away. Expect to hear from them again.`);
   }
   if (taught.length) notes.push(`${mentor.name} showed ${taught.join(' and ')} how it is done: +50% XP. (Mentor)`);
+  // Missing in action: a freed teammate comes home (or is lost again), word comes of earlier losses, new losses are listed.
+  const home = [], held = m.rescue != null ? (G.missing || []).find((r) => r.sid === m.rescue && r.stage === 'RESCUE') : null;
+  if (held && b.rescued) {
+    if (anyOut) home.push(homecoming(held, m));
+    else { lostForGood(held, `Freed on ${m.codename}, then lost again with the team.`); notes.push(`${held.name} was freed, and lost again when the team did not get out. The wall lists them as killed in action now.`); }
+  }
+  traceMissing(m, notes);
+  for (const u of sq.filter((x) => x.missing)) {
+    (G.missing ||= []).push(missingRec(u, m));
+    notes.push(`${u.name} is missing in action. Nobody knows yet whether they are alive: intel bought on later missions, or a prisoner, may tell you.`);
+  }
   // A bond with someone who died turns into grit.
   for (const dead of G.roster.filter((x) => !x.alive)) for (const s of G.roster.filter((x) => x.alive && x.bonds?.includes(dead.id))) {
     s.bonds = s.bonds.filter((id) => id !== dead.id);
@@ -3005,8 +3060,163 @@ function debrief(m) {
     team: sq.map((u) => { const s = soldier(u.sid), l = m.loadouts[s.id] || {}, d = soldiers.find((x) => x.sid === s.id);
       return { sid: s.id, name: u.name, face: s.face, cls: s.cls, spec: s.spec, rank: d?.rank, status: d?.status, gear: [l.weapon, l.armor, l.kit, l.utility].filter(Boolean) }; }),
     words: words.map((w) => ({ when: w.when, name: w.name, text: w.text })), fallen: fallen.map((f) => ({ name: f.name, missing: f.missing, by: f.by, line: f.line })) });
-  return { success, objectives, soldiers, lost, gained, rp, bp, notes, words, aar, fallen };
+  return { success, objectives, soldiers, lost, gained, rp, bp, notes, words, aar, fallen, home };
 }
+// ---------------------------------------------------------------- missing in action
+/* An operator left behind is missing, not dead. Whether they are alive is settled at once by the story hash and stays
+   hidden until word comes: from intel bought on later missions, from a prisoner, or a report after MIA.REPORT missions.
+   Alive: for MIA.WINDOW missions one operation in that region carries 'Bring them home'. Dead: at base the player plays
+   their last hours (data/missing.js) and chooses what their death bought: the intel out, the officer, or now and then
+   a weapon they left behind. */
+const MIA = { ALIVE: 50, REPORT: 3, WINDOW: 2, STAND_RP: 3, OUT: [2, 3] };
+const TRACE_ODDS = { INFORMANT: 50, SIGINT: 35, UAV: 35 }, PRISONER_ODDS = 30; // % per mission that a source turns something up
+// Who a personality becomes after captivity, if the player chooses that change; a personality someone else has passes down the list.
+const CAPTIVITY = { STOIC: 'QUIET', JOKER: 'FATALIST', FATALIST: 'BELIEVER', ROOKIE: 'AVENGER', GEARHEAD: 'PERFECTIONIST', GLORY: 'QUIET',
+  GUARDIAN: 'AVENGER', SUPERSTITIOUS: 'FATALIST', MERC: 'LONER', PLANNER: 'PERFECTIONIST', LONER: 'QUIET', JUNKIE: 'FATALIST', HOMESICK: 'PHILOSOPHER',
+  PHILOSOPHER: 'QUIET', AVENGER: 'BELIEVER', PERFECTIONIST: 'STOIC', OPTIMIST: 'PHILOSOPHER', VETERAN: 'STOIC', BELIEVER: 'AVENGER', QUIET: 'LONER' };
+const CAPTIVITY_TRAITS = ['GRIT', 'SURVIVOR', 'SHADOW'];
+const PLACE = LS_TEXT.PLACE, TRACE_SOURCE = LS_TEXT.TRACE_SOURCE, TRACE_DETAIL = LS_TEXT.TRACE_DETAIL, TRACE_ALIVE = LS_TEXT.TRACE_ALIVE; // data/missing.js
+const LAST_STAND = LS_TEXT.LAST_STAND, RESCUED = LS_TEXT.RESCUED; // data/missing.js
+/** The file on an operator left behind. Their fate is fixed now, by the story hash; the player learns it later. */
+function missingRec(u, m) {
+  const s = soldier(u.sid), off = m.officer;
+  return { sid: s.id, name: s.name, persona: s.persona, loc: m.loc, op: m.codename, n: m.n, weapon: m.loadouts[s.id]?.weapon || null,
+    officer: off && !off.dead ? { name: off.name, surname: off.surname } : null, // the officer they were up against, if still out there
+    alive: hash32(`fate:${s.name}:${m.n}`) % 100 < MIA.ALIVE, stage: 'UNKNOWN', wait: 0 };
+}
+/** After a mission: rescue windows run down, and word may come of anyone still missing from an earlier one. */
+function traceMissing(m, notes) {
+  for (const r of G.missing || []) {
+    if (r.stage === 'RESCUE' && r.tracedN < m.n && --r.window <= 0) {
+      lostForGood(r, 'Moved before the team could reach them, and never found.');
+      notes.push(`${r.name} was moved before anyone could reach them. The wall lists them as killed in action now.`);
+      continue;
+    }
+    if (r.stage !== 'UNKNOWN' || r.n >= m.n) continue;
+    const roll = (src, p) => hash32(`trace:${r.name}:${m.n}:${src}`) % 100 < p;
+    let src = ['INFORMANT', 'SIGINT', 'UAV'].find((k) => m.intel.includes(k) && roll(k, TRACE_ODDS[k])) || null, prisoner = null;
+    if (!src) { const c = G.captives.find((x) => roll(`P:${x.surname}`, PRISONER_ODDS)); if (c) { src = 'PRISONER'; prisoner = c.name; } }
+    if (!src && ++r.wait >= MIA.REPORT) src = 'REPORT';
+    if (src) revealMissing(r, src, prisoner, m.n, notes);
+  }
+}
+function revealMissing(r, src, prisoner, n, notes) {
+  const v = { place: PLACE[r.loc], name: firstName(r), prisoner: prisoner || 'A prisoner', detail: TRACE_DETAIL[r.persona] };
+  r.tracedN = n; r.src = src;
+  if (r.alive) {
+    r.stage = 'RESCUE'; r.window = MIA.WINDOW;
+    r.trace = storyFill(TRACE_ALIVE[src], v);
+    notes.push(`${r.trace} For the next ${MIA.WINDOW} missions, one operation in ${PLACE[r.loc]} has a second objective: bring ${firstName(r)} home.`);
+  } else {
+    r.stage = 'STAND'; r.legacy = hash32(`legacy:${r.name}`) % 3 === 0; // now and then they leave a weapon behind instead of taking an officer
+    r.trace = storyFill(TRACE_SOURCE[src], v);
+    notes.push(`${r.trace} ${r.name} is dead. At base, hear how it ended.`);
+  }
+}
+/** A missing operator is no longer missing: their wall entry and their mission file say how it ended. */
+function markFallen(r, fate, story) {
+  for (const f of G.memorial || []) if (f.name === r.name && f.op === r.op) { f.missing = false; f.fate = fate; }
+  for (const a of G.archive || []) if (a.op === r.op) for (const x of a.fallen) if (x.name === r.name) { x.missing = false; x.fate = fate; if (story) x.story = story; }
+}
+function lostForGood(r, fate) { r.stage = 'LOST'; markFallen(r, fate); }
+/** A rescue made it out: back on the roster, out for a while, and changed. */
+function homecoming(r, m) {
+  const s = soldier(r.sid), out = MIA.OUT[hash32(`out:${r.name}`) % MIA.OUT.length];
+  Object.assign(s, { alive: true, mia: false, fatigue: 0, bonds: [], recovery: out + 1, healing: ['Held captive'] });
+  r.stage = 'HOME';
+  G.memorial = (G.memorial || []).filter((f) => !(f.name === r.name && f.op === r.op));
+  for (const a of G.archive || []) if (a.op === r.op) for (const x of a.fallen) if (x.name === r.name) { x.missing = false; x.home = true; x.fate = `Brought home on ${m.codename}.`; }
+  const lines = [...(RESCUED[s.persona] || []), ...RESCUED._];
+  return { sid: s.id, name: s.name, face: s.face, cls: s.cls, spec: s.spec, out, words: lines[hash32(`home:${s.name}`) % lines.length], opts: captivityChanges(s), chosen: null };
+}
+/** Two ways captivity may have changed them: a hard-won trait, or a different personality. */
+function captivityChanges(s) {
+  const opts = [], traits = CAPTIVITY_TRAITS.filter((t) => !s.traits.includes(t));
+  if (s.traits.length < TRAIT_CAP && traits.length) opts.push({ kind: 'TRAIT', id: traits[hash32(`scar:${s.name}`) % traits.length] });
+  const taken = new Set(G.roster.filter((x) => x.alive && x !== s).map((x) => x.persona));
+  const p = [CAPTIVITY[s.persona], 'FATALIST', 'QUIET', 'AVENGER', 'PHILOSOPHER', 'STOIC'].find((k) => k && k !== s.persona && !taken.has(k));
+  if (p) opts.push({ kind: 'PERSONA', id: p });
+  if (opts.length < 2) opts.push({ kind: 'NONE' });
+  return opts;
+}
+/** The player picks how captivity changed a rescued operator. */
+function rescueChange(sid, k) {
+  need('DEBRIEF');
+  const h = (G.debrief.home || []).find((x) => x.sid === sid);
+  if (!h) fail('Nobody came home to change.');
+  if (h.chosen != null) fail(`${h.name} has already been changed.`);
+  const o = h.opts[k];
+  if (!o) fail('No such change.');
+  const s = soldier(sid);
+  if (o.kind === 'TRAIT') s.traits.push(o.id);
+  if (o.kind === 'PERSONA') { s.persona = o.id; delete s.rec; }
+  h.chosen = k;
+}
+// ---------------- the last stand: two beats in their voice, then the choice of what their death bought
+const standRec = (sid) => { const r = (G.missing || []).find((x) => x.sid === sid && x.stage === 'STAND'); if (!r) fail('There is no word to hear.'); return r; };
+const standEnds = (r) => ['INTEL', r.legacy ? 'LEGACY' : 'OFFICER'];
+const sentenceCase = (t) => t.replace(/(^|[.!?]\s+)([a-z])/g, (_, a, c) => a + c.toUpperCase());
+/** The weapon they carried, as a word: a legacy weapon is made from it (from their class's first, if they had only a handgun). */
+const legacyBase = (r) => { const w = kindOf(r.weapon); return ITEMS[w]?.slot === 'WEAPON' ? w : CLASSES[soldier(r.sid).cls].weapons[0]; };
+const standVars = (r) => ({ name: firstName(r), officer: r.officer?.name || 'the officer in charge', place: PLACE[r.loc],
+  weapon: WEAPON_NAME[legacyBase(r)] || ITEMS[legacyBase(r)].label.toLowerCase() });
+/** Their last hours as told so far: paragraphs in order. */
+function standStory(r) {
+  const L = LAST_STAND[r.persona] || LAST_STAND.STOIC, v = standVars(r), f = (t) => sentenceCase(storyFill(t, v)), out = [f(L.open)];
+  (r.beats || []).forEach((o, i) => { const b = i ? L.b2 : L.b1; out.push(f(b[0]), f(b[1 + o][1])); });
+  if (r.end) out.push(f(L.fin), f(r.end === 'LEGACY' ? L.legacy[0] : r.end === 'OFFICER' ? L.officer : L.intel), f(L.last));
+  return out;
+}
+/** What each ending does, in plain words, before it is chosen. */
+function standEffect(r, kind) {
+  const nem = r.officer && G.nemeses.some((x) => x.surname === r.officer.surname);
+  if (kind === 'INTEL') return `+${MIA.STAND_RP} RP, and the next intel you buy is free.`;
+  if (kind === 'LEGACY') return `${LAST_STAND[r.persona].legacy[1]} (${firstName(r)}'s legacy) joins the armory: a ${ITEMS[legacyBase(r)].label.toLowerCase()} that is theirs alone.`;
+  return nem ? `${r.officer.name} is dead, and will not be coming back for you.` : 'The next enemy officer you face is wounded: no trait, falls more easily, rarely gets away.';
+}
+function standPick(sid, beat, opt) {
+  needBase();
+  const r = standRec(sid), beats = (r.beats ||= []);
+  if (beat !== beats.length || beat > 1) fail('Their story is told in order.');
+  if (opt !== 0 && opt !== 1) fail('There are two ways it could have gone.');
+  beats.push(opt);
+}
+const woundOne = (o) => { if (o.trait !== 'WOUNDED') { o.trueTrait = o.trait; o.trait = 'WOUNDED'; } };
+function standEnd(sid, kind) {
+  needBase();
+  const r = standRec(sid);
+  if ((r.beats || []).length < 2) fail('Hear the rest first.');
+  if (!standEnds(r).includes(kind)) fail('That is not how it ended.');
+  r.effect = standEffect(r, kind);
+  let deed = 'Got the intel out.';
+  if (kind === 'INTEL') { G.rp += MIA.STAND_RP; G.freeIntel = true; }
+  if (kind === 'OFFICER') {
+    const o = r.officer, nem = o && G.nemeses.find((x) => x.surname === o.surname);
+    if (o) (G.slain ||= []).push(o.surname);
+    if (nem) { G.nemeses = G.nemeses.filter((x) => x !== nem); for (const m of G.base.offers) if (m.officer?.surname === o.surname) m.officer = null; }
+    else { const offs = G.base.offers.map((m) => m.officer).filter(Boolean); if (offs.length) offs.forEach(woundOne); else G.woundNext = true; }
+    deed = `Took ${o ? o.name : 'the officer in charge'} with them.`;
+  }
+  if (kind === 'LEGACY') {
+    const id = `LEGACY${r.sid}`;
+    (G.legacy ||= []).push({ id, base: legacyBase(r), label: `${LAST_STAND[r.persona].legacy[1]} (${firstName(r)}'s legacy)` });
+    registerLegacy();
+    G.armory[id] = 1;
+    deed = `Left ${ITEMS[id].label} behind.`;
+  }
+  r.end = kind; r.stage = 'FALLEN'; r.story = standStory(r);
+  markFallen(r, `Found dead. ${deed}`, r.story);
+}
+/** Legacy weapons live in the save; the item table learns them on load. */
+function registerLegacy() { for (const l of G?.legacy || []) ITEMS[l.id] = { ...ITEMS[l.base], label: l.label, base: l.base, legacy: true }; }
+/** A missing operator is held at this mission's holding site: the rescue replaces the optional target. */
+function rescueMission(m, r) {
+  m.secondary = 'RESCUE'; m.rescue = r.sid;
+  if (m.primary !== 'ELIMINATE_HVT') m.target = null;
+  const at = m.route.findIndex((st) => st.kind === 'OPTIONAL'), hold = { kind: 'OPTIONAL', choices: ['HOLD'], pick: 0 };
+  if (at >= 0) m.route[at] = hold; else m.route.splice(m.route.length - 1, 0, hold);
+}
+
 function proceed() {
   const m = G.mission, it = interlude();
   if (it && !interDone(it)) fail(it.pick == null ? 'Choose whose words stay with you first.' : 'Two minds: keep a second statement first.');
@@ -3018,6 +3228,8 @@ function proceed() {
   } else if (G.phase === 'EXTRACTION' || G.phase === 'INTERLUDE_OUT') { G.debrief = debrief(m); G.phase = 'DEBRIEF'; }
   else if (G.phase === 'DEBRIEF') {
     if (G.recruits > 0) fail('Choose a class for each replacement recruit first.');
+    const back = (G.debrief.home || []).find((h) => h.chosen == null);
+    if (back) fail(`Choose how captivity changed ${back.name} first.`);
     beginBase();
   } else fail('Nothing to continue.');
 }
@@ -3179,6 +3391,7 @@ const SITREPS = [
   [/extraction window/, 'Window closed', 'No pickup is coming. Everyone still out there walks, and not all of them may make it.'],
   [/aborted/, 'Mission aborted', 'The team breaks contact on foot. Nothing more gets done tonight.'],
   [/KIA|could not be recovered/, 'KIA', 'An operator will not be coming home.'],
+  [/Missing in action/, 'MIA', 'An operator is left behind. Nobody knows yet whether they are alive.'],
 ];
 let sitKey = null, sitSeq = 0;
 function showSitrep() {
@@ -3676,7 +3889,7 @@ function mapHtml(m, stages, curIdx, wx, opt = {}) {
     v.idx.forEach((ci, n2) => {
       const q = v.pts[n2], [x, y] = P(q), c = st.choices[ci], fork = v.idx.length > 1;
       if (v.named && st.kind === 'PERIMETER') feats += featSvg(c, x, y, sk, md);
-      const lbl = st.abandoned ? 'ABANDONED' : st.kind === 'APPROACH' ? 'RP' : st.kind === 'EXFIL' ? 'EXFIL' : !v.named ? '?' : st.kind === 'OBJECTIVE' || st.kind === 'OPTIONAL' ? (c === 'HVT' ? 'HVT' : c === 'INTEL' ? 'INTEL' : 'CACHE') : SIT[c].label.toUpperCase();
+      const lbl = st.abandoned ? 'ABANDONED' : st.kind === 'APPROACH' ? 'RP' : st.kind === 'EXFIL' ? 'EXFIL' : !v.named ? '?' : st.kind === 'OBJECTIVE' || st.kind === 'OPTIONAL' ? (c === 'HVT' ? 'HVT' : c === 'INTEL' ? 'INTEL' : c === 'HOLD' ? 'HOLD' : 'CACHE') : SIT[c].label.toUpperCase();
       nodes += `<g class="wp ${state} ${fork ? 'fork' : ''}" transform="translate(${x} ${y})">${st.abandoned ? `<path class="xmark" d="M-${f1(14 * sk)} -${f1(14 * sk)}L${f1(14 * sk)} ${f1(14 * sk)}M${f1(14 * sk)} -${f1(14 * sk)}L-${f1(14 * sk)} ${f1(14 * sk)}"/>` : ''}${state === 'cur' ? `<circle class="ping" r="${f1(11 * sk)}"/>` : ''}<circle r="${f1((fork ? 9 : 11) * sk)}"/>
         <text dy="${f1(4 * sk)}" style="font-size:${f1((fork ? 10 : 12) * sk)}px">${s + 1}${fork ? "AB"[n2] : ""}</text><text class="lbl" dy="${f1(26 * sk)}" style="font-size:${f1(9 * sk)}px">${lbl}</text></g>`;
       if (st.kind === 'APPROACH' || s < curIdx || v.skipped) return;
@@ -3864,13 +4077,15 @@ function enemyFacts(m) {
 
 // ------------------------------------------------------------------ base
 const BASE_TABS = ['BARRACKS', 'MED', 'ENG', 'INTEL', 'LOG', 'CMD'];
+/** The secondary objective's name; a rescue names who is waiting. */
+const secondaryLabel = (m) => `${OBJ[m.secondary].label}${m.rescue != null ? `: ${esc(soldier(m.rescue).name)}` : ''}`;
 function offerHtml(m, i) {
   const k = enemyKnown(m);
   return `<div class="offer">${bannerHtml(m, m.env.forecast, "bleed")}<div class="offer-head"><span class="chip">${LOCATIONS[m.loc].label}</span><span class="chip">${{ DAY: 'Day', DUSK: 'Dusk', NIGHT: 'Night' }[m.env.time]}</span>
       <span class="chip ${WEATHER[m.env.forecast].tire || Object.values(WEATHER[m.env.forecast].veh).some((v) => typeof v === 'string') ? 'warn' : ''}">${WEATHER[m.env.forecast].label} · ${m.env.rel}%</span></div>
     <h2>${esc(m.codename)}</h2><p class="area">${esc(m.area)}</p>
-    <ul class="objectives"><li><span class="tag primary">Primary</span><b>${OBJ[m.primary].label}</b></li><li><span class="tag">Secondary</span><b>${OBJ[m.secondary].label}</b></li></ul>
-    <dl class="facts"><dt>Threat</dt><dd>${threat(m)}</dd>${k.faction ? `<dt>Enemy</dt><dd class="fac">${emblem(m.faction)}${FACTIONS[m.faction].label}</dd>` : ''}${m.officer?.returning ? `<dt>Officer</dt><dd><span class="chip bad">${esc(m.officer.name)} has resurfaced</span></dd>` : ''}<dt>Reward</dt><dd>${m.reward.rp} RP · ${m.reward.bp} BP on success</dd></dl>
+    <ul class="objectives"><li><span class="tag primary">Primary</span><b>${OBJ[m.primary].label}</b></li><li><span class="tag">Secondary</span><b>${secondaryLabel(m)}</b></li></ul>
+    <dl class="facts"><dt>Threat</dt><dd>${threat(m)}</dd>${k.faction ? `<dt>Enemy</dt><dd class="fac">${emblem(m.faction)}${FACTIONS[m.faction].label}</dd>` : ''}${m.officer?.returning ? `<dt>Officer</dt><dd><span class="chip bad">${esc(m.officer.name)} has resurfaced</span></dd>` : m.officer?.trait === 'WOUNDED' ? '<dt>Officer</dt><dd><span class="chip ok">Wounded in a last stand</span></dd>' : ''}<dt>Reward</dt><dd>${m.reward.rp} RP · ${m.reward.bp} BP on success</dd></dl>
     <button class="btn primary" type="button" data-mission="${i}">Plan this mission</button></div>`;
 }
 function deptHtml(d, sheet = false) { // sheet: opened over the briefing, without upgrades
@@ -3892,7 +4107,8 @@ function deptHtml(d, sheet = false) { // sheet: opened over the briefing, withou
         <span class="muted">Taken on ${esc(c.from)}. ${c.wait ? `Under interrogation · ${c.wait} more mission${c.wait > 1 ? 's' : ''}` : `Ready to talk: would join as ${CLASSES[OFFICER_TRAITS[c.trait].hire[0]].label} (${SPECS[OFFICER_TRAITS[c.trait].hire[1]].label})`}.</span><span class="grow"></span>
         ${c.wait ? '' : `<button class="btn" type="button" data-hire="${i}" ${alive.length >= rosterMax() ? 'disabled' : ''}>Recruit</button>`}
         <button class="btn" type="button" data-trade="${i}">Hand over · +${CAPTIVE_TRADE.rp} RP +${CAPTIVE_TRADE.bp} BP</button></div>`).join('')}</div>
-        <p class="muted">While you hold a prisoner, you know which force you face on every operation.</p>` : ''}`;
+        <p class="muted">While you hold a prisoner, you know which force you face on every operation.</p>` : ''}
+      ${missingHtml()}`;
   } else if (d === 'MED') {
     const needy = G.roster.filter((s) => s.alive && (s.recovery || s.fatigue));
     body = `<p class="muted">Beds in use: ${bs.beds.length}/${bs.lv.MED}. Treatment costs ${TREAT_COST} RP and lasts until the next mission comes home: ${bs.lv.MED >= 3 ? 'injuries heal fully' : 'recovery runs twice as fast'}, and fatigue is cleared.</p>
@@ -3915,6 +4131,52 @@ function deptHtml(d, sheet = false) { // sheet: opened over the briefing, withou
   }
   return head + `<div class="dept-body">${body}</div>`;
 }
+/** Operators still out there, in the barracks: what is known about each. */
+function missingHtml() {
+  const out = (G.missing || []).filter((r) => ['UNKNOWN', 'RESCUE', 'STAND'].includes(r.stage));
+  if (!out.length) return '';
+  const status = (r) => ({ UNKNOWN: 'Fate unknown. Intel bought on missions, or a prisoner, may turn up word.',
+    RESCUE: `Alive, and held in ${PLACE[r.loc]}. Bring them home: ${r.window} mission${r.window > 1 ? 's' : ''} left.`, STAND: 'Word has come. Hear it on the mission board.' })[r.stage];
+  return `<h3>Missing in action</h3><div class="roster-list">${out.map((r) => `<div class="rrow">${faceImg(soldier(r.sid), 'f40')}<b>${esc(r.name)}</b><span class="stamp mini">MIA</span>
+    <span class="muted">Lost on ${esc(r.op)}. ${status(r)}</span></div>`).join('')}</div>`;
+}
+/** Word that a missing operator is dead: on the mission board until their last hours have been heard. */
+function wordHtml() {
+  const rs = (G.missing || []).filter((r) => r.stage === 'STAND');
+  return rs.map((r) => `<div class="word-card">${faceImg(soldier(r.sid), 'f48')}<div><div class="eyebrow">Word from ${esc(PLACE[r.loc])}</div><b>${esc(r.name)}</b>
+    <p class="trace">${esc(r.trace)}</p><button class="btn primary" type="button" data-stand="${r.sid}">Hear how it ended</button></div></div>`).join('');
+}
+/** The last stand, in the dialog over the base: the story so far, then the next choice. */
+function standHtml(r) {
+  const L = LAST_STAND[r.persona] || LAST_STAND.STOIC, v = standVars(r), f = (t) => esc(sentenceCase(storyFill(t, v))), s = soldier(r.sid), beats = r.beats || [];
+  let step;
+  if (r.stage !== 'STAND') step = `<p class="stand-effect"><span class="stamp mini">KIA</span> ${esc(r.effect || '')}</p>`;
+  else if (beats.length < 2) {
+    const b = beats.length ? L.b2 : L.b1;
+    step = `<p class="stand-sit">${f(b[0])}</p><div class="stand-opts">${[1, 2].map((k) => `<button class="btn" type="button" data-beat="${beats.length}" data-o="${k - 1}"><b>${esc(b[k][0])}</b></button>`).join('')}</div>`;
+  } else {
+    const what = { INTEL: 'Get the intel out', OFFICER: `Take ${v.officer} with them`, LEGACY: `Leave the ${v.weapon} behind` };
+    step = `<p class="stand-sit">${f(L.fin)}</p><div class="stand-opts">${standEnds(r).map((k) => `<button class="btn" type="button" data-end="${k}"><b>${esc(sentenceCase(what[k]))}</b><small>${esc(standEffect(r, k))}</small></button>`).join('')}</div>`;
+  }
+  // the situation that opens each beat (and the final one) stands apart from what they did about it
+  const sit = (i) => i === 1 || i === 3 || i === 5;
+  return `<div class="help-head"><h2 id="opinfo-title">The last hours of ${esc(r.name)}</h2><button class="btn ghost icon" type="button" id="opinfo-close" aria-label="Close">${ico('cross')}</button></div>
+    <div class="help-body dossier"><div class="word-card">${faceImg(s, 'f48')}<div><b>${esc(RANKS[rankIdx(s.xp)][1])} ${esc(r.name)}</b> <span class="muted">${PERSONAS[r.persona].label} · lost on ${esc(r.op)}</span><p class="trace">${esc(r.trace)}</p></div></div>
+      <div class="stand-story">${standStory(r).map((p, i) => `<p class="${sit(i) ? 'stand-sit' : ''}">${esc(p)}</p>`).join('')}${step}</div></div>`;
+}
+function openStand(sid) {
+  const d = $('#opinfo'), fill = () => {
+    const r = (G.missing || []).find((x) => x.sid === sid);
+    if (!r) return d.close();
+    d.innerHTML = standHtml(r);
+    $('#opinfo-close').addEventListener('click', () => d.close());
+    d.querySelectorAll('[data-beat]').forEach((b) => b.addEventListener('click', () => { sfx('select'); run(() => standPick(sid, +b.dataset.beat, +b.dataset.o)); fill(); }));
+    d.querySelectorAll('[data-end]').forEach((b) => b.addEventListener('click', () => { sfx('fail'); buzz(120); run(() => standEnd(sid, b.dataset.end)); fill(); }));
+  };
+  fill();
+  sfx('click');
+  if (!d.open) d.showModal();
+}
 /** The memorial wall: every operator lost, newest first, with the words a teammate said for them. */
 function memorialHtml() {
   const wall = [...(G.memorial || [])].reverse();
@@ -3922,7 +4184,7 @@ function memorialHtml() {
   if (!wall.length) return '';
   return `<div class="card memorial"><div class="eyebrow">In memoriam</div><h2>The wall</h2><p class="muted" style="margin:0 0 12px">${wall.length} name${wall.length > 1 ? 's' : ''}. They do not come home; they are not forgotten.</p>
     <div class="mem-list">${wall.map((f) => `<div class="mem">${f.face ? faceImg(f, 'f48') : ''}<div><b>${esc(f.rank)} ${esc(f.name)}</b>${f.missing ? ' <span class="stamp mini">MIA</span>' : ''}
-      <small>${CLASSES[f.cls] ? CLASSES[f.cls].label : ''}${f.op ? ` · lost on ${esc(f.op)}` : ''}</small>${f.line ? `<q>${esc(f.line)}</q><small class="mem-by">${esc(f.by)}</small>` : ''}</div></div>`).join('')}</div></div>`;
+      <small>${CLASSES[f.cls] ? CLASSES[f.cls].label : ''}${f.op ? ` · lost on ${esc(f.op)}` : ''}</small>${f.fate ? `<small class="mem-fate">${esc(f.fate)}</small>` : ''}${f.line ? `<q>${esc(f.line)}</q><small class="mem-by">${esc(f.by)}</small>` : ''}</div></div>`).join('')}</div></div>`;
 }
 /** The archive: a file for every mission flown, next to the memorial wall. */
 function archiveHtml() {
@@ -3952,7 +4214,7 @@ function fileHtml(i) {
       <div><h3>After-action report</h3>${f.aar.map((p) => `<p class="aar">${esc(p)}</p>`).join('')}
         <ul class="file-obj">${f.objectives.map((o) => `<li class="${o.ok ? 'ok' : 'no'}">${ico(o.ok ? 'check' : 'cross')}${esc(o.label)}</li>`).join('')}</ul></div>
       ${f.words.length ? `<div><h3>Words that stayed</h3>${f.words.map((w) => `<p class="aar"><small class="muted">${w.when}, ${esc(w.name)}:</small> <q>${esc(w.text)}</q></p>`).join('')}</div>` : ''}
-      ${f.fallen.length ? `<div><h3>The fallen</h3>${f.fallen.map((x) => `<p class="aar"><b>${esc(x.name)}</b>${x.missing ? ' <span class="stamp mini">MIA</span>' : ' <span class="stamp mini">KIA</span>'}${x.line ? ` <q>${esc(x.line)}</q> <small class="muted">${esc(x.by ?? '')}</small>` : ''}</p>`).join('')}</div>` : ''}
+      ${f.fallen.length ? `<div><h3>The fallen</h3>${f.fallen.map((x) => `<p class="aar"><b>${esc(x.name)}</b> <span class="stamp mini">${x.home ? 'Home' : x.missing ? 'MIA' : 'KIA'}</span>${x.line ? ` <q>${esc(x.line)}</q> <small class="muted">${esc(x.by ?? '')}</small>` : ''}${x.fate ? `<small class="mem-fate">${esc(x.fate)}</small>` : ''}</p>${(x.story || []).map((p) => `<p class="aar">${esc(p)}</p>`).join('')}`).join('')}</div>` : ''}
       <div><h3>Logistics</h3><dl class="gloss">${row('Earned', `${f.rp} RP · ${f.bp} BP`)}${row('Gained', f.gained.length ? f.gained.map(esc).join('<br>') : 'Nothing')}${row('Lost', f.lost.length ? f.lost.map(esc).join('<br>') : 'Nothing')}</dl></div>
     </div>`;
 }
@@ -3969,7 +4231,7 @@ function renderBase() {
   $('#view').innerHTML = `<section class="base">
     <div class="col"><div class="card"><div class="eyebrow">Forward operating base · After ${G.flown} mission${G.flown === 1 ? '' : 's'}${G.play ? ` · ${PLAY_MODES[G.play].label}` : ''}</div><h1>Mission board</h1>
       <p class="muted" style="margin:0 0 14px">Choose the next operation. Requisition ${G.rp} RP · Base points ${G.bp} BP.</p>
-      <div class="offers">${bs.offers.map(offerHtml).join('')}</div></div>${memorialHtml()}${archiveHtml()}</div>
+      ${wordHtml()}<div class="offers">${bs.offers.map(offerHtml).join('')}</div></div>${memorialHtml()}${archiveHtml()}</div>
     <div class="col"><div class="card dept">
       <div class="tabs" role="tablist">${BASE_TABS.map((d) => `<button class="tab ${d === tab ? 'on' : ''}" type="button" role="tab" aria-selected="${d === tab}" data-tab="${d}">${DEPTS[d].label}<small>L${bs.lv[d]}</small></button>`).join('')}</div>
       ${deptHtml(tab)}</div></div></section>`;
@@ -3978,6 +4240,7 @@ function renderBase() {
   v.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => { ui.baseTab = b.dataset.tab; saveUi(); sfx('click'); renderBase(); }));
   v.querySelectorAll('[data-mission]').forEach((b) => b.addEventListener('click', () => { sfx('select'); run(() => chooseMission(+b.dataset.mission)); }));
   v.querySelectorAll('[data-file]').forEach((b) => b.addEventListener('click', () => openFile(+b.dataset.file)));
+  v.querySelectorAll('[data-stand]').forEach((b) => b.addEventListener('click', () => openStand(+b.dataset.stand)));
   bindDept(v);
 }
 /** Department buttons, wherever the panel is shown: at base, or in the sheet over the briefing (after re-draws it). */
@@ -4056,7 +4319,7 @@ function renderBriefing() {
   }).join('');
   const humint = m.intel.includes('HUMINT') || m.intel.includes('SIGINT') ? `<div class="humint"><div>${m.rAt ? `Expect ${m.rCount === 1 ? 'one vehicle' : 'two vehicles'} of reinforcements after your ${m.rAt}${['th', 'st', 'nd', 'rd'][m.rAt] || 'th'} action.` : 'No reinforcements expected.'}</div></div>` : '';
   const select = (sid, slot, cur) => {
-    const allowed = slot === 'KIT' ? KITS : CLASSES[classOf(sid)][{ WEAPON: 'weapons', ARMOR: 'armor', UTILITY: 'utility' }[slot]];
+    const allowed = slot === 'KIT' ? KITS : classGear(classOf(sid), { WEAPON: 'weapons', ARMOR: 'armor', UTILITY: 'utility' }[slot]);
     const opts = allowed.map((k) => {
       const n = (left[k] || 0) + (cur === k ? 1 : 0);
       if (n <= 0 && cur !== k) return '';
@@ -4100,7 +4363,7 @@ function renderBriefing() {
         <dl class="facts"><dt>Weather</dt><dd>${forecastText(m)} ${envSummary({ time: m.env.time, weather: m.env.forecast })}</dd>
           ${enemyFacts(m).map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}<dt>Threat</dt><dd>${threat(m)}</dd>${tot}</dl>
         <ul class="objectives"><li><span class="tag primary">Primary</span><b>${OBJ[m.primary].label}</b>${OBJ[m.primary].desc}</li>
-          <li><span class="tag">Secondary</span><b>${OBJ[m.secondary].label}</b>${OBJ[m.secondary].desc}</li></ul></div></div>
+          <li><span class="tag">Secondary</span><b>${secondaryLabel(m)}</b>${OBJ[m.secondary].desc}</li></ul></div></div>
       <div class="col"><div class="card"><h3>Operation plan</h3>${mapHtml(m, m.route, -1, m.env.forecast, { ins: draft.insertion, ext: draft.extraction, k: 1.5 })}${routeHtml(m.route, -1)}
         ${m.intel.some((i) => ['SATELLITE', 'HUMINT', 'UAV'].includes(i)) ? '' : '<p class="muted" style="margin:8px 0 0">Entry points are unscouted. Buy intel to see what is waiting.</p>'}</div>
         <div class="card"><h3>Intelligence</h3>${intelRows}${humint}</div></div></div>`,
@@ -4573,8 +4836,12 @@ $('#view').addEventListener('click', (e) => {
 });
 
 // ------------------------------------------------------------------ debrief
+/** One way captivity may have changed someone, as a button's contents. */
+const changeHtml = (o) => o.kind === 'TRAIT' ? `<b>Gains ${TRAITS[o.id].label}</b><small>${esc(cap(TRAITS[o.id].desc))}</small>`
+  : o.kind === 'PERSONA' ? `<b>Comes back ${/^[aeiou]/i.test(PERSONAS[o.id].label) ? 'an' : 'a'} ${esc(PERSONAS[o.id].label.toLowerCase())}</b><small>${esc(PERSONAS[o.id].q.label)}: ${esc(PERSONAS[o.id].q.desc)}</small>`
+  : '<b>Keeps it to themselves</b><small>Nothing changes that anyone can see.</small>';
 function renderDebrief() {
-  const d = G.debrief, m = G.mission;
+  const d = G.debrief, m = G.mission, changing = (d.home || []).find((h) => h.chosen == null);
   const list = (a, empty) => (a.length ? `<ul>${a.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : `<p class="muted">${empty}</p>`);
   $('#view').innerHTML = `<section class="debrief">
     <div class="card"><div class="eyebrow">Mission ${m.n} · Debrief</div><h1>${esc(m.codename)}</h1>
@@ -4588,11 +4855,15 @@ function renderDebrief() {
     ${d.fallen?.length ? `<div class="card memorial"><h3>The fallen</h3><div class="mem-list">${d.fallen.map((f) => `<div class="mem">${f.face ? faceImg(f, 'f48') : ''}<div><b>${esc(f.rank)} ${esc(f.name)}</b> <span class="stamp mini">${f.missing ? 'MIA' : 'KIA'}</span>
       ${f.line ? `<q>${esc(f.line)}</q><small class="mem-by">${esc(f.by)}</small>` : ''}</div></div>`).join('')}</div><p class="muted" style="margin:10px 0 0">Their names go on the wall at base.</p></div>` : ''}
     ${d.words?.length ? `<div class="card"><h3>Words that stayed</h3><div class="words">${d.words.map((w) => { const ws = G.roster.find((x) => x.name === w.name); return `<div class="word">${ws ? faceImg(ws, 'f40') : ''}<div><span class="muted">${w.when} · ${esc(w.name)}</span><q>${esc(w.text)}</q><small>${esc(w.reveal)}</small></div></div>`; }).join('')}</div></div>` : ''}
+    ${d.home?.length ? `<div class="card"><h3>Brought home</h3>${d.home.map((h) => `<div class="word-card">${faceImg(soldier(h.sid), 'f48')}<div><b>${esc(h.name)}</b> <span class="muted">Held captive · out for ${h.out} missions</span>
+      <q>${esc(h.words)}</q><p class="muted">Captivity changed them. Choose how:</p>
+      <div class="stand-opts">${h.opts.map((o, k) => `<button class="btn ${h.chosen === k ? 'on' : ''}" type="button" data-change="${h.sid}" data-k="${k}" ${h.chosen != null ? 'disabled' : ''}>${changeHtml(o)}</button>`).join('')}</div></div></div>`).join('')}</div>` : ''}
     <div class="card split"><div><h3>Gear lost</h3>${list(d.lost, 'Nothing lost.')}</div><div><h3>Gear gained</h3>${list(d.gained, 'Nothing recovered.')}</div>${d.notes.length ? `<div><h3>Notes</h3>${list(d.notes, '')}</div>` : ''}</div>
     ${G.recruits > 0 ? `<div class="card"><h3>Replacements · ${G.recruits} to assign</h3><p class="muted">Pick the class of each new recruit.</p>
       <div class="class-pick">${Object.entries(CLASSES).map(([id, c]) => `<button class="btn class-card" type="button" data-enlist="${id}">${classChip(id)}<small>${c.ability}</small></button>`).join('')}</div></div>` : ''}
-    <div class="actions-row">${G.recruits > 0 ? `<span class="why">${ico('warn')} Pick a class for every replacement first.</span>` : ''}<button class="btn primary big" type="button" id="next" ${G.recruits > 0 ? 'disabled' : ''}>Back to base</button></div></section>`;
+    <div class="actions-row">${G.recruits > 0 ? `<span class="why">${ico('warn')} Pick a class for every replacement first.</span>` : changing ? `<span class="why">${ico('warn')} Choose how captivity changed ${esc(changing.name)} first.</span>` : ''}<button class="btn primary big" type="button" id="next" ${G.recruits > 0 || changing ? 'disabled' : ''}>Back to base</button></div></section>`;
   $('#view').querySelectorAll('[data-enlist]').forEach((b) => b.addEventListener('click', () => run(() => { const s = enlist(b.dataset.enlist); toast(`${s.name} joins as ${CLASSES[s.cls].label}.`); })));
+  $('#view').querySelectorAll('[data-change]').forEach((b) => b.addEventListener('click', () => { sfx('select'); run(() => rescueChange(+b.dataset.change, +b.dataset.k)); }));
   $('#next').addEventListener('click', () => run(proceed));
 }
 
@@ -4745,6 +5016,7 @@ function start(data) {
   const ended = !!G && (G.v !== 5 || G.mode !== 'ops');
   if (!G || ended) newCampaign((Math.random() * 2 ** 31) | 0, null);
   for (const k of Object.keys(G.armory || {})) if (!(G.armory[k] >= 0)) G.armory[k] = 0; // a save hurt by a half-applied launch: never negative gear
+  G.missing ||= []; G.legacy ||= []; registerLegacy(); // v5 saves from before milestone 2: nobody missing yet, no legacy weapons
   window.claude?.hot?.snapshot?.(() => ({ save: JSON.stringify(G) }));
   refresh();
   if (!/[?&]test\b/.test(location.search)) showTitle(ended ? 'The campaign saved by an earlier version has ended. LAST SEASON starts over.' : ''); // the test hook plays without the title card
@@ -4753,7 +5025,8 @@ function start(data) {
 if (/[?&]test\b/.test(location.search)) {
   window.SKIRM = { get G() { return G; }, newCampaign, chooseMission, backToBase, upgradeDept, toggleBed, fabricate, repair, rest, vehBlock, intelCost, fatState,
     DEPTS, FAB, VEH, LOCATIONS, WEATHER, SPECS, KITS, INTEL, hireCaptive, tradeCaptive, OFFICER_TRAITS, buyIntel, launch, proceed, enlist, chooseRoute, chooseFork, execute, push, resolve, skip, abort,
-    fieldCare, treat, launchDrone, canLead, opDice, chooseLine, mapCheck, mapHtml, waysOut, wayOut, failWay, bestOdds, gearChoices, ready, SAVE_LINES, MEMORIAL, interlude, PERSONAS, TOPICS, LINES, TRAITS, worstNeed, fieldCareNeed, INJURIES, bestLead, odds, difficulty, poolOf, previewOf, cur, sitOf, active, team, outcomeOf, foesOf, Rule, CLASSES, ITEMS, SIT, available, refresh, knockOut, cleanWork, growUp, interDone, omens, leadBonuses, unitById, closeWindow, undo, openFile, runForIt, burn };
+    fieldCare, treat, launchDrone, canLead, opDice, chooseLine, mapCheck, mapHtml, waysOut, wayOut, failWay, bestOdds, gearChoices, ready, SAVE_LINES, MEMORIAL, interlude, PERSONAS, TOPICS, LINES, TRAITS, worstNeed, fieldCareNeed, INJURIES, bestLead, odds, difficulty, poolOf, previewOf, cur, sitOf, active, team, outcomeOf, foesOf, Rule, CLASSES, ITEMS, SIT, available, refresh, knockOut, cleanWork, growUp, interDone, omens, leadBonuses, unitById, closeWindow, undo, openFile, runForIt, burn,
+    standPick, standEnd, standEffect, standStory, rescueChange, rescueMission, passStage, takeObjective, intelCost, kindOf, classGear, MIA, LAST_STAND, OBJ, openStand };
 }
 window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
 })();

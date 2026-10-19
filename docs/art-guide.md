@@ -35,7 +35,7 @@ Wide establishing shots, horizon on the upper third, a small compound or objecti
 |---|---|
 | `KEYART` | four special operations soldiers seen from behind, silhouetted on a ridge at first light, looking down at a compound in a valley, helmets, night-vision mounts raised, plate carriers, rifles slung low, mist in the valley, *shared look*, cinematic wide composition, darker on the left third (the title sits there) |
 
-## Hostile portraits: 400×400 (7)
+## Hostile portraits: 400×400 (8)
 
 Plain, centred head-and-shoulders photos. Unlike your own operators, hostiles are not censored: their faces are what intel has on file. They are scaled to 400×400, and the game greys, grains and pixelates them like every other picture.
 
@@ -45,6 +45,7 @@ Plain, centred head-and-shoulders photos. Unlike your own operators, hostiles ar
 | `OFF-TACTICIAN` | composed militia officer in a pressed old army jacket, radio handset on the collar, reading glasses |
 | `OFF-BRUTE` | huge bearded fighter, chest rig full of grenades, shaved head, scarred knuckles |
 | `OFF-COMMANDER` | grey-haired commander in a beret and field jacket with faded insignia, stern bearing |
+| `OFF-WOUNDED` | an enemy officer with a bloodied field dressing on the head and an arm in a makeshift sling, grim and grey-faced |
 | `TGT-FINANCIER` | soft-faced man in an expensive open-collar shirt and a gold watch, nervous, holding a phone |
 | `TGT-BOMBMAKER` | thin man with burn scars on his hands, safety glasses pushed up on his forehead, wires in a shirt pocket |
 | `TGT-WARLORD` | imposing warlord in a mix of military surplus and tribal scarf, bodyguards blurred behind him |

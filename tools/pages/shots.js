@@ -2,6 +2,17 @@
   const exec = () => { const sit = S.sitOf(S.cur()), ids = S.team().filter(S.ready).map((u) => u.id); for (let k = 0; k < sit.opts.length; k++) { const l = S.bestLead(sit.opts[k], ids); if (l != null && S.poolOf(sit.opts[k], [l], [], false, l).value > 0) { S.execute({ opt: k, ids: [l], lead: l, gear: [] }); return B().roll; } } };
   try {
     S.newCampaign(4242); G().rp = 30;
+    if (['WORD', 'STAND', 'STANDEND', 'MIA'].includes(want)) { // missing in action: word on the board, the last stand, the barracks list
+      const s = G().roster[5], T = window.LS_TEXT; s.alive = false; s.mia = true; s.persona = 'LONER';
+      const rec = { sid: s.id, name: s.name, persona: 'LONER', loc: 'FOREST', op: 'Operation Grey Lantern', n: 1, weapon: 'DMR', officer: { name: 'Captain Rask', surname: 'Rask' }, alive: want === 'MIA', stage: want === 'MIA' ? 'RESCUE' : 'STAND', wait: 0, window: 2, legacy: false,
+        trace: T.TRACE_SOURCE.INFORMANT.replace('{place}', 'the forest').replace('{detail}', T.TRACE_DETAIL.LONER) };
+      G().missing.push(rec); G().memorial.push({ name: s.name, rank: 'Private', cls: s.cls, face: s.face, op: rec.op, n: 1, missing: true, by: null, line: '' });
+      if (want === 'MIA') { const u = G().roster[4]; u.alive = false; u.mia = true; G().missing.push({ ...rec, sid: u.id, name: u.name, stage: 'UNKNOWN', loc: 'COAST' }); S.rescueMission(G().base.offers[0], rec); G().base.offers[0].loc = 'FOREST'; S.refresh(); $('[data-tab="BARRACKS"]')?.click(); return; }
+      S.refresh(); if (want === 'WORD') return;
+      $('[data-stand]').click(); $('#opinfo [data-beat]').click(); $('#opinfo [data-beat]').click();
+      if (want === 'STANDEND') $('#opinfo [data-end="OFFICER"]').click();
+      return;
+    }
     const team = G().roster.filter(S.available).slice(0, 4); team.forEach((s) => { if (s.persona === 'PHILOSOPHER') s.persona = 'QUIET'; });
     S.chooseMission(0);
     const left = { ...G().armory }, lo = {};
@@ -14,6 +25,7 @@
     if (want === 'WAYS') { const r = exec(); r.dice = r.dice.map(() => 1); r.diff = 9; S.resolve(); S.refresh(); return; }
     for (let t = 0; t < 40 && G().phase === 'OPERATION'; t++) { const st = S.cur(); if (st.pick == null) { S.chooseFork(0); continue; } const r = exec(); if (!r) { S.abort(); continue; } r.dice = r.dice.map(() => 6); S.resolve(); }
     if (G().phase === 'EXTRACTION') S.proceed(); if (S.interlude()) { S.chooseLine(0); S.proceed(); }
+    if (want === 'HOME') { const s = G().roster[5]; G().debrief.home = [{ sid: s.id, name: s.name, face: s.face, cls: s.cls, spec: s.spec, out: 2, words: window.LS_TEXT.RESCUED._[0], opts: [{ kind: 'TRAIT', id: 'GRIT' }, { kind: 'PERSONA', id: 'FATALIST' }], chosen: null }]; S.refresh(); return; }
     S.proceed(); S.refresh();
     if (want === 'FILE') $('.archive [data-file="0"]').click(); // ARCH: use a tall height to see the archive below the board
   } catch (e) { document.title = 'ERR ' + e.message; }

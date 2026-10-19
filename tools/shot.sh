@@ -2,7 +2,8 @@
 # Screenshot the game in a set-up state, to look at a screen without playing to it.
 # Usage: tools/shot.sh <state> [width] [height]
 #   <state>  BACK (entry choice with Back), DOTS (breakdown and gear chip), FAIL (a failed roll), WAYS (ways past after a failure),
-#            CLOSE (the window closing), ARCH (base with the archive), FILE (an archive file), or TITLE (the title screen)
+#            CLOSE (the window closing), ARCH (base with the archive), FILE (an archive file), TITLE (the title screen),
+#            WORD (word of the dead on the board), STAND / STANDEND (a last stand, before and after the choice), MIA (barracks list and a rescue offer), HOME (a rescued operator in the debrief)
 #   width/height default to 1280 x 1000. Prints where the picture was saved.
 HERE="$(cd "$(dirname "$0")" && pwd)"
 GAME="$HERE/../index.html"

@@ -23,4 +23,4 @@ rm -rf "$page" "$prof"
 if [ "$full" = 1 ]; then echo "$out"; exit 0; fi
 # the summary: missions and wins, KIA/MIA, wins by mission number, why missions failed, overtime and QRF outcomes,
 # campaigns that ran out of fit operators, launches the rules refused (random bot), and real errors
-echo "$out" | grep -o -E '"(missions|wins|kia|mia|noTeam|refused)":[0-9]+|"(byN|why)":\{[^}]*\}|"(qrfW|ot)":\[[^]]*\]|"errors":\[[^]]{0,400}' | tr '\n' ' '; echo
+echo "$out" | grep -o -E '"(missions|wins|kia|mia|miaAlive|home|miaLost|rescueOps|noTeam|refused)":[0-9]+|"(byN|why|stands)":\{[^}]*\}|"(qrfW|ot)":\[[^]]*\]|"errors":\[[^]]{0,400}' | tr '\n' ' '; echo

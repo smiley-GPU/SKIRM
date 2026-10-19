@@ -67,7 +67,7 @@
       }
       if (st.kind === 'APPROACH') { S.chooseRoute(0); continue; }
       if (st.pick == null) { S.chooseFork(0); continue; }
-      if (b.qrfIn != null) { const at = b.stages.findIndex((s) => s.kind === "OBJECTIVE"); if (b.stage > at || at - b.stage + 1 > b.qrfIn) { S.runForIt(); stats.ran = (stats.ran || 0) + 1; continue; } }
+      if (b.qrfIn != null) { const at = Math.max(b.stages.findIndex((s) => s.kind === "OBJECTIVE"), b.stages.findIndex((s) => s.choices[0] === "HOLD")); if (b.stage > at || at - b.stage + 1 > b.qrfIn) { S.runForIt(); stats.ran = (stats.ran || 0) + 1; continue; } }
       if (b.timeUp) { stats.timeUp = (stats.timeUp || 0) + 1; const ws = S.waysOut(), w = ws.find((x) => !x.pick) || ws[0]; if (w) { const gc = w.pick ? S.gearChoices(w.pick) : []; S.wayOut(w.id, gc.length ? { uid: gc[0].uid, slot: gc[0].slot } : null); } else S.closeWindow(); continue; }
       care();
       { const p0 = bestPlan(), ld = p0 && S.team().find((u) => u.id === p0.lead); if (ld && S.fatState(ld) >= 2 && b.time > 3) { S.rest(); stats.rests++; continue; } }
@@ -82,7 +82,7 @@
         S.wayOut(w.id, gc.length ? { uid: gc[gc.length - 1].uid, slot: gc[gc.length - 1].slot } : null); render(); continue;
       }
       if (!p) { if (st.kind === 'OPTIONAL') S.skip(); else S.abort(); continue; }
-      if (st.kind === 'OPTIONAL' && p.score < 0.5) { S.skip(); continue; }
+      if (st.kind === 'OPTIONAL' && p.score < 0.5 && st.choices[0] !== 'HOLD') { S.skip(); continue; }
       if (sit0().opts[p.opt].need) stats.specUsed++;
   for (const sp of Object.keys(S.SPECS)) for (const p of Object.keys(S.PERSONAS)) if (!S.SAVE_LINES?.[sp]?.[p]) stats.errors.push(`missing save line ${sp}.${p}`);
   for (const p of Object.keys(S.PERSONAS)) if (!S.MEMORIAL?.[p]?.length) stats.errors.push(`missing memorial line ${p}`);
@@ -117,6 +117,7 @@
     if ((g.armory.MEDKIT || 0) < 2 && g.rp >= 8) { S.fabricate('MEDKIT'); stats.fabs++; }
     if ((g.armory.FRAG || 0) < 2 && g.rp >= 8) { S.fabricate('FRAG'); stats.fabs++; }
     render();
+    for (const r of (g.missing || []).filter((x) => x.stage === "STAND")) { S.standPick(r.sid, 0, r.sid % 2); S.standPick(r.sid, 1, (r.sid + 1) % 2); const end = ["INTEL", r.legacy ? "LEGACY" : "OFFICER"][stats.missions % 2]; S.standEnd(r.sid, end); (stats.stands ||= {})[end] = (stats.stands[end] || 0) + 1; for (const p of r.story) if (/[{}]|undefined|null/.test(p) && stats.errors.length < 40) stats.errors.push("bad stand " + p); }
     S.chooseMission(0);
   }
   for (let c = 0; c < 30; c++) {
@@ -169,6 +170,7 @@
           for (const n of s.injuries) if (n === 'Knocked unconscious') stats.out++; else stats.tiers[tierOf(n)]++;
         }
         while (G().recruits > 0) S.enlist(['HEAVY', 'MEDIC', 'SCOUT', 'DRONE'][G().recruits % 4]);
+        { const d2 = G().debrief; for (const h of d2.home || []) { S.rescueChange(h.sid, stats.missions % h.opts.length); stats.home = (stats.home || 0) + 1; } if (G().mission.rescue != null) stats.rescueOps = (stats.rescueOps || 0) + 1; for (const n of d2.notes) { if (/killed in action now/.test(n)) stats.miaLost = (stats.miaLost || 0) + 1; if (/has a second objective: bring/.test(n)) stats.miaAlive = (stats.miaAlive || 0) + 1; if (/[{}]|undefined|null/.test(n) && stats.errors.length < 40) stats.errors.push("bad note " + n); } }
         S.proceed(); render();
       } catch (e) { stats.errors.push(`c${c} m${mi}: ${e.message} ${e.stack?.split('\n')[1] || ''}`); break; }
     }
