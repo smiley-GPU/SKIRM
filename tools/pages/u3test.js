@@ -108,8 +108,8 @@
       const md = S.team().find((x) => x.cls === 'MEDIC'); if (md) { const before = S.team().filter(S.active).map((x) => x.fat); S.secondWind(md.id); let again = false; try { S.secondWind(md.id); } catch (e) { again = e instanceof S.Rule; }
         ok('Second wind: everyone sheds 1, once a mission', S.team().filter(S.active).every((x, i) => x.fat === Math.max(0, before[i] - 1)) && again); } }
     // Gear: tool slot, second utility, support assets, shotgun and ammunition, new consumables, the named-weapon pool
-    { S.newCampaign(5150); const g = G(); g.rp = 60; Object.assign(g.armory, { REBREATHER: 1, STIM: 2, TORCH: 1, SHOTGUN: 1 });
-      const team = g.roster.filter(S.available).slice(0, 4), base = (s) => ({ weapon: null, armor: null, kit: null, tool: null, utility: null, utility2: null, ammo: null });
+    { S.newCampaign(5150); const g = G(); g.rp = 60; Object.assign(g.armory, { REBREATHER: 1, STIM: 2, TORCH: 1, SHOTGUN: 1, SLUG: 1 });
+      const team = g.roster.filter(S.available).slice(0, 4), base = (s) => ({ weapon: null, armor: null, kit: null, tool: null, utility: null, utility2: null });
       const lo = Object.fromEntries(team.map((s) => [s.id, base(s)])), heavy = team.find((s) => s.cls === 'HEAVY') || team[0], medic = team.find((s) => s.cls === 'MEDIC');
       const tryLaunch = () => { try { S.launch({ team: team.map((s) => s.id), loadouts: lo, insertion: 'FOOT', extraction: 'FOOT' }); return ''; } catch (e) { return e.message; } };
       S.chooseMission(0); lo[heavy.id].kit = 'REBREATHER'; ok('A specialist tool no longer fits the kit slot', /can't carry Rebreather/.test(tryLaunch()));
@@ -118,21 +118,31 @@
       let busy = ''; try { S.buyAsset('ISR'); } catch (e) { busy = e.message; } ok('Support assets need Operations level 2', /Operations level 2/.test(busy));
       g.base.lv.CMD = 3; S.buyAsset('OVERWATCH'); S.buyAsset('FIRE'); let third = ''; try { S.buyAsset('EW'); } catch (e) { third = e.message; }
       ok('Operations level 3 books two assets, 1 RP cheaper', g.mission.assets.length === 2 && /2 support assets/.test(third));
-      lo[heavy.id].weapon = 'SHOTGUN'; lo[heavy.id].ammo = 'BREACHING'; g.base.lv.ENG = 1; ok('Breaching rounds need Engineering level 2', /cannot load/.test(tryLaunch()));
+      lo[heavy.id].weapon = 'SHOTGUN';
+      if (medic) { lo[medic.id].utility = 'SLUG'; ok('Special rounds are a utility item and need a shotgun', /no shotgun for the slugs/.test(tryLaunch()), tryLaunch()); lo[medic.id].utility = null; }
+      ok('Special rounds are made by Engineering (L2, slugs L3)', S.FAB.BREACHING[0] === 2 && S.FAB.LESS[0] === 2 && S.FAB.SLUG[0] === 3 && S.ITEMS.SLUG.slot === 'UTILITY');
       g.base.lv.ENG = 3; const op = team.find((s) => s.cls === 'DRONE'); if (op) lo[op.id].utility = 'TORCH';
-      ok('The loadout launches: tool, two utilities, shotgun with breaching rounds', tryLaunch() === '', tryLaunch());
+      ok('The loadout launches: tool, two utilities, a shotgun on buckshot', tryLaunch() === '', tryLaunch());
       const it = S.interlude(); S.chooseLine(0); if (!S.interDone(it)) S.chooseLine(it.opts.findIndex((o, k) => k !== 0 && o.topic !== it.opts[0].topic)); S.proceed();
       S.chooseRoute(0); if (S.cur().pick == null) S.chooseFork(0); const st = S.cur(); st.choices[st.pick] = 'SENTRY';
       const hu = S.team().find((u) => u.sid === heavy.id), sit = S.sitOf(st);
-      ok('Tool, both utilities and the ammunition reach the field', hu.tool === 'REBREATHER' && hu.util === 'FRAG' && hu.util2 === 'STIM' && hu.ammo === 'BREACHING');
+      ok('Tool and both utilities reach the field; no special rounds: buckshot', hu.tool === 'REBREATHER' && hu.util === 'FRAG' && hu.util2 === 'STIM' && S.ammoOf(hu) === 'BUCK' && !('ammo' in hu));
       hu.fat = 4; S.stim(hu.id, hu.id); ok('The second utility can be used first: the stim goes, the frag stays', hu.util === 'FRAG' && !hu.util2 && hu.fat === 2);
       ok('Shotgun: -1 at range, +2 in close quarters', S.shotgunMods(hu, 'ASSAULT', sit.opts.find((o) => o.skill === 'ASSAULT'))[0]?.v === -1 && S.shotgunMods(hu, 'ASSAULT', { skill: 'ASSAULT', close: true })[0]?.v === 2);
-      hu.ammo = 'SLUG'; ok('Slugs: no close-quarters bonus, no penalty', S.shotgunMods(hu, 'ASSAULT', { skill: 'ASSAULT', close: true }).every((x) => /officer/.test(x.label)));
-      hu.ammo = 'LESS'; ok('Less-lethal: +1 Stealth leading', S.shotgunMods(hu, 'STEALTH', null)[0]?.v === 1); hu.ammo = 'BREACHING';
+      hu.util2 = 'SLUG'; ok('Slugs: no close-quarters bonus, no penalty', S.shotgunMods(hu, 'ASSAULT', { skill: 'ASSAULT', close: true }).every((x) => /officer/.test(x.label)));
+      hu.util2 = 'LESS'; ok('Less-lethal: +1 Stealth leading', S.shotgunMods(hu, 'STEALTH', null)[0]?.v === 1);
+      hu.util2 = 'BREACHING'; ok('Breaching rounds fire as buckshot', S.ammoOf(hu) === 'BUCK');
       const f0 = S.foesOf(st, sit); S.callSupport('OVERWATCH'); ok('Overwatch: one enemy down, +1 Recon die here', S.foesOf(st, sit) === f0 - 1 && S.leadBonuses(hu, 'RECON').some((x) => /Overwatch/.test(x.label)));
       const a0 = B().alert; S.callSupport('FIRE'); ok('Fire mission: worn down by 2, alert +2', st.wear === 2 && B().alert === Math.min(6, a0 + 2));
       st.failed = 1; const w = S.waysOut().find((x) => x.id === 'BLAST'); const a1 = B().alert;
-      ok('Breaching rounds open a quiet blast, without a charge', !!w && /breaching rounds/.test(w.price)); S.wayOut('BLAST'); ok('...and the charge-free blast raises no alert', B().breachRound && B().alert === a1);
+      ok('Breaching rounds open a quiet blast, without a charge', !!w && /breaching rounds/.test(w.price)); S.wayOut('BLAST'); ok('...and the charge-free blast raises no alert, using the rounds up', !hu.util2 && B().alert === a1);
+      // A specialist's trick works once a mission; at the extraction point every way past costs 1 time, and none is open without time
+      S.cur().failed = 1; const tw = S.waysOut().find((x) => S.SPECS[x.id] && !x.pick);
+      if (tw) { S.wayOut(tw.id); if (G().phase === 'OPERATION' && !B().over) { S.cur().failed = 1; ok(`A specialist's trick works once a mission (${tw.id})`, B().tricks.includes(tw.id) && !S.waysOut().some((x) => x.id === tw.id)); } }
+      if (G().phase === 'OPERATION' && !B().over) { const ex = B().stages.findIndex((s) => s.kind === 'EXFIL'); B().stage = ex; S.cur().seen = true; S.cur().failed = 1;
+        B().time = 0; ok('No way past at the extraction point without time', S.waysOut().length === 0);
+        B().time = 2; const fw = S.waysOut().find((x) => x.id === 'FORCE'); ok('At the extraction point a way past costs 1 time', !!fw && /1 time to the pickup/.test(fw.price), fw?.price);
+        B().time = 0; B().overtime = true; const ow = S.waysOut().find((x) => x.id === 'FORCE'); ok('In overtime (no clock) the ways stay open, at no time', !!ow && !/time to the pickup/.test(ow.price)); }
       g.legacy.push({ id: 'X1', base: 'CARBINE', label: 'X1' }, { id: 'X2', base: 'AK', label: 'X2' });
       ok('Named weapons: two per class, then the class is closed', !S.namedOpen('SUPRIFLE') && S.namedOpen('SMG')); g.legacy = []; }
     // Starting loadout: the best for the class's role, newest first, a signature weapon always first

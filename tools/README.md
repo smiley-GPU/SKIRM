@@ -23,6 +23,11 @@ The summary line holds: missions and wins, KIA and MIA, missing operators found 
 | `soak-random` | Random teams, gear and rides, driving the briefing screens. Robustness, not balance; `refused` counts launches the rules turned down. |
 | `soak-failways` | Takes a way past straight after every failure. |
 | `soak-ways` | Takes a random way past whenever stuck. |
+| `soak-careful` | As soak-15, but keeps Nerve and time in reserve for the extraction. A check on "doable with careful play"; it wins less than soak-15 (spent Nerve is worth more than a reserve). |
+
+soak-15 also counts `exArr`: time left on reaching the extraction (`clock`, `qrf` or `ot` for overtime, then the time, capped at 4).
+
+Baseline on 2026-10-20 after the UPDATE 5.0 pass (shotgun rounds as utility items, each specialist trick once a mission, ways past at the extraction cost 1 time while the clock runs, walking out 15% / 30% MIA and a serious wound): 76% of ops succeed; missions 1–4 99%, 5–10 74%, 11–15 59%; KIA 43 + MIA 135, 8.3% of deployments. Without the extraction time cost: 80%, 5.7%. With it also in overtime (tried and dropped): 58%, 26% lost, because 31% of extractions are reached with no clock at all.
 
 Baseline on 2026-10-19 after milestone 3 (rules and gear; the soak-15 bot also books and calls support assets): 77% of ops succeed; missions 1–4 99%, 5–10 74%, 11–15 62%; KIA 56 + MIA 71, 5.9% of deployments. By step: combat rules 78% (98 / 78 / 62%, 6.4% lost), wounds and healing 75% (98 / 72 / 61%, 6.9%; the same fresh seeds win 78% with or without the second wind).
 
@@ -44,7 +49,7 @@ tools/page.sh quirktest --all # every line
 
 ```bash
 tools/shot.sh TITLE 500 800   # prints where the PNG was saved
-tools/shot.sh FILE            # BACK, DOTS, FAIL, WAYS, CLOSE, ARCH, FILE, TITLE; missing in action: WORD, STAND, STANDEND, MIA, HOME; gear: GEAR (loadout with tool, second utility, shotgun ammunition), SUPPORT (support assets in the briefing)
+tools/shot.sh FILE            # BACK, DOTS, FAIL, WAYS, DOWN (an unconscious operator), CLOSE, ARCH, FILE, TITLE; missing in action: WORD, STAND, STANDEND, MIA, HOME; gear: GEAR (loadout with tool, second utility, shotgun ammunition), SUPPORT (support assets in the briefing)
 ```
 
 ## Writing new ones

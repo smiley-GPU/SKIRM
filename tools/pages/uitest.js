@@ -26,6 +26,15 @@
     ok('briefing starts at intel', $('.steps [aria-current]').textContent.includes('Intel') && !$('#launch'));
     $('.brief-bar [data-step="1"]').click();
     ok('next goes to team', $('.steps [aria-current]').textContent.includes('Team') && document.querySelectorAll('.slot').length > 0);
+    $('#team-clear').click();
+    ok('Clear unticks the whole team', !$('[data-pick]:checked') && $('#team-clear').disabled);
+    $('#team-auto').click();
+    const picked = [...document.querySelectorAll('[data-pick]:checked')].map((c) => +c.dataset.pick);
+    ok('Auto-pick fills the team again', picked.length > 1);
+    const last = S.G.roster.find((s) => s.id === picked.at(-1)); last.signature = 'CARBINE'; S.G.armory.CARBINE = 1;
+    $('#team-auto').click();
+    ok('A signature weapon goes to its owner first', $(`#lo-${last.id}-WEAPON`)?.value === 'CARBINE');
+    last.signature = null;
     for (let i = 0; i < 9 && $('[data-pick]:checked'); i++) $('[data-pick]:checked').click();
     ok('empty team explains', /at least one operator/.test($('.brief-bar .why')?.textContent || ''));
     $('[data-step="2"]').click();

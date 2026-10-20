@@ -734,7 +734,7 @@ LS_TEXT.SAVE_LINES = {
 
 LS_TEXT.MEMORIAL = {
   STOIC: ['{name} did the job. Write that down.', 'We carry on. {name} would have.'],
-  JOKER: ['{name} owes me twenty. Guess I will never collect.', 'No joke for this one. Not for {name}.'],
+  JOKER: ['{name} still owes me twenty. Dying to get out of a debt is cheating, and I will tell them so when I see them.','Tough crowd up there now, {name}. Warm them up for me, because I am on after you.'],
   FATALIST: ['It was always going to be one of us. Why did it have to be {name}?', '{name}\'s number came up. Mine is in the same drum.'],
   ROOKIE: ['{name} showed me how to clean a rifle. Who shows me the rest now?', 'I thought {name} was unkillable. I thought we all were.'],
   GEARHEAD: ['{name} never once let their kit fail. The world failed them.', 'I will strip and clean {name}\'s rifle tonight. Someone should.'],

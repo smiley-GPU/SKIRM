@@ -9,7 +9,7 @@
     const left = { ...G().armory }, lo = {};
     for (const id of team) {
       const c = S.CLASSES[G().roster.find((s) => s.id === id).cls], first = (p) => { const x = p.find((k) => (left[k] || 0) > 0) || null; if (x) left[x]--; return x; };
-      lo[id] = { weapon: first(c.weapons), armor: first(c.armor), utility: first(c.utility), kit: first(c.kits) };
+      lo[id] = { weapon: first(c.weapons), armor: first(c.armor), utility: first(c.utility.filter((k) => !(S.ROUNDS || []).includes(k))), kit: first(c.kits) };
     }
     return lo;
   }

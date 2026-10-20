@@ -9,7 +9,7 @@
     const left = { ...G().armory }, lo = {};
     for (const id of team) {
       const c = S.CLASSES[G().roster.find((s) => s.id === id).cls], first = (p) => { const x = p.find((k) => (left[k] || 0) > 0) || null; if (x) left[x]--; return x; };
-      lo[id] = { weapon: first(c.weapons), armor: first(c.armor), utility: first(c.utility), kit: first(c.kits) };
+      lo[id] = { weapon: first(c.weapons), armor: first(c.armor), utility: first(c.utility.filter((k) => !(S.ROUNDS || []).includes(k))), kit: first(c.kits) };
     }
     return lo;
   }
@@ -65,6 +65,7 @@
         render();
         continue;
       }
+      if (st.kind === 'EXFIL' && !b.botArrived) { b.botArrived = true; const k = `${b.qrf ? 'qrf' : b.overtime ? 'ot' : 'clock'}${Math.max(0, Math.min(b.time, 4))}`; (stats.exArr ||= {})[k] = (stats.exArr[k] || 0) + 1; } // time left on reaching the extraction
       if (st.kind === 'APPROACH') { S.chooseRoute(0); continue; }
       if (st.pick == null) { S.chooseFork(0); continue; }
       if (b.qrfIn != null) { const at = Math.max(b.stages.findIndex((s) => s.kind === "OBJECTIVE"), b.stages.findIndex((s) => s.choices[0] === "HOLD")); if (b.stage > at || at - b.stage + 1 > b.qrfIn) { S.runForIt(); stats.ran = (stats.ran || 0) + 1; continue; } }

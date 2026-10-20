@@ -22,12 +22,12 @@
         const st = S.cur(); st.failed = 1;
         const w = S.waysOut().find((x) => x.id === id);
         if (!w) { if (S.cur().kind === 'OBJECTIVE' || S.cur().kind === 'EXFIL') break; S.wayOut('FORCE', (() => { const g = S.gearChoices('ANY')[0]; return g ? { uid: g.uid, slot: g.slot } : null; })()); continue; }
-        const before = { stage: b.stage, time: b.time, alert: b.alert, gear: S.gearChoices('ANY').length, pick: st.pick, planB: !!b.planB };
+        const before = { stage: b.stage, time: b.time, alert: b.alert, gear: S.gearChoices('ANY').length, pick: st.pick };
         const gc = w.pick ? S.gearChoices(w.pick) : [];
         S.wayOut(id, gc.length ? { uid: gc[0].uid, slot: gc[0].slot } : null);
         const moved = id === 'DETOUR' ? st.pick !== before.pick && b.stage === before.stage : (b.stage > before.stage || G().phase !== 'OPERATION');
         if (!moved) errs.push(`${id} s${seed}: did not move on`);
-        if (id === 'DETOUR' && b.time !== before.time - (b.planB && !before.planB ? 0 : 1)) errs.push(`DETOUR s${seed}: time ${before.time}->${b.time}`);
+        if (id === 'DETOUR' && b.time !== before.time - 1) errs.push(`DETOUR s${seed}: time ${before.time}->${b.time}`);
         if (['FORCE', 'LINGUIST'].includes(id) && G().phase === 'OPERATION' && S.gearChoices('ANY').length >= before.gear) errs.push(`${id} s${seed}: no gear lost`);
         res[id] = (res[id] || 0) + 1;
         break;

@@ -58,10 +58,15 @@
       let same = false; const dup = it.opts.findIndex((o, k) => k !== 0 && o.topic === it.opts[0].topic); if (dup >= 0) { try { S.chooseLine(dup); } catch (e) { same = true; } } else same = true; ok('Two minds: second must be another topic', same);
       S.chooseLine(it.opts.findIndex((o, k) => k !== 0 && o.topic !== it.opts[0].topic)); ok('Two minds: two omens', S.omens().length === 2 && S.interDone(it)); S.proceed(); ok('Two minds: proceeds', G().phase === 'OPERATION'); S.refresh(); }
     // Plan B
-    { setup(['PLANNER', 'JOKER', 'QUIET', 'VETERAN']); go(); let found = false;
-      for (let t = 0; t < 12 && G().phase === 'OPERATION'; t++) { const st = S.cur(); if (st.kind === 'PERIMETER' && st.choices.length > 1) { st.failed = 1; const w = S.waysOut().find((x) => x.id === 'DETOUR'); if (w) { const t0 = B().time; S.wayOut('DETOUR'); ok('Plan B: detour costs no time', B().time === t0 && /Plan B/.test(w.price), `${t0} -> ${B().time}`); found = true; break; } }
-        roll((d) => Array(d).fill(6)); S.resolve(); if (G().phase !== 'OPERATION') break; if (S.cur().pick == null && S.cur().kind !== 'APPROACH') S.chooseFork(0); }
-      if (!found) out.push('SKIP Plan B: no perimeter fork'); }
+    { setup(['PLANNER', 'JOKER', 'QUIET', 'VETERAN']); go();
+      const sol = (u) => G().roster.find((s) => s.id === u.sid), pl = S.team().find((u) => sol(u).persona === 'PLANNER');
+      for (const u of S.team()) if (u !== pl && sol(u).spec === 'INFILTRATOR') sol(u).spec = 'ENDURANCE';
+      sol(pl).spec = 'INFILTRATOR'; const offered = [];
+      for (let t = 0; t < 12 && G().phase === 'OPERATION' && !B().over && offered.length < 3; t++) {
+        const st = S.cur(); if (st.kind === 'APPROACH') { S.chooseRoute(0); continue; } if (st.pick == null) { S.chooseFork(0); continue; }
+        st.failed = 1; const w = S.waysOut().find((x) => x.id === 'INFILTRATOR'); offered.push(w ? w.price : null);
+        if (w) S.wayOut('INFILTRATOR'); else break; }
+      ok('Plan B: the planner\'s trick works twice, then no more', offered.length === 3 && offered[0] && /Plan B/.test(offered[1] || '') && offered[2] === null, JSON.stringify(offered)); }
     // Keeps kit safe
     { setup(['GEARHEAD', 'JOKER', 'QUIET', 'VETERAN']); go(); const g = S.team()[0]; g.util = 'MEDKIT'; ok('Keeps kit safe: water cannot take their gear', !S.gearChoices('WET').some((c) => c.uid === g.id)); }
     // Rookie grows up

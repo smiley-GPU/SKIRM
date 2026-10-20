@@ -15,7 +15,7 @@
     }
     const team = G().roster.filter(S.available).slice(0, 4); team.forEach((s) => { if (s.persona === 'PHILOSOPHER') s.persona = 'QUIET'; });
     if (want === 'GEAR' || want === 'SUPPORT') { // the briefing with the new slots, or the support assets
-      Object.assign(G().base.lv, { BARRACKS: 2, ENG: 3, CMD: 3 }); Object.assign(G().armory, { SHOTGUN: 1, REBREATHER: 1, STIM: 2 });
+      Object.assign(G().base.lv, { BARRACKS: 2, ENG: 3, CMD: 3 }); Object.assign(G().armory, { SHOTGUN: 1, REBREATHER: 1, STIM: 2, SLUG: 1, BREACHING: 1 });
       S.chooseMission(0); S.buyAsset('OVERWATCH'); S.refresh();
       if (want === 'GEAR') { document.querySelector('[data-step="1"]')?.click(); const sel = document.querySelector('select[data-slot="WEAPON"]'); if (sel) { sel.value = 'SHOTGUN'; sel.dispatchEvent(new Event('change')); } }
       return;
@@ -28,6 +28,7 @@
     S.chooseFork(0);
     if (want === 'DOTS') { S.team().forEach((u) => { u.util = 'FRAG'; }); S.refresh(); [...document.querySelectorAll('[data-act="opt"]')].find((t) => /Assault/i.test(t.textContent))?.click(); $('[data-act="gear"]')?.click(); $('[data-act="details"]').click(); return; }
     if (want === 'FAIL' || want === 'CLOSE') { if (want === 'CLOSE') B().time = 1; const r = exec(); r.dice = r.dice.map(() => 1); r.diff = 9; if (want === 'FAIL') { S.refresh(); return; } S.resolve(); S.refresh(); return; }
+    if (want === 'DOWN') { const v = S.team()[1]; S.knockOut(v, `${v.name} is hit and goes down.`); S.team()[0].util = 'MEDKIT'; S.refresh(); return; }
     if (want === 'WAYS') { const r = exec(); r.dice = r.dice.map(() => 1); r.diff = 9; S.resolve(); S.refresh(); return; }
     for (let t = 0; t < 40 && G().phase === 'OPERATION'; t++) { const st = S.cur(); if (st.pick == null) { S.chooseFork(0); continue; } const r = exec(); if (!r) { S.abort(); continue; } r.dice = r.dice.map(() => 6); S.resolve(); }
     if (G().phase === 'EXTRACTION') S.proceed(); if (S.interlude()) { S.chooseLine(0); S.proceed(); }

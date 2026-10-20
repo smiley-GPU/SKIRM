@@ -14,6 +14,7 @@
   const leaveOneBehind = () => { S.chooseRoute(0); const u = S.team()[0]; S.knockOut(u, `${u.name} goes down.`); S.abort(); return u; };
   const toBase = () => { while (G().recruits > 0) S.enlist('SCOUT'); for (const h of G().debrief.home || []) if (h.chosen == null) S.rescueChange(h.sid, 0); S.proceed(); };
   try {
+    S.WALK_MIA.quiet = S.WALK_MIA.hot = 0; // the aborted missions walk out: nobody goes missing that way here, only those left down
     S.newCampaign(777);
     // 1. Down and left behind: missing, not dead
     let lostName; const d1 = fly(0, () => { lostName = leaveOneBehind().name; });
